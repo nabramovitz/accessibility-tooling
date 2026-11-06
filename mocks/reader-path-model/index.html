@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reader path model: Stratos home page (sketch)</title>
 <style>
-:root{--bg:#fff;--bg2:#f5f5f7;--fg:#1d1d1f;--mut:#6e6e73;--bd:#c7c7cc;--acc:#0a66d8;--sel:#e3effd;--err:#c9302c;--warn:#9a5b00;--line:#0a66d8}
-@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--bg2:#2a2a2d;--fg:#f2f2f7;--mut:#a1a1a6;--bd:#4a4a4e;--acc:#6cb2ff;--sel:#17324f;--err:#ff7b72;--warn:#ffb340;--line:#6cb2ff}}
+:root{--bg:#fff;--bg2:#f5f5f7;--fg:#1d1d1f;--mut:#6e6e73;--bd:#c7c7cc;--acc:#0a66d8;--sel:#e3effd;--err:#c9302c;--warn:#9a5b00;--line:#0a66d8;--aaa:#6b3fa0}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--bg2:#2a2a2d;--fg:#f2f2f7;--mut:#a1a1a6;--bd:#4a4a4e;--acc:#6cb2ff;--sel:#17324f;--err:#ff7b72;--warn:#ffb340;--line:#6cb2ff;--aaa:#c7a6f5}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 header{padding:12px 16px 8px;border-bottom:1px solid var(--bd)}
@@ -13,14 +14,19 @@ h1{font-size:17px;margin:0 0 2px} .sub{color:var(--mut);max-width:110ch}
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
 .bar span.l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 8px}
 .bar button{font:inherit;padding:3px 10px;border:1px solid var(--bd);border-radius:14px;background:var(--bg2);color:var(--fg);cursor:pointer}
-.bar button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.bar button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--bg)}
 .wrap{display:flex;gap:14px;align-items:flex-start;padding:12px 16px}
 #map{position:relative;flex:1;min-width:0}
 #svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-#det{width:390px;flex:none;position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto;background:var(--bg2);border:1.5px solid var(--acc);border-radius:10px;padding:12px 14px}
+#det{width:430px;flex:none;position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto;background:var(--bg2);border:1.5px solid var(--acc);border-radius:10px;padding:12px 14px}
+@media (max-width:1000px){
+  .wrap{flex-direction:column;align-items:stretch}
+  #map{flex:none}
+  #det{width:auto;position:sticky;top:auto;bottom:0;max-height:40vh;z-index:2;box-shadow:0 -4px 14px rgba(0,0,0,.25)}
+}
 .c{border:1.5px solid var(--bd);border-radius:10px;padding:6px 8px 8px;background:var(--bg);margin:0;flex:1 1 100%}
 .c .c{background:var(--bg2)} .c .c .c{background:var(--bg)} .c .c .c .c{background:var(--bg2)}
-.ch{display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap}
+.ch{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tg{font:inherit;border:0;background:none;color:var(--mut);cursor:pointer;padding:0 2px;width:18px}
 .cb{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:6px}
 .closed>.cb{display:none}
@@ -28,8 +34,9 @@ h1{font-size:17px;margin:0 0 2px} .sub{color:var(--mut);max-width:110ch}
 .comp{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
 .t{font-weight:600}
 .chip{display:inline-block;border-radius:9px;padding:0 6px;font-size:10.5px;font-weight:600;margin-left:3px;white-space:nowrap}
-.g{background:var(--err);color:#fff} .mb{border:1px solid var(--acc);color:var(--acc)} .nr{border:1px dashed var(--mut);color:var(--mut)} .ex{color:var(--mut);font-weight:400}
-.bd{background:var(--acc);color:#fff;min-width:20px;text-align:center}
+.g{background:var(--err);color:var(--bg)} .mb{border:1px solid var(--acc);color:var(--acc)} .nr{border:1px dashed var(--mut);color:var(--mut)} .ex{color:var(--mut);font-weight:400}
+.bd{background:var(--acc);color:var(--bg);min-width:20px;text-align:center}
+.lv{margin-left:0;margin-right:3px;color:var(--bg)} .lvA,.lvAA{background:var(--err)} .lvAAA{background:var(--aaa)} .lvrule{background:var(--warn)}
 .hasgap{border-style:dashed;border-color:var(--err)}
 .sel{outline:3px solid var(--acc);outline-offset:1px}
 .n.sel,.c.sel>.ch{background:var(--sel)}
@@ -38,13 +45,12 @@ h1{font-size:17px;margin:0 0 2px} .sub{color:var(--mut);max-width:110ch}
 .dim>.ch,.n.dim{opacity:.55}
 #det h2{font-size:15px;margin:2px 0 6px} #det h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:12px 0 3px}
 #det table{border-collapse:collapse;width:100%} #det th,#det td{text-align:left;vertical-align:top;padding:3px 6px 3px 0;border-bottom:1px solid var(--bd)}
-#det th{width:118px;color:var(--mut);font-weight:500}
+#det th{color:var(--mut);font-weight:500} #det tbody th{width:96px} #det .ng td{width:40%}
 #det ul{margin:0;padding-left:16px} #det li{margin:3px 0}
-#det a{color:var(--acc);cursor:pointer;text-decoration:underline}
 .gt{color:var(--err);font-weight:600} .k{font-family:ui-monospace,Menlo,monospace;font-size:12px}
-.kind{color:#fff;border-radius:9px;padding:0 7px;font-size:10.5px;font-weight:600}
+.kind{color:var(--bg);border-radius:9px;padding:0 7px;font-size:10.5px;font-weight:600}
 .status{background:var(--acc)} .warning{background:var(--warn)} .error{background:var(--err)}
-.mut{color:var(--mut)}
+.mut{color:var(--mut)} .why{color:var(--mut);font-size:12px}
 .pick{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer;display:flex;gap:4px;align-items:flex-start;flex:1}
 .lnk{font:inherit;color:var(--acc);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
 button:focus-visible,summary:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
@@ -57,11 +63,12 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
   <h1>Reader path model: Stratos home page <span class="mut" style="font-weight:400">— a sketch of an idea, made by hand</span></h1>
   <details class="sub" open><summary>What this is</summary>
     <p>This is a sketch of an idea: a model of the paths that a person who uses a screen reader takes through one page. A box is a component: a control, a title, or a message box. At each box the model holds what a screen reader gets there: the role, the accessible name, the description and the state. The paths are the ways to move over the same boxes: reading order, Tab order, headings, landmarks, actions with their results, and messages that come in time.</p>
-    <p>The aim is to see, before anyone listens with a screen reader, if that person gets the same information as a sighted user, and where the gaps are. The model is meant to be generated from an application, filled in, reviewed in a diagram like this one, and then used to change the HTML.</p>
-    <p>This page is not a tool. It was made by hand from the source code of the home page of Stratos, the open source web console for Cloud Foundry, on a development branch in November 2026. Nothing was run. Accessible names are worked out by the W3C name rules; they are not measured in a browser. Some parts were not read and say so. Endpoint and application names are examples.</p>
-    <p>How to use it: choose a path, drill down to a level, and select a box to see its content on the right. A red dashed box has a gap.</p>
+    <p>Each box shows what the HTML gives now beside the goal. A goal has a source: a WCAG 2.2 success criterion with its level (A, AA or AAA), or "our rule": a person who uses a screen reader gets the same information as a sighted user. The aim is to see the gaps before anyone listens with a screen reader. The model is meant to be generated from an application, filled in, reviewed in a diagram like this one, and then used to change the HTML.</p>
+    <p>This page is not a tool, and it is not an evaluation. It was made by hand from the source code of the home page of Stratos, the open source web console for Cloud Foundry, on a development branch in November 2026. Nothing was run. Accessible names are worked out by the W3C name rules; they are not measured in a browser. The criterion and level of each gap are one person's reading. Color contrast has its goals but no values: it is not measured yet. Some parts were not read and say so. Endpoint and application names are examples.</p>
+    <p>How to use it: choose a path, choose a goal level, drill down, and select a box to see its content. A red dashed box has a gap at the chosen level.</p>
   </details>
   <div class="bar" id="modes"><span class="l">Path</span></div>
+  <div class="bar" id="goal"><span class="l">Goal level</span></div>
   <div class="bar" id="levels"><span class="l">Drill down</span></div>
 </header>
 <main class="wrap">
@@ -70,93 +77,107 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
 </main>
 <div id="say" class="sr" role="status"></div>
 <script>
-// ---- The model. One object per node. This is the hand-made Model 0. ----
-// t title on the map · comp component definition · role/name/desc/state content · tab 1 = Tab stop
-// h heading level · lm landmark · box message box · acts steps out · msgs event→content→box · gaps [text, SC]
-const star = (id, what) => ({id, t:'Favorite star', comp:'app-entity-favorite-star', role:'button', name:'Remove from favorites', state:'name changes to "Add to favorites"; no pressed state', tab:1,
+// ---- The model. One object per node. Made by hand. ----
+// t title on the map · comp component definition · role/name/desc/state = what the HTML gives now · tab 1 = Tab stop
+// h heading level · lm landmark · box message box · acts steps out · msgs event → content → message box
+// gaps: [why, source, goal, row]. source = a WCAG 2.2 criterion, or 'rule' (same information as a sighted user). row = the content row the goal is for.
+const LV = {'1.1.1':'A','1.3.1':'A','2.1.1':'A','2.4.2':'A','2.4.3':'A','4.1.2':'A','2.4.6':'AA','4.1.3':'AA','2.4.9':'AAA', rule:'rule'};
+const icon = (word, goalName) => ['The icon word "'+word+'" is read. The icon is decoration and is not hidden.','1.1.1', goalName ? '"'+goalName+'" (icon hidden)' : 'the icon is hidden from the screen reader', goalName ? 'name' : undefined];
+const star = (id, what, label) => ({id, t:'Favorite star', comp:'app-entity-favorite-star', role:'button', name:'Remove from favorites', state:'name changes to "Add to favorites"; no pressed state', tab:1,
   acts:[{do:'remove the favorite', keys:'Enter or Space', res:'a confirm dialog opens (not read). After that the '+what+' can leave the page.'}],
-  gaps:[['The name does not say which '+what+'. Every star on the page has the same name.','2.4.6, 4.1.2']], src:'core/shared/components/entity-favorite-star'});
-const card = (id, nm, connected) => ({id, t:nm, ex:1, comp:'app-home-page-endpoint-card', role:'none', name:'none', note:'The card is not a group or region. A reader user gets the card edge only from the h2 heading.', src:'core/features/home/home/home-page-endpoint-card', c:[
+  gaps:[['The name does not say which '+what+'. Every star on the page has the same name. A sighted user sees which card the star is in.','rule','"Remove '+label+' from favorites"','name']], src:'core/shared/components/entity-favorite-star'});
+const card = (id, nm, connected) => ({id, t:nm, ex:1, comp:'app-home-page-endpoint-card', role:'none', name:'none', src:'core/features/home/home/home-page-endpoint-card',
+  gaps:[['The card is not a group. In Tab order a screen reader user is not told which card a control is in; a sighted user sees the card edge.','rule','group, named by its heading ("'+nm+'")','role']], c:[
   {id:id+'-head', t:nm, ex:1, comp:'card header · h2', role:'heading, level 2', name:nm, desc:'tooltip with the full name (hover)', h:2, text:'Subtitle below the heading: "Cloud Foundry" (the endpoint type)',
     acts: connected ? [{do:'go to the endpoint page', keys:'mouse click only', res:'page to page', gap:1}] : [],
-    gaps: connected ? [['The click area is a plain div with a router link. It has no role and no Tab stop, so the keyboard cannot use it.','2.1.1']] : []},
+    gaps: connected ? [['The click area is a plain div with a router link. It has no role and no Tab stop, so the keyboard cannot use it.','2.1.1','a link on the endpoint name, with a Tab stop']] : []},
   {id:id+'-busy', t:'Loading indicator', comp:'app-busy', role:'status', name:'Loading', box:{stays:'while the card loads', live:'role="status" (polite), added to the page together with its content'}, when:'while the card data loads',
-    msgs:[{ev:'card data loads', kind:'status', text:'"Loading"', to:id+'-busy', note:'The region is added with its text already in it. Some readers do not speak that. No message says "loaded". The name does not say which endpoint.'}]},
+    msgs:[{ev:'card data loads', kind:'status', text:'"Loading"', to:id+'-busy', note:'The region is added with its text already in it. Some screen readers do not speak that. No message says "loaded".'}],
+    gaps:[['The name does not say which endpoint loads. A sighted user sees the indicator in the card.','rule','"Loading '+nm+'"','name']]},
   {id:id+'-err', t:'Load warning', comp:'div + icon', role:'none', name:'"warning" (the icon word)', when:'when the card data took too long',
     msgs:[{ev:'card data took too long to load', kind:'warning', text:'"Data for this endpoint took too long to load"', to:null}],
-    gaps:[['The text is a hover title on a plain div. A reader gets only the icon word "warning". No message box, no live region.','1.1.1, 4.1.3']]},
-  star(id+'-star','endpoint'),
+    gaps:[['The text is a hover title on a plain div. A screen reader gets only the icon word "warning".','1.1.1','image with the name "Data for this endpoint took too long to load"','name'],
+          ['The warning comes while the user is on the page, and no message box reports it.','4.1.3','a status message in a live region']]},
+  star(id+'-star','endpoint', nm),
   ...(connected ? [
   {id:id+'-cf', t:'Cloud Foundry content', comp:'cfhome-card', role:'none', src:'cloud-foundry/features/home/cfhome-card', c:[
     ...[['apps','12','Applications'],['organization','3','Orgs'],['route','5','Routes']].map(([i,v,l]) =>
       ({id:id+'-m-'+l, t:v+' '+l, ex:1, comp:'app-card-number-metric', role:'button', name:i+' '+v+' '+l, tab:1,
         acts:[{do:'go to the '+l+' list of this endpoint', keys:'Enter or Space', res:'page to page'}],
-        gaps:[['The name starts with the icon word "'+i+'".','1.1.1'],['It goes to a page, but the role is button, not link.','4.1.2']]})),
+        gaps:[icon(i, v+' '+l), ['It goes to a page, but the role is button.','4.1.2','link','role']]})),
     {id:id+'-recent', t:'Recently updated applications', comp:'app-card-cf-recent-apps', role:'none', src:'cloud-foundry/features/home/card-cf-recent-apps', c:[
       {id:id+'-rh', t:'Recently updated applications', comp:'app-card-title · h3', role:'heading, level 3', name:'Recently updated applications', h:3},
       {id:id+'-poll', t:'Refresh', comp:'app-polling-indicator', role:'button', name:'Poll', desc:'tooltip "Refresh"', state:'disabled while the list loads', tab:1,
         acts:[{do:'load the list again', keys:'Enter or Space', res:'the list changes. Nothing reports it.', gap:1}],
-        gaps:[['The name is "Poll"; the visible tooltip says "Refresh".','observation'],['The result of the reload is not reported.','4.1.3']]},
+        gaps:[['The name is "Poll"; a sighted user sees the tooltip "Refresh".','rule','"Refresh recently updated applications"','name'],
+              ['The list changes and nothing reports it. A sighted user sees the new list.','rule','a status message, for example "List updated, 5 applications"']]},
       {id:id+'-app', t:'my-app', ex:1, comp:'app-compact-app-card', role:'none', note:'One row for each application. Up to the number of rows the layout allows.', c:[
-        {id:id+'-appst', t:'State icon', comp:'app-application-state-icon', role:'none', name:'the icon word', gaps:[['The application state is an icon and a color. A reader gets the icon word, not the state (for example "Running").','1.1.1, 1.4.1']]},
+        {id:id+'-appst', t:'State icon', comp:'app-application-state-icon', role:'none', name:'the icon word',
+          gaps:[['The application state is an icon and a color. A screen reader gets the icon word, not the state.','1.1.1','image with the state as its name, for example "Running"','name']]},
         {id:id+'-applink', t:'my-app', ex:1, comp:'link', role:'link', name:'my-app', tab:1, acts:[{do:'go to the application page', keys:'Enter', res:'page to page'}]},
         {id:id+'-appdate', t:'Updated date', comp:'text', role:'text', name:'for example "Nov 4, 2026, 3:12:05 PM"'}]},
-      {id:id+'-noapps', t:"You don't have any applications", comp:'text + app-tile-selector', role:'none', when:'when the endpoint has no applications', nr:'tile selector not read', gaps:[['The icon word "apps" is read before the text.','1.1.1']]}]}]}
+      {id:id+'-noapps', t:"You don't have any applications", comp:'text + app-tile-selector', role:'none', when:'when the endpoint has no applications', nr:'tile selector not read', gaps:[icon('apps')]}]}]}
   ] : [
   {id:id+'-disc', t:'Disconnected', comp:'text + button', role:'none', when:'when the endpoint is not connected', c:[
-    {id:id+'-disctxt', t:'Disconnected', comp:'text', role:'text', name:'"cloud_off" then "Disconnected"', gaps:[['The icon word "cloud_off" is read.','1.1.1']]},
+    {id:id+'-disctxt', t:'Disconnected', comp:'text', role:'text', name:'"cloud_off" then "Disconnected"', gaps:[icon('cloud_off','Disconnected')]},
     {id:id+'-conn', t:'Connect', comp:'button', role:'button', name:'Connect', tab:1, nr:'connect dialog not read',
       acts:[{do:'connect the endpoint', keys:'Enter or Space', res:'a connect dialog opens (not read)'}],
-      gaps:[['The name does not say which endpoint.','2.4.6']]}]}]),
+      gaps:[['The name does not say which endpoint. A sighted user sees which card the button is in.','rule','"Connect '+nm+'"','name']]}]}]),
   {id:id+'-favs', t:'Favorites', comp:'card side block', role:'none', c:[
     {id:id+'-fh', t:'Favorites', comp:'h3', role:'heading, level 3', name:'Favorites', h:3},
     {id:id+'-more', t:'2 more ...', ex:1, comp:'div role=button', role:'button', name:'2 more ...', tab:1, when:'when some favorites do not fit',
       acts:[{do:'show all favorites of this endpoint', keys:'Enter or Space', res:'the side panel opens with the title "Favorites for '+nm+'". Focus move: not read.', to:'sidepanel'}],
-      gaps:[['The name does not say more of what, or that a panel opens.','2.4.6']]},
+      gaps:[['The name does not say more of what, or that a panel opens.','2.4.6','"Show 2 more favorites of '+nm+'"','name']]},
     ...(connected ? [{id:id+'-fav', t:'my-org', ex:1, comp:'app-favorites-meta-card', role:'button', name:'(icon word) my-org Organization', tab:1, note:'One for each favorite. "No favorites" is plain text when there are none.',
       acts:[{do:'go to the favorite', keys:'Enter or Space', res:'page to page'}],
-      gaps:[['A button (the star) is inside this button. Readers do not agree on what to do with that.','4.1.2'],['The name starts with the icon word. A "warning" icon word is added if the favorite was deleted; its text is a hover title only.','1.1.1']],
-      c:[star(id+'-favstar','favorite')]}] : [{id:id+'-nofav', t:'No favorites', comp:'text', role:'text', name:'No favorites'}])]},
+      gaps:[['A button (the star) is inside this button. Screen readers do not agree on what to do with that.','4.1.2','link; the star is a separate button beside it','role'],
+            ['The name starts with the icon word. A "warning" icon word is added if the favorite was deleted; its text is a hover title only.','1.1.1','"my-org, Organization" (icons hidden; the warning as text)','name']],
+      c:[star(id+'-favstar','favorite','my-org')]}] : [{id:id+'-nofav', t:'No favorites', comp:'text', role:'text', name:'No favorites'}])]},
   ...(connected ? [{id:id+'-short', t:'Shortcuts', comp:'app-home-shortcuts', role:'none', src:'core/features/home/home/home-shortcuts', c:[
-    {id:id+'-sh', t:'Shortcuts', comp:'div (text)', role:'text', name:'Shortcuts', gaps:[['This title is plain text. "Favorites" beside it is an h3. A reader user who goes by headings does not find Shortcuts.','1.3.1']]},
-    {id:id+'-slink', t:'View Organizations', ex:1, comp:'icon + link', role:'link', name:'View Organizations', tab:1, note:'One for each shortcut. The icon before the link has the same router link but no Tab stop; its icon word is read as text.',
-      acts:[{do:'go to the page', keys:'Enter', res:'page to page'}], gaps:[['The icon word is read before each link.','1.1.1']]}]}] : [])
+    {id:id+'-sh', t:'Shortcuts', comp:'div (text)', role:'text', name:'Shortcuts',
+      gaps:[['This title looks like a heading but is plain text. "Favorites" beside it is an h3. A user who goes by headings does not find Shortcuts.','1.3.1','heading, level 3','role']]},
+    {id:id+'-slink', t:'View Organizations', ex:1, comp:'icon + link', role:'link', name:'View Organizations', tab:1, note:'One for each shortcut. The icon before the link has the same router link but no Tab stop.',
+      acts:[{do:'go to the page', keys:'Enter', res:'page to page'}], gaps:[['The icon word is read as text before each link.','1.1.1','the icon is hidden from the screen reader']]}]}] : [])
 ]});
-const menuBtn = (id, nm, items, extra) => ({id, t:nm, comp:'page header button', role:'button', name:nm, desc:'tooltip "'+nm+'"', tab:1, ...extra,
+const menuBtn = (id, nm, items, extra) => ({id, t:nm, comp:'page header button', role:'button', name:nm, desc:'tooltip "'+nm+'"', state:'none', tab:1, ...extra,
   acts:[{do:'open the menu', keys:'Enter or Space', res:'a panel is added below the button: '+items+'. Focus stays on the button.'}],
-  gaps:[['No expanded state. A reader user is not told that a panel opened or closed.','4.1.2'], ...((extra&&extra.gaps)||[])]});
+  gaps:[['No expanded state. A screen reader user is not told that a panel opened or closed.','4.1.2','collapsed / expanded','state']]});
 
-const M = {id:'page', t:'Home', comp:'page', role:'document', name:'document title: no code found that sets it for each page', note:'Area: Home.', gaps:[['No code was found on this branch that sets a page title for each page.','2.4.2']], c:[
+const M = {id:'page', t:'Home', comp:'page', role:'document', name:'no code found that sets the document title for each page', note:'Area: Home.',
+  gaps:[['No code was found on this branch that sets a page title for each page.','2.4.2','a title for this page, for example "Home - Stratos"','name']], c:[
   {id:'nav', t:'Side navigation', comp:'app-side-nav', common:1, role:'navigation', lm:'navigation', name:'none', note:'Common block: on every page. One navigation landmark, so a name is not needed yet.', src:'core/features/dashboard/side-nav', c:[
     {id:'nav-logo', t:'Logo button', comp:'button', role:'button', name:'Stratos Stratos', ex:1, tab:1, state:'none',
       acts:[{do:'make the side navigation narrow or wide', keys:'Enter or Space', res:'labels are hidden or shown. Nothing reports it.', gap:1}],
-      gaps:[['The name is the product name two times (image alt, then text). It does not say what the button does.','2.4.6, 4.1.2'],['No expanded state.','4.1.2']]},
+      gaps:[['The name is the product name two times (image alt, then text). It does not say what the button does.','2.4.6','"Collapse side navigation" / "Expand side navigation"','name'],
+            ['No expanded state.','4.1.2','expanded / collapsed','state']]},
     {id:'nav-col', t:'Collapse sidebar', comp:'button', role:'button', name:'keyboard_arrow_left', desc:'Collapse sidebar (title)', tab:1,
       acts:[{do:'make the side navigation narrow', keys:'Enter or Space', res:'this button is then hidden; focus is lost', gap:1}],
-      gaps:[['The name is the icon word "keyboard_arrow_left".','4.1.2'],['After the press the button is hidden while it has focus.','2.4.3']]},
+      gaps:[['The name is the icon word.','1.1.1','"Collapse sidebar"','name'],
+            ['After the press the button is hidden while it has focus. No code moves focus.','2.4.3','focus goes to the control that makes the navigation wide again']]},
     {id:'nav-list', t:'Navigation items', comp:'ul', role:'list', name:'none', c:[
-      {id:'nav-home', t:'Home', comp:'nav link', role:'link', name:'home Home', state:'current page: not given', tab:1, acts:[{do:'go to Home', keys:'Enter', res:'page to page'}],
-        gaps:[['The current page is shown by color only. No aria-current.','1.4.1, 4.1.2'],['The name starts with the icon word.','1.1.1']]},
+      {id:'nav-home', t:'Home', comp:'nav link', role:'link', name:'home Home', state:'none', tab:1, acts:[{do:'go to Home', keys:'Enter', res:'page to page'}],
+        gaps:[['The current page is shown by color and a bar only.','1.3.1','current page (aria-current)','state'], icon('home','Home')]},
       {id:'nav-ep', t:'Endpoints', comp:'nav link', role:'link', name:'endpoints Endpoints', tab:1, nr:'other items come from other packages; not read', acts:[{do:'go to Endpoints', keys:'Enter', res:'page to page'}],
-        gaps:[['The name starts with the icon word.','1.1.1']]}]},
-    {id:'nav-out', t:'Sign Out', comp:'button', role:'button', name:'exit_to_app Sign Out', tab:1, acts:[{do:'sign out', keys:'Enter or Space', res:'page to page (login)'}], gaps:[['The name starts with the icon word.','1.1.1']]}]},
+        gaps:[icon('endpoints','Endpoints')]}]},
+    {id:'nav-out', t:'Sign Out', comp:'button', role:'button', name:'exit_to_app Sign Out', tab:1, acts:[{do:'sign out', keys:'Enter or Space', res:'page to page (login)'}], gaps:[icon('exit_to_app','Sign Out')]}]},
   {id:'hdr', t:'Page header', comp:'app-page-header', common:1, role:'none', name:'none', note:'Common block: on every page. Each page puts its title and its own controls in it. It is not a banner landmark.', src:'core/shared/components/page-header', c:[
     {id:'h1', t:'Home', comp:'h1', role:'heading, level 1', name:'Home', h:1, note:'Subject matter title of the page. No breadcrumb on this page.'},
     {id:'docs', t:'Documentation', comp:'link + toggle button', role:'link, button', name:'the tooltip text (not read)', tab:1, when:'when a documentation URL is set', nr:'tooltip text not read'},
     {id:'show', t:'Which endpoints to show', comp:'div role=group', role:'group', name:'Which endpoints to show', note:'Page control (filter). The group name is spoken at the edge, when focus goes in.', c:
       ['Favorites','Connected','All'].map((l,i) => ({id:'show-'+l, t:l, comp:'button', role:'button', name:l, state: i===1 ? 'pressed (example)' : 'not pressed', tab:1,
         acts:[{do:'show '+['the favorite','the connected','all'][i]+' endpoints', keys:'Enter or Space', res:'the card list changes. The button state changes to pressed (spoken, by the rules). The number of cards is not reported.', to:'grid', gap:1}],
-        msgs: l==='Favorites' ? [{ev:'no cards for the chosen choice', kind:'status', text:'"You have 2 endpoints and none have been selected to be on your home page."', to:'empty', note:'The message box has no live region. A sighted user sees the page change; a reader user hears only "pressed".'}] : [],
-        gaps:[['The result is not reported: how many cards are shown now, or that there are none.','4.1.3']]}))},
+        msgs: l==='Favorites' ? [{ev:'no cards for the chosen choice', kind:'status', text:'"You have 2 endpoints and none have been selected to be on your home page."', to:'empty', note:'The message box has no live region. A sighted user sees the page change; a screen reader user hears only "pressed".'}] : [],
+        gaps:[['The card list changes and nothing reports how many cards are shown now. A sighted user sees the new list.','rule','a status message, for example "3 endpoints shown"']]}))},
     {id:'sort', t:'Sort direction', comp:'button', role:'button', name:'Sorted by endpoint name, ascending', desc:'tooltip "Sorted by endpoint name, A→Z"', tab:1,
-      acts:[{do:'reverse the order of the cards', keys:'Enter or Space', res:'the card order changes. The name changes to "…, descending". If a reader speaks a name change is not sure.', to:'grid'}],
+      acts:[{do:'reverse the order of the cards', keys:'Enter or Space', res:'the card order changes. The name changes to "…, descending". If a screen reader speaks a name change is not sure.', to:'grid'}],
       note:'The name is a state, not an action. It does not say that a press reverses the order.'},
     {id:'layout', t:'Card layout', comp:'dropdown', role:'none', c:[
       {id:'layout-btn', t:'Card layout', comp:'button', role:'button', name:'Card layout', state:'collapsed / expanded', tab:1,
         acts:[{do:'open the layout menu', keys:'Enter or Space', res:'state changes to expanded (spoken). Focus stays on the button.', to:'layout-opt'},{do:'close the menu', keys:'Escape', res:'focus goes back to this button'}]},
       {id:'layout-opt', t:'6 layout options', comp:'button × 6', role:'button', name:'Automatic · Single Column · Compact Single Column · Two Column · Compact Two Column · Three Column', state:'current (aria-current) on the chosen one', tab:1, when:'when the menu is open', note:'Plain buttons in a div: Tab moves between them; arrow keys do nothing. Not a menu role.',
         acts:[{do:'choose a layout', keys:'Enter or Space', res:'the cards change layout and the menu closes. The option that has focus is hidden; no code moves focus. Focus is lost.', to:'grid', gap:1}],
-        gaps:[['Focus is lost after a choice.','2.4.3'],['The result is not reported.','4.1.3']]}]},
+        gaps:[['After a choice the option that has focus is hidden. No code moves focus.','2.4.3','focus goes back to the "Card layout" button'],
+              ['The layout changes and nothing reports it. A sighted user sees the new layout.','rule','a status message, for example "Layout: Two Column"']]}]},
     {id:'theme', t:'Light / dark mode', comp:'app-theme-toggle', common:1, role:'none', src:'core/shared/components/theme-toggle', c:[
       {id:'theme-btn', t:'Theme toggle', comp:'button', role:'button', name:'Toggle theme to dark mode', state:'not pressed (light)', tab:1,
         acts:[{do:'change the theme', keys:'Enter or Space', res:'the theme changes; the state changes to pressed'}],
@@ -165,31 +186,40 @@ const M = {id:'page', t:'Home', comp:'page', role:'document', name:'document tit
     menuBtn('tokens','Copy UAA tokens','h3 "UAA Tokens", "Copy Auth Token", "Copy Refresh Token", token expiry text',{nr:'what reports the copy: not read'}),
     menuBtn('recent','Recent activity','h3 "Recent Activity" and a list (not read)',{nr:'list not read'}),
     {id:'notif', t:'Notifications', comp:'button', role:'button', name:'Notifications', tab:1, when:'when there are events', acts:[{do:'go to the events page', keys:'Enter or Space', res:'page to page'}],
-      gaps:[['The unread count is drawn on the button, but the aria-label replaces it. A reader user does not get the count.','1.3.1, 4.1.2']]},
+      gaps:[['The unread count is drawn on the button, but the aria-label replaces it. A screen reader user does not get the count.','1.3.1','"Notifications, 3 unread"','name']]},
     menuBtn('user','User menu','user name, "About", "Profile", "API Keys", "Logout"',{note:'The About menu item is here.'}),
     {id:'events', t:'Endpoint error messages', comp:'app-page-header-events', role:'none', name:'none', box:{stays:'until the error is gone', live:'none'}, when:'when an endpoint reports an error', c:[
       {id:'ev-h', t:'cf-prod', ex:1, comp:'h3', role:'heading, level 3', name:'cf-prod (endpoint id)', h:3},
-      {id:'ev-link', t:'view details', comp:'link', role:'link', name:'view details', tab:1, acts:[{do:'go to the error details', keys:'Enter', res:'page to page'}], gaps:[['The link name does not say details of what.','2.4.4']]}],
+      {id:'ev-link', t:'view details', comp:'link', role:'link', name:'view details', tab:1, acts:[{do:'go to the error details', keys:'Enter', res:'page to page'}],
+        gaps:[['The link name alone does not say details of what. With the heading before it, the purpose is clear, so Level A (2.4.4) is met.','2.4.9','"View error details for cf-prod"','name']]}],
       msgs:[{ev:'an endpoint reports an error', kind:'error', text:'the error detail text', to:'events', note:'The message box has no live region. An error that comes while the user is on the page is not spoken.'}],
-      gaps:[['No live region on this message box.','4.1.3']]}]},
-  {id:'main', t:'Page content', comp:'router outlet (div)', role:'none', lm:null, name:'none', note:'All the content of the page.', gaps:[['No main landmark in the shell. A reader user cannot jump to the content by landmark; the only way past the side navigation and the header is by heading.','1.3.1, 2.4.1']], c:[
+      gaps:[['An error that comes while the user is on the page is not reported. This message box has no live region.','4.1.3','a live region: role="alert" for an error','role']]}]},
+  {id:'main', t:'Page content', comp:'router outlet (div)', role:'none', lm:null, name:'none', note:'All the content of the page.',
+    gaps:[['No main landmark. A screen reader user cannot jump to the content by landmark. Level A (2.4.1) is met by the headings; a main landmark is W3C practice, not a criterion.','rule','main','role']], c:[
     {id:'banner', t:'Duplicate URL banner', comp:'app-home-url-banner', role:'none', name:'none', box:{stays:'while two connected endpoints of one type share a URL', live:'none'}, when:'when endpoints share a URL', src:'core/features/home/home/home-url-banner',
       msgs:[{ev:'two connected endpoints of one type share a URL', kind:'status', text:'the sentence from formatDuplicateUrlEndpointsMessage', to:'banner', note:'Read in the reading order, after the icon word "info". Not spoken when it comes later.'}],
-      gaps:[['The icon word "info" is read.','1.1.1'],['No live region on this message box.','4.1.3']]},
-    {id:'grid', t:'Endpoint cards', comp:'home-grid (div)', role:'none', name:'none', note:'One card for each endpoint. Not a list, so a reader user is not told how many cards there are.', c:[card('c1','cf-prod',true), card('c2','cf-lab',false)]},
+      gaps:[icon('info'), ['The banner can come while the user is on the page, and it is not reported. This message box has no live region.','4.1.3','a live region: role="status"','role']]},
+    {id:'grid', t:'Endpoint cards', comp:'home-grid (div)', role:'none', name:'none', note:'One card for each endpoint. Not a list, so a screen reader user is not told how many cards there are.', c:[card('c1','cf-prod',true), card('c2','cf-lab',false)]},
     {id:'empty', t:'Empty state', comp:'app-no-content-message', role:'none', name:'none', box:{stays:'in place of the cards', live:'none'}, when:'when there are no cards to show', src:'core/shared/components/no-content-message',
       text:'Three texts: "There are no connected endpoints / Use the Endpoints view to connect" · "You have N endpoints and none have been selected to be on your home page. / Switch to "Connected" or "All" above to show more endpoints, or star an endpoint to add it here." · "There are no registered endpoints / Use the Endpoints view to register"',
-      gaps:[['The icon word is read first ("star_outline", "settings_ethernet").','1.1.1'],['No live region: when a choice in the header empties the page, nothing is spoken.','4.1.3'],['The text says "above". A reader user has no "above".','1.3.3']]}]},
+      note:'The text says "above". It also names the controls, so it does not need the position.',
+      gaps:[icon('star_outline'), ['When a choice in the header empties the page, this message comes and is not reported. This message box has no live region.','4.1.3','a live region: role="status"','role']]}]},
   {id:'sidepanel', t:'Side panel', comp:'aside', common:1, role:'complementary', lm:'complementary', name:'Side panel', state:'inert while closed', nr:'focus move on open: not read', note:'Common block. Holds "Favorites for {endpoint}" when opened from a card. Escape and a close button close it.', src:'core/features/dashboard/dashboard-base'},
   {id:'snack', t:'Snackbar', comp:'tailwind snackbar', common:1, role:'tablist "Messages"', name:'Messages', box:{stays:'goes away', live:'CDK LiveAnnouncer: polite, or assertive for an error'}, nr:'which home page events send a message here: not read', src:'core/shared/services/tailwind-snackbar.service.ts'}
 ]};
 
-// ---- Drawing. Throwaway code. ----
+// ---- Drawing. Sketch code. ----
 const $ = s => document.querySelector(s), map = $('#map'), det = $('#det'), svg = $('#svg');
 const byId = {}, order = [], parent = {};
 (function walk(n, p, d){ byId[n.id] = n; n.depth = d; parent[n.id] = p; order.push(n); (n.c||[]).forEach(c => walk(c, n, d+1)); })(M, null, 0);
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const incoming = id => order.flatMap(n => (n.msgs||[]).filter(m => m.to === id).map(m => ({...m, from:n})));
+// Goal level. AA is the target; AA includes A, and AAA includes both.
+const RANK = {A:1, AA:2, AAA:3}; let level = 'AA', ruleOn = true;
+const shown = g => LV[g[1]] === 'rule' ? ruleOn : RANK[LV[g[1]]] <= RANK[level];
+const gapsOf = n => (n.gaps||[]).filter(shown);
+const lvChip = s => `<span class="chip lv lv${s}">${s === 'rule' ? 'our rule' : 'Level ' + s}</span>`;
+const srcOf = g => lvChip(LV[g[1]]) + (g[1] === 'rule' ? '' : `<span class="mut">${g[1]}</span> `);
 const PATHS = {
   structure:{l:'Structure', on:n => true},
   reading:{l:'Reading order', on:n => !n.c, badge:(n,i) => i+1, line:1},
@@ -198,22 +228,22 @@ const PATHS = {
   landmarks:{l:'Landmarks', on:n => n.lm, badge:n => n.lm},
   actions:{l:'Actions and results', on:n => n.acts && n.acts.length, badge:n => '→'},
   messages:{l:'Messages', on:n => n.box || (n.msgs && n.msgs.length), badge:n => n.box ? 'box' : 'event'},
-  gaps:{l:'Gaps', on:n => n.gaps && n.gaps.length, badge:n => n.gaps.length}
+  gaps:{l:'Gaps', on:n => gapsOf(n).length, badge:n => gapsOf(n).length}
 };
 let mode = 'structure', sel = 'page';
 
 function el(n){
   const d = document.createElement('div'); d.dataset.id = n.id;
-  const chips = (n.gaps&&n.gaps.length ? `<span class="chip g">${n.gaps.length} gap${n.gaps.length>1?'s':''}</span>` : '') + (n.box ? '<span class="chip mb">message box</span>' : '') + (n.common ? '<span class="chip mb">common block</span>' : '') + (n.nr ? '<span class="chip nr">part not read</span>' : '');
+  const chips = '<span class="gc"></span>' + (n.box ? '<span class="chip mb">message box</span>' : '') + (n.common ? '<span class="chip mb">common block</span>' : '') + (n.nr ? '<span class="chip nr">part not read</span>' : '');
   const lbl = `<button class="pick" aria-pressed="false"><span class="bdg"></span><span><span class="comp">${esc(n.comp)}${n.when ? ' · '+esc(n.when) : ''}</span><br><span class="t">${esc(n.t)}</span>${n.ex ? ' <span class="ex">(example)</span>' : ''}${chips}</span></button>`;
   if (n.c) { d.className = 'c'; d.innerHTML = `<div class="ch"><button class="tg" aria-expanded="true" aria-label="Inside ${esc(n.t)}">▾</button>${lbl}</div><div class="cb"></div>`; n.c.forEach(c => d.lastChild.append(el(c))); }
   else { d.className = 'n'; d.innerHTML = lbl; }
-  if (n.gaps && n.gaps.length) d.classList.add('hasgap');
   return d;
 }
 map.append(el(M));
 const shut = (d, b) => { d.classList.toggle('closed', b); const t = d.querySelector('.tg'); t.textContent = b ? '▸' : '▾'; t.setAttribute('aria-expanded', !b); };
 const dom = id => map.querySelector(`[data-id="${CSS.escape(id)}"]`);
+const own = (d, s) => d.querySelector(d.classList.contains('c') ? ':scope > .ch ' + s : s);
 map.addEventListener('click', e => {
   const box = e.target.closest('[data-id]'); if (!box) return;
   if (e.target.closest('.tg')) shut(box, !box.classList.contains('closed'));
@@ -221,16 +251,19 @@ map.addEventListener('click', e => {
   else return;
   e.stopPropagation(); paint();
 });
-det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); dom(sel).querySelector('.pick').focus(); } });
+det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); own(dom(sel), '.pick').focus(); } });
 function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
-function setLevel(k){ order.forEach(n => { if (!n.c) return; shut(dom(n.id), n.depth >= k); }); paint(); }
+function setLevel(k){ order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
 
 const vis = id => { const d = dom(id); return d && d.offsetParent !== null; };
-const pt = (id, anchor) => { const d = dom(id), t = (anchor && d.querySelector('.bdg')) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
+const pt = (id, anchor) => { const d = dom(id), t = (anchor && own(d, '.bdg')) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
 function paint(){
   const P = PATHS[mode], on = order.filter(P.on);
-  order.forEach(n => { const d = dom(n.id); d.classList.remove('sel','same','tgt'); d.querySelector('.pick').setAttribute('aria-pressed', n.id === sel); d.classList.toggle('dim', mode !== 'structure' && !P.on(n));
-    const b = (n.c ? d.querySelector(':scope > .ch .bdg') : d.querySelector('.bdg')); const i = on.indexOf(n); b.innerHTML = (P.badge && i >= 0) ? `<span class="chip bd">${esc(P.badge(n, i))}</span> ` : ''; });
+  order.forEach(n => { const d = dom(n.id), g = gapsOf(n).length, i = on.indexOf(n);
+    d.classList.remove('sel','same','tgt'); d.classList.toggle('dim', mode !== 'structure' && !P.on(n)); d.classList.toggle('hasgap', g > 0);
+    own(d, '.pick').setAttribute('aria-pressed', n.id === sel);
+    own(d, '.gc').innerHTML = g ? `<span class="chip g">${g} gap${g > 1 ? 's' : ''}</span>` : '';
+    own(d, '.bdg').innerHTML = (P.badge && i >= 0) ? `<span class="chip bd">${esc(P.badge(n, i))}</span> ` : ''; });
   const s = byId[sel]; dom(sel).classList.add('sel');
   order.filter(n => n !== s && n.comp === s.comp && s.comp.startsWith('app-')).forEach(n => dom(n.id).classList.add('same'));
   let lines = '';
@@ -241,25 +274,41 @@ function paint(){
   incoming(s.id).filter(m => m.from !== s).forEach(m => { dom(m.from.id).classList.add('tgt'); arrow(m.from.id, s.id, 'var(--err)', 1); });
   svg.innerHTML = svg.querySelector('defs').outerHTML + lines;
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mode));
+  document.querySelectorAll('#goal button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lv ? b.dataset.lv === level : ruleOn));
   detail(s);
 }
 function detail(n){
   const row = (k, v) => v ? `<tr><th>${k}</th><td>${esc(v)}</td></tr>` : '';
   const go = id => `<button class="lnk" data-go="${id}">${esc(byId[id].t)}</button>`;
   const same = order.filter(x => x.comp === n.comp && n.comp.startsWith('app-')).length;
-  const tabs = order.filter(x => x.tab), ti = tabs.indexOf(n);
+  const tabs = order.filter(x => x.tab), ti = tabs.indexOf(n), G = gapsOf(n);
   const path = []; for (let p = parent[n.id]; p; p = parent[p.id]) path.unshift(go(p.id));
   const msgs = [...(n.msgs||[]).map(m => ({...m, dir:'from here'})), ...incoming(n.id).filter(m => m.from !== n).map(m => ({...m, dir:'from '+m.from.t}))];
+  // now | goal, for each content row
+  const ng = (label, key) => { const gs = G.filter(g => g[3] === key); if (!n[key] && !gs.length) return '';
+    return `<tr><th>${label}</th><td>${esc(n[key] || 'none')}</td><td>${gs.length ? gs.map(g => `${srcOf(g)}<br><b>${esc(g[2])}</b><br><span class="why">${esc(g[0])}</span>`).join('<br>') : '<span class="mut">no change found</span>'}</td></tr>`; };
+  const contrast = (label, goals) => { const gs = goals.filter(g => RANK[g[0]] <= RANK[level]);
+    return `<tr><th>${label}</th><td class="mut">not measured</td><td>${gs.length ? gs.map(g => `${lvChip(g[0])}<span class="mut">${g[1]}</span> <b>${g[2]}</b>`).join('<br>') : '<span class="mut">no goal at Level ' + level + '</span>'}</td></tr>`; };
+  const other = G.filter(g => !g[3]);
+  const all = order.flatMap(x => x.gaps || []), cnt = s => all.filter(g => LV[g[1]] === s).length;
   det.innerHTML = `<div class="comp">${path.join(' › ') || 'top'}</div><h2>${esc(n.t)}${n.ex ? ' <span class="ex">(example)</span>' : ''}</h2>
-  <table>${row('definition', n.comp + (same > 1 ? '  — '+same+' instances on this page (dotted outline)' : ''))}${row('shown', n.when)}${row('role', n.role)}${row('accessible name', n.name)}${row('accessible description', n.desc)}${row('state', n.state)}${row('text', n.text)}${n.box ? row('message box', 'stays: '+n.box.stays+' · live region: '+n.box.live) : ''}${ti >= 0 ? row('Tab stop', (ti+1)+' of '+tabs.length+' in this model') : ''}${row('note', n.note)}${row('not read', n.nr)}${row('source', n.src)}</table>
+  <table class="ng"><thead><tr><th>content</th><th>now (from the HTML)</th><th>goal</th></tr></thead><tbody>
+  ${ng('role','role')}${ng('accessible name','name')}${ng('accessible description','desc')}${ng('state','state')}
+  ${(!n.c || n.tab) ? contrast('text contrast', [['AA','1.4.3','4.5 to 1'],['AAA','1.4.6','7 to 1']]) : ''}${n.tab ? contrast('control edge and focus mark', [['AA','1.4.11','3 to 1']]) : ''}
+  </tbody></table>
+  ${other.length ? '<h3>More gaps and goals</h3><ul>'+other.map(g => `<li>${srcOf(g)}<span class="gt">${esc(g[0])}</span><br>Goal: <b>${esc(g[2])}</b></li>`).join('')+'</ul>' : ''}
   ${(n.acts||[]).length ? '<h3>Steps out (action → result)</h3><ul>'+n.acts.map(a => `<li><b>${esc(a.do)}</b> · <span class="k">${esc(a.keys)}</span><br>${a.gap ? '<span class="gt">gap · </span>' : ''}${esc(a.res)}${a.to ? ' → '+go(a.to) : ''}</li>`).join('')+'</ul>' : ''}
-  ${msgs.length ? '<h3>Messages (event → content → message box)</h3><ul>'+msgs.map(m => `<li><span class="mut">${esc(m.dir)}:</span> ${esc(m.ev)} → <span class="kind ${m.kind}">${m.kind}</span> ${esc(m.text)} → ${m.to ? go(m.to) : '<span class="gt">no message box</span>'}${m.note ? '<br><span class="mut">'+esc(m.note)+'</span>' : ''}</li>`).join('')+'</ul>' : ''}
-  ${(n.gaps||[]).length ? '<h3>Gaps</h3><ul>'+n.gaps.map(g => `<li><span class="gt">${esc(g[0])}</span> <span class="mut">(${g[1]})</span></li>`).join('')+'</ul>' : ''}
+  ${msgs.length ? '<h3>Messages (event → content → message box)</h3><ul>'+msgs.map(m => `<li><span class="mut">${esc(m.dir)}:</span> ${esc(m.ev)} → <span class="kind ${m.kind}">${m.kind}</span> ${esc(m.text)} → ${m.to ? go(m.to) : '<span class="gt">no message box</span>'}${m.note ? '<br><span class="why">'+esc(m.note)+'</span>' : ''}</li>`).join('')+'</ul>' : ''}
+  <h3>About this box</h3><table><tbody>${row('definition', n.comp + (same > 1 ? '  — '+same+' instances on this page (dotted outline)' : ''))}${row('shown', n.when)}${row('text', n.text)}${n.box ? row('message box', 'stays: '+n.box.stays+' · live region: '+n.box.live) : ''}${ti >= 0 ? row('Tab stop', (ti+1)+' of '+tabs.length+' in this model') : ''}${row('note', n.note)}${row('not read', n.nr)}${row('source', n.src)}</tbody></table>
   ${n.c ? '<h3>Inside</h3><ul>'+n.c.map(c => `<li>${go(c.id)} <span class="mut">${esc(c.comp)}</span></li>`).join('')+'</ul>' : ''}
-  <h3>This model</h3><div class="mut">${order.length} nodes · ${tabs.length} Tab stops · ${order.filter(x => x.box).length} message boxes · ${order.reduce((a,x) => a + (x.gaps||[]).length, 0)} gaps · Tab stops before the first card: ${tabs.findIndex(x => x.id.startsWith('c1'))}</div>`;
+  <h3>This model</h3><div class="mut">${order.length} boxes · ${tabs.length} Tab stops · ${order.filter(x => x.box).length} message boxes · Tab stops before the first card: ${tabs.findIndex(x => x.id.startsWith('c1'))}<br>
+  Gaps by source: Level A ${cnt('A')} · Level AA ${cnt('AA')} · Level AAA ${cnt('AAA')} · our rule ${cnt('rule')}. Shown now: ${order.reduce((a, x) => a + gapsOf(x).length, 0)}. Contrast: not measured.</div>`;
 }
-Object.entries(PATHS).forEach(([k, p]) => { const b = document.createElement('button'); b.textContent = p.l; b.dataset.m = k; b.onclick = () => { mode = k; paint(); }; $('#modes').append(b); });
-[['Area', 1], ['Common blocks and page', 2], ['Components', 3], ['Inside components', 4], ['All', 99]].forEach(([l, k]) => { const b = document.createElement('button'); b.textContent = l; b.onclick = () => setLevel(k); $('#levels').append(b); });
+const btn = (bar, text, fn, data) => { const b = document.createElement('button'); b.textContent = text; Object.assign(b.dataset, data || {}); b.onclick = () => { fn(); paint(); }; $(bar).append(b); };
+Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
+[['A','Level A'],['AA','Level AA (target; includes A)'],['AAA','Level AAA (includes A and AA)']].forEach(([k, l]) => btn('#goal', l, () => { level = k; }, {lv:k}));
+btn('#goal', 'Our rule: same information', () => { ruleOn = !ruleOn; });
+[['Area', 1], ['Common blocks and page', 2], ['Components', 3], ['Inside components', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k)));
 addEventListener('resize', paint); setLevel(3);
 </script>
 </body>
