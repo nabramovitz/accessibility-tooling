@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generate } from '../src/generate.js';
+import { render } from '../src/render.js';
 import { selfSigned } from './cert.js';
 import { fixture, flat } from './helpers.js';
 
@@ -63,13 +64,30 @@ test('a redirect is a note, with the final url and status', async () => {
   try {
     const m = await generate(`${base}/old`);
     assert.equal(m.url, `${base}/old`);
-    assert.equal(m.finalUrl, `${base}/new?token=abc`);
+    assert.equal(m.finalUrl, `${base}/new`);
     assert.equal(m.status, 200);
     assert.ok(m.notes.includes(`Page moved to ${base}/new`));
     const same = await generate(`${base}/new?other=1#top`);
     assert.equal(same.notes.some((x) => x.startsWith('Page moved')), false);
     const missing = await generate(`${base}/missing`);
     assert.equal(missing.status, 404);
+  } finally {
+    s.close();
+  }
+});
+
+test('a sign-in token in the final URL is not written', async () => {
+  const s = await serve(createHttp, (req, res) => {
+    if (req.url === '/old') { res.writeHead(302, { location: '/new?token=secret#x' }); res.end(); return; }
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<title>New</title><h1>New</h1>');
+  });
+  const base = `http://localhost:${s.port}`;
+  try {
+    const m = await generate(`${base}/old`);
+    assert.equal(m.finalUrl, `${base}/new`);
+    assert.equal(JSON.stringify(m).includes('secret'), false);
+    assert.equal(render(m).includes('secret'), false);
   } finally {
     s.close();
   }

@@ -283,9 +283,10 @@ export async function generate(url, opts = {}) {
     const response = await page.goto(url, { waitUntil: 'load' });
     if (opts.waitFor) await page.waitForSelector(opts.waitFor);
     if (opts.settle) await page.waitForTimeout(opts.settle);
-    const finalUrl = page.url();
+    // Without query and fragment: a redirect can carry a sign-in token.
+    const finalUrl = bare(page.url());
     const notes = [];
-    if (bare(finalUrl) !== bare(url)) notes.push(`Page moved to ${bare(finalUrl)}`);
+    if (finalUrl !== bare(url)) notes.push(`Page moved to ${finalUrl}`);
     const cdp = await context.newCDPSession(page);
 
     const { root: domRoot } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
