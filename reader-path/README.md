@@ -11,19 +11,35 @@ success criterion and its level.
 
 ## Install
 
-Node.js 22 or later.
+With Bun (1.3.14 is the tested version):
+
+```
+bun install
+bunx playwright install chromium
+```
+
+Or with Node.js 22 or later and npm:
 
 ```
 npm install
 npx playwright install chromium
 ```
 
+`.tool-versions` at the top of the repository names the tested versions
+of Bun and Node.js for asdf.
+
 ## Use
 
+In this directory:
+
 ```
-npx reader-path <url> [--out <dir>] [--storage-state <file>]
+./cli.js <url> [--out <dir>] [--storage-state <file>]
   [--ignore-https-errors] [--wait-for <selector>] [--settle <ms>]
 ```
+
+`./cli.js` runs with Bun when `bun --version` works, else with Node.js.
+To choose the runtime, run `bun cli.js <url> ...` or
+`node cli.js <url> ...`.
 
 It writes `<dir>/model.json` and `<dir>/index.html`. Open `index.html`
 in a browser. A path to a local file also works for `<url>`.
@@ -52,7 +68,15 @@ out), a run note says so. A sign-in page in place of the page you asked for show
 Run notes also say when axe-core could not be added to a frame or did
 not run; the tree and the Tab order are still written.
 
-`npm test` runs the tests.
+## Tests
+
+```
+bun run test
+```
+
+Or `npm test`. Both run the tests with `bun test` when `bun --version`
+works, else with `node --test`. A plain `bun test` also works, but
+stops a test after 5 seconds; `bun run test` gives each test 30.
 
 ## Limits
 
