@@ -221,14 +221,18 @@ const UNTOP = `(() => { const e = document.querySelector('[${START}]');
   const still = !!e && document.activeElement === e; if (e) e.remove(); return still; })()`;
 
 // Presses Tab and gives `tab` (1-based) to the nearest kept node of each stop.
+// Returns the result for 2.1.2: fail for a stop gap; review when the walk
+// did not read every stop (an iframe, or MAX_TABS reached); else pass.
 async function tabWalk(page, cdp, nearestKept, root, notes, model) {
   await cdp.send('Runtime.evaluate', { expression: TOP });
   const stop = (why, note) => {
     (root.gaps ||= []).push([why, '2.1.2', 'Tab moves focus to the next control']);
     (model.levels ||= {})['2.1.2'] = 'A';
-    addCheck(model.checks, '2.1.2', 'fail', 'tab-walk');
     notes.push(note);
+    return 'fail';
   };
+  let unread = false;
+  const end = () => (unread ? 'review' : 'pass');
   const seen = new Set();
   let first = null;
   let prev = null;
@@ -240,18 +244,19 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
       if (still.value) return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }
     const { result } = await cdp.send('Runtime.evaluate', { expression: ACTIVE, objectGroup: 'tab' });
-    if (!result.objectId) return;
+    if (!result.objectId) return end();
     const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
-    if (node.nodeName === 'BODY') return;
+    if (node.nodeName === 'BODY') return end();
     const id = node.backendNodeId;
     if (node.nodeName === 'IFRAME') {
       if (id === prev) continue; // focus is moving inside the frame, which is not read
       notes.push(`Tab stops inside iframe not read: ${frameSrc(node.attributes)}`);
+      unread = true;
     }
     if (id === prev) {
       return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }
-    if (id === first) return;
+    if (id === first) return end();
     if (seen.has(id)) {
       return stop('Tab moves focus round a loop and never back to the start.',
         'Tab walk stopped: focus loops without returning to the start');
@@ -262,8 +267,10 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
     const kept = nearestKept(id);
     if (kept && !kept.tab) kept.tab = ++n;
   }
-  // No repeat in MAX_TABS presses: a long page, not a trap.
+  // No repeat in MAX_TABS presses: a long page, not a trap, but the rest
+  // of the page is not checked.
   notes.push(`Tab walk stopped at ${MAX_TABS} Tab stops; the rest not recorded`);
+  return 'review';
 }
 
 // A url without its query and fragment: these can hold sign-in tokens.
@@ -312,9 +319,7 @@ export async function generate(url, opts = {}) {
     const { root, nearestKept } = buildTree(nodes, dom);
     const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
-    await tabWalk(page, cdp, nearestKept, root, notes, model);
-    // A stop gap put 'tab-walk' in fail; every other end is a pass.
-    if (!model.checks['2.1.2']?.fail.includes('tab-walk')) addCheck(model.checks, '2.1.2', 'pass', 'tab-walk');
+    addCheck(model.checks, '2.1.2', await tabWalk(page, cdp, nearestKept, root, notes, model), 'tab-walk');
 
     const title = await page.title();
     const version = browser.version();
