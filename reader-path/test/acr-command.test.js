@@ -178,3 +178,22 @@ test('a model where axe-core did not run on all of the page is named', async () 
   assert.ok(out.includes(`${framed}: axe-core did not run on all of this page; its rows need a person`));
   assert.ok(!stdout.includes(`${PASS}:`));
 });
+
+test('chapter 3 rows use the base WCAG rows; base chapter 3 rows win', async () => {
+  const r = (num, level) => `      - num: ${num}\n        components:\n          - name: web\n            adherence:\n              level: ${level}\n              notes: By hand.\n`;
+  const fpc = '      - num: \'302.8\'\n        components:\n          - name: none\n            adherence:\n              level: supports\n              notes: By hand.\n';
+  const b = file(`title: T\nchapters:\n  success_criteria_level_a:\n    criteria:\n${r('2.1.2', 'does-not-support')}`
+    + `  functional_performance_criteria:\n    criteria:\n${fpc}`);
+  const { report } = await acr([PASS, '--base', b]);
+  const at = (num) => row(report, 'functional_performance_criteria', num).components[0].adherence;
+  assert.equal(at('302.7').level, 'does-not-support');
+  assert.ok(at('302.7').notes.includes('2.1.2 does-not-support'));
+  assert.equal(at('302.8').level, 'supports');
+  assert.equal(at('302.8').notes, 'By hand.');
+  const up = file(`title: T\nchapters:\n  success_criteria_level_aa:\n    criteria:\n${r('1.4.3', 'supports')}${r('1.4.4', 'supports')}`
+    + `${r('1.4.10', 'supports')}${r('2.4.7', 'supports')}${r('2.4.11', 'supports')}\n  success_criteria_level_a:\n    criteria:\n`
+    + `${r('1.4.1', 'supports')}`);
+  const { report: better } = await acr([PASS, '--base', up]);
+  const n = row(better, 'functional_performance_criteria', '302.2').components[0].adherence.notes;
+  assert.ok(n.includes('1.4.4 supports, 1.4.10 supports'));
+});

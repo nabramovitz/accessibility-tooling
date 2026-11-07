@@ -117,6 +117,16 @@ test('chapter 3 order: not-evaluated is worse than supports', () => {
   assert.equal(adh(na, '302.3').level, 'not-evaluated');
 });
 
+test('chapter 3 order with given levels: does-not-support first, not-applicable last', () => {
+  const given = (levels) => proposeRows([model({})], catalog, (sc) => levels[sc]);
+  const at = (levels) => adh(given(levels), '302.3').level;
+  assert.equal(at({ '1.4.1': 'does-not-support', '1.4.11': 'partially-supports' }), 'does-not-support');
+  assert.equal(at({ '1.4.1': 'partially-supports', '1.4.11': 'not-evaluated' }), 'partially-supports');
+  assert.equal(at({ '1.4.1': 'not-applicable', '1.4.11': 'supports' }), 'supports');
+  assert.equal(at({ '1.4.1': 'not-applicable', '1.4.11': 'not-applicable' }), 'not-applicable');
+  assert.ok(adh(given({ '1.4.1': 'does-not-support' }), '302.3').notes.includes('1.4.1 does-not-support, 1.4.11 not-evaluated'));
+});
+
 test('302.6 needs a person', () => {
   const a = adh(proposeRows([model({})], catalog), '302.6');
   assert.equal(a.level, 'not-evaluated');
