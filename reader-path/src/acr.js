@@ -28,12 +28,13 @@ export function loadCatalog() {
 }
 
 // A file: page is named by its file name only: the path can hold the
-// user's name, and the report is meant to be published.
+// user's name, and the report is meant to be published. The name is
+// escaped for Markdown, as a node title is.
 function label(m) {
   const u = m.finalUrl ?? bare(m.url);
   if (!/^file:/i.test(u)) return u;
   const name = u.split('/').pop();
-  try { return decodeURIComponent(name); } catch { return name; }
+  try { return md(decodeURIComponent(name)); } catch { return md(name); }
 }
 const list = (m, sc, kind) => m.checks?.[sc]?.[kind] ?? [];
 const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc, kind)))];

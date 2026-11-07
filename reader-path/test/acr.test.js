@@ -341,3 +341,9 @@ test('a page where axe-core did not check a frame has no result for axe-core row
   assert.equal(adh(rows, '2.1.2').level, 'supports');
   assert.equal(adh(proposeRows([ok], catalog), '1.1.1').level, 'supports');
 });
+
+test('Markdown punctuation in a file name is escaped', () => {
+  const u = 'file:///tmp/%5Ba%5D(b)_c.html';
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { url: u, finalUrl: u, root: { r: 'document', t: 'T', gaps: [['why', '1.1.1', 'g']] } });
+  assert.ok(lines(proposeRows([m], catalog), '1.1.1').includes('\\[a\\]\\(b\\)\\_c.html: T: why'));
+});
