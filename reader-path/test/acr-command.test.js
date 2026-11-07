@@ -168,14 +168,16 @@ test('the count of supports rows from automated rules is printed', async () => {
   assert.ok(stdout.split('\n').includes(`${n} rows proposed supports from automated rules only; a person confirms them`));
 });
 
-test('a model where axe-core did not run on all of the page is named', async () => {
+test('a model where axe-core did not run, or did not check a frame, is named', async () => {
   const m = JSON.parse(readFileSync(PASS, 'utf8'));
   const broken = file(JSON.stringify({ ...m, notes: ['axe-core did not run: x is not defined'] }), 'broken.json');
   const framed = file(JSON.stringify({ ...m, notes: ['axe not added to frame: https://x.test/f'] }), 'framed.json');
   const { stdout } = await acr([broken, framed, PASS]);
   const out = stdout.split('\n');
-  assert.ok(out.includes(`${broken}: axe-core did not run on all of this page; its rows need a person`));
-  assert.ok(out.includes(`${framed}: axe-core did not run on all of this page; its rows need a person`));
+  assert.ok(out.includes(`${broken}: axe-core did not run on this page; its rows need a person`));
+  assert.ok(out.includes(`${framed}: axe-core did not check a frame on this page; its rows need a person`));
+  assert.ok(!stdout.includes(`${broken}: axe-core did not check`));
+  assert.ok(!stdout.includes(`${framed}: axe-core did not run`));
   assert.ok(!stdout.includes(`${PASS}:`));
 });
 

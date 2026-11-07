@@ -95,10 +95,10 @@ async function writeAcr(files, { base, out }) {
   writeFileSync(out, dump(report));
   console.log(`wrote ${out}`);
   conflicts.forEach((x) => console.log(x));
+  const said = (m, start) => m.notes?.some?.((x) => String(x).startsWith(start));
   models.forEach((m, i) => {
-    if (m.notes?.some((x) => /^(axe-core did not run|axe not added to frame)/.test(x))) {
-      console.log(`${files[i]}: axe-core did not run on all of this page; its rows need a person`);
-    }
+    if (said(m, 'axe-core did not run')) console.log(`${files[i]}: axe-core did not run on this page; its rows need a person`);
+    if (said(m, 'axe not added to frame')) console.log(`${files[i]}: axe-core did not check a frame on this page; its rows need a person`);
   });
   if (!Object.keys(loaded ?? {}).length) console.log('fill title, product.name and author.email before the report is used');
   console.log(`${pending} A and AA rows still not-evaluated (a report cannot be published with them)`);
