@@ -106,7 +106,7 @@ test('chapter 3 takes the worst related level and names the rows', () => {
   const n = adh(rows, '302.1').notes;
   assert.ok(n.includes('4.1.2 partially-supports'));
   assert.ok(n.includes('1.1.1 supports'));
-  assert.ok(n.includes('the rule of comparable information is checked in a later version'));
+  assert.ok(n.includes('Needs a person: the rule of comparable information (the tool checks it in a later version).'));
 });
 
 test('chapter 3 order: not-evaluated is worse than supports', () => {
@@ -140,7 +140,7 @@ test('302.7 and 302.8 share rows; 302.9 adds the reading level sentence', () => 
     assert.ok(adh(rows, '302.7').notes.includes(`${c} `));
     assert.ok(adh(rows, '302.8').notes.includes(`${c} `));
   }
-  assert.ok(adh(rows, '302.9').notes.includes('reading level needs a person'));
+  assert.ok(adh(rows, '302.9').notes.includes('Needs a person: reading level.'));
   assert.ok(adh(rows, '302.2').notes.includes('2.4.11 '));
   assert.ok(adh(rows, '302.4').notes.includes('1.2.4 '));
   assert.ok(adh(rows, '302.5').notes.includes('1.4.7 '));
@@ -246,4 +246,13 @@ test('pass with review on any page: not-evaluated, with both rule lists', () => 
 
 test('4.1.1 note names the errata and the Understanding note', () => {
   assert.ok(adh(proposeRows([model({})], catalog), '4.1.1').notes.includes('WCAG 2.1 errata and the WCAG 2.0 Understanding note say content using HTML or XML always satisfies it:'));
+});
+
+test('302.1 and 302.9 with only supports rows: not-evaluated, a person checks the rest', () => {
+  const rows = proposeRows([model({})], catalog, () => 'supports');
+  assert.equal(adh(rows, '302.1').level, 'not-evaluated');
+  assert.ok(lines(rows, '302.1').includes('Needs a person: the rule of comparable information (the tool checks it in a later version).'));
+  assert.equal(adh(rows, '302.9').level, 'not-evaluated');
+  assert.ok(lines(rows, '302.9').includes('Needs a person: reading level.'));
+  assert.equal(adh(rows, '302.7').level, 'supports');
 });

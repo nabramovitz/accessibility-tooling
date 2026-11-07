@@ -6,9 +6,10 @@ const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'succ
 const MAX_GAP_LINES = 20;
 const ERRATA = ['https://www.w3.org/WAI/WCAG21/errata/', 'https://www.w3.org/TR/2023/NOTE-UNDERSTANDING-WCAG20-20230921/ensure-compat-parses.html'];
 
-// Chapter 3 rows: the related WCAG rows and an extra sentence for the note.
+// Chapter 3 rows: the related WCAG rows and, for a part no WCAG row
+// covers, a sentence for the note.
 const FPC = {
-  '302.1': { rows: ['1.1.1', '1.3.1', '1.3.2', '2.1.1', '2.4.3', '4.1.2'], extra: 'Note: the rule of comparable information is checked in a later version.' },
+  '302.1': { rows: ['1.1.1', '1.3.1', '1.3.2', '2.1.1', '2.4.3', '4.1.2'], extra: 'Needs a person: the rule of comparable information (the tool checks it in a later version).' },
   '302.2': { rows: ['1.4.3', '1.4.4', '1.4.10', '1.4.12', '2.4.7', '2.4.11'] },
   '302.3': { rows: ['1.4.1', '1.4.11'] },
   '302.4': { rows: ['1.2.1', '1.2.2', '1.2.4'] },
@@ -16,7 +17,7 @@ const FPC = {
   '302.6': { rows: [] },
   '302.7': { rows: ['2.1.1', '2.1.2', '2.2.1', '2.5.1', '2.5.2', '2.5.8'] },
   '302.8': { rows: ['2.1.1', '2.1.2', '2.2.1', '2.5.1', '2.5.2', '2.5.8'] },
-  '302.9': { rows: ['2.4.6', '3.2.3', '3.2.4', '3.3.1', '3.3.2'], extra: 'Note: reading level needs a person.' },
+  '302.9': { rows: ['2.4.6', '3.2.3', '3.2.4', '3.3.1', '3.3.2'], extra: 'Needs a person: reading level.' },
 };
 // First is worst.
 const WORST = ['does-not-support', 'partially-supports', 'not-evaluated', 'supports', 'not-applicable'];
@@ -91,10 +92,11 @@ function fpc(num, levelOf) {
   const { rows, extra } = FPC[num];
   if (!rows.length) return { level: 'not-evaluated', lines: ['Needs a person: does any function need speech?'] };
   const levels = rows.map(levelOf);
-  const level = WORST.find((l) => levels.includes(l));
+  const worst = WORST.find((l) => levels.includes(l));
   const lines = [`Worst of the related rows: ${rows.map((r, i) => `${r} ${levels[i]}`).join(', ')}`];
   if (extra) lines.push(extra);
-  return { level, lines };
+  // The part in the extra sentence is not checked, so it is not supports.
+  return { level: extra && worst === 'supports' ? 'not-evaluated' : worst, lines };
 }
 
 // levelOf(num), when given, is the level of a WCAG row for the chapter 3
