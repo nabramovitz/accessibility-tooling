@@ -1,0 +1,13 @@
+{
+  "name": "reader-path",
+  "version": "0.1.0",
+  "description": "Write a model of what a screen reader user gets from one web page.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "reader-path": "cli.js" },
+  "scripts": { "test": "node --test" },
+  "dependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "1.64.1"
+  }
+}

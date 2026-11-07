@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Fixture</title></head>
+<body>
+<nav aria-label="Main"><a href="/one">One</a> <a href="/two">Two</a></nav>
+<h1>Home</h1>
+<h3>Shortcuts</h3>
+<div style="display:none"><button>Hidden A</button></div>
+<button aria-hidden="true">Hidden B</button>
+<x-star></x-star>
+<script>
+customElements.define('x-star', class extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' }).innerHTML =
+      '<button aria-label="Add to favorites">★</button>';
+  }
+});
+</script>
+<div role="status">3 endpoints shown</div>
+<button aria-expanded="false">Menu</button>
+</body>
+</html>
