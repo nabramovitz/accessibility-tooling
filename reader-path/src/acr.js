@@ -122,7 +122,6 @@ export function proposeRows(models, catalog, levelOf) {
   return out;
 }
 
-const BASE_LEVELS = ['supports', 'not-applicable'];
 const METHODS = 'Automated checks with reader-path ';
 // A row whose note still ends with the tool's end line is the tool's own
 // row from an earlier run, not a person's: it is proposed again.
@@ -136,7 +135,7 @@ const toolOwned = (row) => TOOL_END.test(String(adherence(row)?.notes ?? ''));
 // The report: the base file's fields as they are, the tool's rows for
 // the nums the base does not have or has as the tool's own rows. The chapter 3 rows come from the WCAG
 // rows after this merge. Returns { report, conflicts, pending, automated }:
-// conflicts are lines for base rows that new evidence contradicts, pending
+// conflicts are lines for person rows better than the new evidence, pending
 // is the number of A and AA rows still not-evaluated, automated the number
 // of WCAG rows the tool wrote as supports from rules (4.1.1 is not one).
 export function buildReport(models, base, catalog, { version, axe, date }) {
@@ -167,8 +166,9 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
         return p;
       }
       mine.delete(p.num);
-      if (BASE_LEVELS.includes(level(b)) && level(p) === 'partially-supports') {
-        conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: partially-supports`);
+      // WORST order: a higher index is a better level.
+      if (WORST.indexOf(level(b)) > WORST.indexOf(level(p))) {
+        conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: ${level(p)}`);
       }
       return b;
     });
