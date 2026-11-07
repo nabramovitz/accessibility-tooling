@@ -206,6 +206,7 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
     (model.levels ||= {})['2.1.2'] = 'A';
     notes.push(note);
   };
+  const seen = new Set();
   let first = null;
   let prev = null;
   let n = 0;
@@ -230,12 +231,18 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
       return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }
     if (id === first) return;
+    if (seen.has(id)) {
+      return stop('Tab moves focus round a loop and never back to the start.',
+        'Tab walk stopped: focus loops without returning to the start');
+    }
+    seen.add(id);
     first ??= id;
     prev = id;
     const kept = nearestKept(id);
     if (kept && !kept.tab) kept.tab = ++n;
   }
-  stop('Tab does not move focus out of this control.', `Tab walk stopped after ${MAX_TABS} presses`);
+  // No repeat in MAX_TABS presses: a long page, not a trap.
+  notes.push(`Tab walk stopped at ${MAX_TABS} Tab stops; the rest not recorded`);
 }
 
 // A url without its query and fragment: these can hold sign-in tokens.

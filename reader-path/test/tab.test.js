@@ -17,10 +17,20 @@ test('a focus that does not move is a gap', async () => {
   assert.ok(m.notes.includes('Tab walk stopped: focus did not move'));
 });
 
-test('a focus loop that skips the start stops at 500 presses', async () => {
+test('a focus loop that skips the start is a gap', async () => {
   const m = await generate(fixture('trap-loop.html'));
   assert.ok(m.root.gaps.some((g) => g[1] === '2.1.2'));
-  assert.ok(m.notes.includes('Tab walk stopped after 500 presses'));
+  assert.ok(m.notes.includes('Tab walk stopped: focus loops without returning to the start'));
+  assert.deepEqual(flat(m).filter((n) => n.tab).map((n) => n.name), ['A', 'B', 'C']);
+});
+
+test('more than 500 Tab stops is a note, not a gap', async () => {
+  const m = await generate(fixture('many.html'));
+  assert.equal(m.root.gaps, undefined);
+  assert.ok(m.notes.includes('Tab walk stopped at 500 Tab stops; the rest not recorded'));
+  const stops = flat(m).filter((n) => n.tab);
+  assert.equal(stops.length, 500);
+  assert.equal(stops.find((n) => n.tab === 500).name, 'B500');
 });
 
 test('a page with no Tab stop', async () => {
