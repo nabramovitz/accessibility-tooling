@@ -4,6 +4,7 @@
   "description": "Write a model of what a screen reader user gets from one web page.",
   "license": "Apache-2.0",
   "type": "module",
+  "engines": { "node": ">=22" },
   "bin": { "reader-path": "cli.js" },
   "scripts": { "test": "node --test" },
   "dependencies": {
