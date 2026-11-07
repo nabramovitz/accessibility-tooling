@@ -6,16 +6,24 @@ import { fileURLToPath } from 'node:url';
 import { findBun, runBun } from './src/bun.js';
 
 // Under Node.js, when `bun --version` works, this file runs itself again
-// with Bun and exits as that run exits. The arguments go to that run as
-// JSON in READER_PATH_ARGV, so no shell reads them on the way; the
-// variable also tells that run not to look for Bun again.
+// with Bun and exits as that run exits. That run gets one argument, the
+// token below, and the real arguments as JSON in READER_PATH_ARGV, so no
+// shell reads them on the way. Only a Bun run with the token as its one
+// argument reads the variable, and a run with the token does not look
+// for Bun again. Any other READER_PATH_ARGV is dropped.
 const ARGV = 'READER_PATH_ARGV';
-if (!process.versions.bun && process.env[ARGV] === undefined) {
+const TOKEN = '--args-from-env';
+const argv = process.argv.slice(2);
+const token = argv.length === 1 && argv[0] === TOKEN;
+const passed = process.versions.bun && token ? process.env[ARGV] : undefined;
+delete process.env[ARGV];
+
+if (!process.versions.bun && !token) {
   const bun = findBun();
   if (bun) {
-    const r = runBun(bun, [fileURLToPath(import.meta.url)], {
+    const r = runBun(bun, [fileURLToPath(import.meta.url), TOKEN], {
       stdio: 'inherit',
-      env: { ...process.env, [ARGV]: JSON.stringify(process.argv.slice(2)) },
+      env: { ...process.env, [ARGV]: JSON.stringify(argv) },
     });
     if (!r.error) {
       if (r.signal) process.kill(process.pid, r.signal);
@@ -32,13 +40,8 @@ try {
   const { generate, pageUrl } = await import('./src/generate.js');
   const { render } = await import('./src/render.js');
 
-  let args = process.argv.slice(2);
-  if (process.env[ARGV] !== undefined) {
-    args = JSON.parse(process.env[ARGV]);
-    delete process.env[ARGV];
-  }
   const { values, positionals } = parseArgs({
-    args,
+    args: passed === undefined ? argv : JSON.parse(passed),
     allowPositionals: true,
     options: {
       out: { type: 'string', default: 'reader-path-out' },
