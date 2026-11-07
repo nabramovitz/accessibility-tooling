@@ -331,3 +331,13 @@ test('a person row in another chapter still counts for chapter 3', () => {
   const { report } = buildReport([model({})], base, catalog, OPTS);
   assert.equal(at(report, 'functional_performance_criteria', '302.7').level, 'does-not-support');
 });
+
+test('a page where axe-core did not check a frame has no result for axe-core rows', () => {
+  const framed = model({ '1.1.1': entry({ pass: ['image-alt'] }), '2.1.2': entry({ pass: ['tab-walk'] }) }, { notes: ['axe not added to frame: https://x.test/f'] });
+  const ok = model({ '1.1.1': entry({ pass: ['image-alt'] }), '2.1.2': entry({ pass: ['tab-walk'] }) });
+  const rows = proposeRows([framed, ok], catalog);
+  assert.equal(adh(rows, '1.1.1').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.1.1').includes('Needs a person: axe-core did not check a frame on 1 page(s)'));
+  assert.equal(adh(rows, '2.1.2').level, 'supports');
+  assert.equal(adh(proposeRows([ok], catalog), '1.1.1').level, 'supports');
+});
