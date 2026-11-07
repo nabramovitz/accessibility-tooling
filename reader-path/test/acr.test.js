@@ -21,6 +21,7 @@ test('a failing rule on any page: partially-supports, with the gaps', () => {
   const a = adh(rows, '1.1.1');
   assert.equal(a.level, 'partially-supports');
   assert.ok(lines(rows, '1.1.1').includes('https://x.test/a: Logo: no alt'));
+  assert.ok(lines(rows, '1.1.1').includes('Failing rules: image-alt on 1 of 1 page(s)'));
   assert.ok(!a.notes.includes('other'));
 });
 
@@ -155,7 +156,49 @@ test('rows come in catalog order, in the four chapters, with the right component
 });
 
 test('the page label falls back to the bare url', () => {
-  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { finalUrl: undefined });
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { finalUrl: undefined, root: { r: 'document', t: 'T', gaps: [['why', '1.1.1', 'g']] } });
   assert.ok(adh(proposeRows([m], catalog), '1.1.1').notes.includes('https://x.test/a'));
   assert.ok(!adh(proposeRows([m], catalog), '1.1.1').notes.includes('token'));
+});
+
+test('an unplaced gap keeps no selector', () => {
+  const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, {
+    root: { r: 'document', t: 'T', gaps: [['not placed: a[href="/x?token=abc"] > b - Fix this', '2.4.4', 'g']] },
+  });
+  const n = adh(proposeRows([m], catalog), '2.4.4').notes;
+  assert.ok(!n.includes('token'));
+  assert.ok(n.includes('T: not placed - Fix this'));
+});
+
+test('a gap why with line breaks is one line', () => {
+  const why = 'Fix any of the following:\n  Element has no name\n\nFix all of the following:\n  Other';
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { r: 'document', t: 'T', gaps: [[why, '1.1.1', 'g']] } });
+  const l = lines(proposeRows([m], catalog), '1.1.1');
+  assert.ok(l.includes('https://x.test/a: T: Fix any of the following: Element has no name Fix all of the following: Other'));
+});
+
+test('no models throws', () => {
+  assert.throws(() => proposeRows([], catalog), /no models/);
+});
+
+test('an empty title falls back to the role', () => {
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { role: 'document', t: '', gaps: [['why', '1.1.1', 'g']] } });
+  assert.ok(adh(proposeRows([m], catalog), '1.1.1').notes.includes('https://x.test/a: document: why'));
+});
+
+test('failing rules are one line over the pages', () => {
+  const a = model({ '1.1.1': entry({ fail: ['r1'] }) });
+  const b = model({ '1.1.1': entry({ fail: ['r2', 'r1'] }) });
+  const c = model({});
+  assert.ok(lines(proposeRows([a, b, c], catalog), '1.1.1').includes('Failing rules: r1, r2 on 2 of 3 page(s)'));
+});
+
+test('supports with review rules keeps the needs-a-person line', () => {
+  const rows = proposeRows([model({ '1.4.3': entry({ pass: ['p'], review: ['color-contrast'] }) })], catalog);
+  assert.equal(adh(rows, '1.4.3').level, 'supports');
+  assert.ok(lines(rows, '1.4.3').includes('Needs a person: axe-core could not decide (color-contrast)'));
+});
+
+test('4.1.1 note names the errata and the Understanding note', () => {
+  assert.ok(adh(proposeRows([model({})], catalog), '4.1.1').notes.includes('WCAG 2.1 errata and the WCAG 2.0 Understanding note say content using HTML or XML always satisfies it:'));
 });
