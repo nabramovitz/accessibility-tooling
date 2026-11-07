@@ -109,7 +109,8 @@ const level = (row) => row.components?.find((c) => c.name === 'web' || c.name ==
 // The report: the base file's fields as they are, the tool's rows for
 // the nums the base does not have. Returns { report, conflicts, pending }:
 // conflicts are lines for base rows that new evidence contradicts, pending
-// is the number of A and AA rows still not-evaluated.
+// is the number of A and AA rows still not-evaluated, automated the number
+// of WCAG rows the tool wrote as supports from rules (4.1.1 is not one).
 export function buildReport(models, base, catalog, { version, axe, date }) {
   const proposed = proposeRows(models, catalog);
   const report = base && Object.keys(base).length ? { ...base } : {
@@ -124,12 +125,16 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   const chapters = {};
   const conflicts = [];
   let pending = 0;
+  let automated = 0;
   for (const id of CHAPTERS) {
     const own = report.chapters?.[id]?.criteria || [];
     const mine = new Map(own.map((r) => [String(r.num), r]));
     const rows = proposed[id].map((p) => {
       const b = mine.get(p.num);
-      if (!b) return p;
+      if (!b) {
+        if (id !== 'functional_performance_criteria' && p.num !== '4.1.1' && level(p) === 'supports') automated++;
+        return p;
+      }
       mine.delete(p.num);
       if (BASE_LEVELS.includes(level(b)) && level(p) === 'partially-supports') {
         conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: partially-supports`);
@@ -142,7 +147,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   }
   for (const [id, chapter] of Object.entries(report.chapters || {})) chapters[id] ??= chapter;
   report.chapters = chapters;
-  return { report, conflicts, pending };
+  return { report, conflicts, pending, automated };
 }
 
 export const dump = (report) => yaml.dump(report, { lineWidth: 80, noRefs: true });

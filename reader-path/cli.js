@@ -81,13 +81,19 @@ async function writeAcr(files, { base, out }) {
   const d = new Date();
   const date = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, '0')).join('-');
   const loaded = base ? loadBase(base, yaml) : null;
-  const { report, conflicts, pending } = buildReport(models, loaded, loadCatalog(), { version: own.version, axe: axe.version, date });
+  const { report, conflicts, pending, automated } = buildReport(models, loaded, loadCatalog(), { version: own.version, axe: axe.version, date });
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, dump(report));
   console.log(`wrote ${out}`);
   conflicts.forEach((x) => console.log(x));
+  models.forEach((m, i) => {
+    if (m.notes?.some((x) => /^(axe-core did not run|axe not added to frame)/.test(x))) {
+      console.log(`${files[i]}: axe-core did not run on all of this page; its rows need a person`);
+    }
+  });
   if (!Object.keys(loaded ?? {}).length) console.log('fill title, product.name and author.email before the report is used');
   console.log(`${pending} A and AA rows still not-evaluated (a report cannot be published with them)`);
+  console.log(`${automated} rows proposed supports from automated rules only; a person confirms them`);
 }
 
 async function writePage(url, values) {

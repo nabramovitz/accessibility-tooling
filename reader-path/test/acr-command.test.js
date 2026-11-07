@@ -159,3 +159,22 @@ test('--out in a new directory is made', async () => {
 test('the usage error shows both forms', async () => {
   await assert.rejects(run('node', [CLI]), (e) => e.code === 1 && /reader-path <url>[\s\S]*reader-path acr <model\.json>/.test(e.stderr));
 });
+
+test('the count of supports rows from automated rules is printed', async () => {
+  const { report, stdout } = await acr([PASS]);
+  const n = ['success_criteria_level_a', AA, 'success_criteria_level_aaa'].flatMap((c) => report.chapters[c].criteria)
+    .filter((r) => r.num !== '4.1.1' && r.components[0].adherence.level === 'supports').length;
+  assert.ok(n > 0);
+  assert.ok(stdout.split('\n').includes(`${n} rows proposed supports from automated rules only; a person confirms them`));
+});
+
+test('a model where axe-core did not run on all of the page is named', async () => {
+  const m = JSON.parse(readFileSync(PASS, 'utf8'));
+  const broken = file(JSON.stringify({ ...m, notes: ['axe-core did not run: x is not defined'] }), 'broken.json');
+  const framed = file(JSON.stringify({ ...m, notes: ['axe not added to frame: https://x.test/f'] }), 'framed.json');
+  const { stdout } = await acr([broken, framed, PASS]);
+  const out = stdout.split('\n');
+  assert.ok(out.includes(`${broken}: axe-core did not run on all of this page; its rows need a person`));
+  assert.ok(out.includes(`${framed}: axe-core did not run on all of this page; its rows need a person`));
+  assert.ok(!stdout.includes(`${PASS}:`));
+});
