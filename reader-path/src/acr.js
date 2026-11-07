@@ -70,9 +70,10 @@ function wcag(models, sc) {
     const rules = `Failing rules: ${union(models, sc, 'fail').join(', ')} on ${failing.length} of ${models.length} page(s)`;
     return { level: 'partially-supports', lines: [rules, ...gapLines(models, sc)] };
   }
-  // supports needs a pass, and a pass or na on every page. The tool never
-  // writes not-applicable: an axe-core rule with nothing to check does not
-  // show that the criterion does not apply.
+  // supports needs a pass, and a pass or na on every page (all of it,
+  // frames included). The tool never writes not-applicable: an axe-core
+  // rule with nothing to check does not show that the criterion does not
+  // apply.
   const [pass, review, na] = ['pass', 'review', 'na'].map((kind) => union(models, sc, kind));
   if (!pass.length && !review.length && !na.length) return { level: 'not-evaluated', lines: ['Needs a person: no automated check'] };
   const passing = models.filter((m) => list(m, sc, 'pass').length);
@@ -85,7 +86,12 @@ function wcag(models, sc) {
   if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
   if (!pass.length && na.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${na.join(', ')}); is the row not applicable?`);
   if (missing.length) lines.push(`Needs a person: no automated result on ${missing.length} of ${models.length} page(s)`);
-  return { level: pass.length && !review.length && !missing.length ? 'supports' : 'not-evaluated', lines };
+  // A frame that refused axe-core is not checked: its page has no result
+  // for a row that axe-core rules check.
+  const axeRules = [...pass, ...review, ...na].some((r) => r !== 'tab-walk');
+  const framed = axeRules ? models.filter((m) => m.notes?.some?.((x) => String(x).startsWith('axe not added to frame'))) : [];
+  if (framed.length) lines.push(`Needs a person: axe-core did not check a frame on ${framed.length} page(s)`);
+  return { level: pass.length && !review.length && !missing.length && !framed.length ? 'supports' : 'not-evaluated', lines };
 }
 
 function fpc(num, levelOf) {
