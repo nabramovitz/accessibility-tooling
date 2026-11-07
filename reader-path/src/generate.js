@@ -1,4 +1,8 @@
 import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+import { RUN_ONLY, axeToGaps, axeContrast } from './axe.js';
+
+const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
 const DROPPED = new Set(['generic', 'none', 'StaticText', 'InlineTextBox', 'LineBreak']);
 const LANDMARKS = new Set(['banner', 'navigation', 'main', 'complementary', 'contentinfo', 'region', 'search', 'form']);
@@ -111,6 +115,52 @@ function buildTree(nodes, dom) {
   return { root, nearestKept };
 }
 
+// Runs axe-core and puts gaps (node.gaps) and contrast (node.contrast) on the
+// nearest kept node. A target that cannot be placed is a gap on the root.
+async function axePass(page, cdp, nearestKept, root, model) {
+  for (const frame of page.frames()) await frame.addScriptTag({ path: AXE_PATH });
+  const results = await page.evaluate((runOnly) => axe.run(document, { runOnly }), RUN_ONLY);
+
+  const place = async (target) => {
+    if (target.length !== 1) return undefined;
+    try {
+      const path = [].concat(target[0]);
+      const { result } = await cdp.send('Runtime.evaluate', {
+        expression: `(() => { const p = ${JSON.stringify(path)};
+          let e = document.querySelector(p[0]);
+          for (const s of p.slice(1)) e = e && e.shadowRoot && e.shadowRoot.querySelector(s);
+          return e; })()`,
+        objectGroup: 'axe',
+      });
+      if (!result.objectId) return undefined;
+      const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
+      return nearestKept(node.backendNodeId);
+    } catch {
+      return undefined;
+    }
+  };
+
+  for (const g of axeToGaps(results)) {
+    let node = await place(g.target);
+    let why = g.why;
+    if (!node) {
+      node = root;
+      why = `not placed: ${g.target.map((t) => [].concat(t).join(' ')).join(' > ')} - ${g.why}`;
+    }
+    (node.gaps ||= []).push(g.row ? [why, g.sc, g.goal, g.row] : [why, g.sc, g.goal]);
+    (model.levels ||= {})[g.sc] = g.level;
+  }
+  for (const c of axeContrast(results)) {
+    const node = await place(c.target);
+    if (!node) continue;
+    const { target, ...value } = c;
+    const old = node.contrast;
+    if (!old || (old.ratio === null && value.ratio !== null) || (value.ratio !== null && value.ratio < old.ratio)) {
+      node.contrast = value;
+    }
+  }
+}
+
 const MAX_TABS = 500;
 const ACTIVE = `(() => { let e = document.activeElement;
   while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
@@ -167,6 +217,7 @@ export async function generate(url, opts = {}) {
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
     const { root, nearestKept } = buildTree(nodes, dom);
     const model = {};
+    await axePass(page, cdp, nearestKept, root, model);
     await tabWalk(page, cdp, nearestKept, root, notes, model);
 
     const title = await page.title();
