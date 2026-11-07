@@ -108,7 +108,8 @@ checks do not support; when in doubt it writes `not-evaluated`.
 - `not-evaluated`: anything else. The note says what a person must
   look at, after `Needs a person:`: no automated check covers the row;
   a page has no result for it (for example, axe-core did not run
-  there); axe-core could not decide (also when other rules passed); or
+  there, or did not check a frame of the page); axe-core could not
+  decide (also when other rules passed); or
   the rules found nothing to check, so a person says if the row is not
   applicable.
 
@@ -122,7 +123,12 @@ in this order: `does-not-support`, `partially-supports`,
 `not-evaluated`, `supports`, `not-applicable`. The related rows are the
 ones in the report, base rows included, so a chapter 3 row can be
 `does-not-support` or `not-applicable` only when a person wrote that
-for its WCAG rows.
+for its WCAG rows. A base level that is not an OpenACR level counts as
+`not-evaluated`, and the command prints the row. 302.1 and 302.9 also
+have a part that no WCAG row covers (the rule of comparable
+information, the reading level), so they are never `supports`. A
+chapter 3 row built with a level from a person's row ends with "from
+automated checks and the base file".
 
 Notes are Markdown, as OpenACR renders them: each line is a paragraph,
 and Markdown punctuation in a title from the page is escaped. A local
@@ -132,19 +138,26 @@ A person confirms every row before the report is published. A report
 cannot be published with `not-evaluated` at level A or AA; the command
 prints how many such rows remain, how many rows it proposed as
 `supports` from automated rules only, and each model file where
-axe-core did not run on all of the page.
+axe-core did not run, or did not check a frame.
 
 - `--out <file.yaml>`: required.
-- `--base <yaml>`: a report that a person owns. Its rows and its
-  top-level fields are kept as they are, except `catalog` and
-  `report_date`, which the tool always sets. The tool only fills the
-  rows the base does not have. The base is read as plain YAML (an
-  unquoted date stays text), and every `num` is written as a string.
-  When a base row says `supports` or
-  `not-applicable` and the new evidence says `partially-supports`, the
-  command prints that row number and both levels. Chapters that the
-  tool does not write (hardware, software, support documentation) are
-  kept from the base.
+- `--base <yaml>`: a report that a person owns, for example an earlier
+  draft that a person edited. Its top-level fields are kept as they
+  are, except `catalog` and `report_date`, which the tool always sets,
+  and `evaluation_methods_used`, which the tool writes again while it
+  still starts with the tool's own text. The base is read as plain
+  YAML (an unquoted date stays text), and every `num` is written as a
+  string. Chapters that the tool does not write (hardware, software,
+  support documentation) are kept from the base.
+
+  A row is the person's once its note no longer ends with the
+  "Proposed by reader-path ..." line. To take a row as your own,
+  change the level and delete that line. A person's row is kept as it
+  is. Rows that still end with that line are the tool's, and they are
+  proposed again on every run, from the new evidence. When a person's
+  row has a better level than the new evidence (in the order above),
+  the command prints the row number and both levels, for example
+  `base row 1.4.3: supports; new evidence: not-evaluated`.
 
 Without `--base`, `title`, `product.name` and `author.email` are
 placeholders to fill in.
