@@ -240,5 +240,5 @@ test('cli under bun exits as the bun run exits', () => {
 });
 
 test('cli exits 1 with one line when no url is given', () => {
-  assert.throws(() => execFileSync('node', [CLI], { stdio: 'pipe' }), (e) => e.status === 1 && e.stderr.toString().trim().split('\n').length === 1);
+  assert.throws(() => execFileSync('node', [CLI], { stdio: 'pipe' }), (e) => e.status === 1 && e.stderr.toString().trim().split(/\r?\n/).length === 1);
 });

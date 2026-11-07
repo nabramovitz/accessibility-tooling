@@ -65,6 +65,6 @@ try {
   writeFileSync(join(values.out, 'index.html'), render(model));
   console.log(`wrote ${join(values.out, 'index.html')} and ${join(values.out, 'model.json')}`);
 } catch (e) {
-  console.error(`reader-path: ${String(e.message).split('\n')[0]}`);
+  console.error(`reader-path: ${String(e.message).split(/\r?\n/)[0]}`);
   process.exit(1);
 }
