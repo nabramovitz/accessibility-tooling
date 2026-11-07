@@ -18,9 +18,10 @@ const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
 // Runs axe-core on the page as it is now. The arrow layer is hidden first:
 // axe counts it as an overlap and then cannot measure the text below it.
-// Returns the A/AA violations, and the contrast checks inside the map that
-// axe could not finish. The open/close glyphs are icons, not text (axe:
-// nonBmp); their colour is checked as a graphic, so they are left out.
+// Returns the A/AA violations and the AAA 1.4.6 ones (text 7 to 1, large
+// text 4.5 to 1), and the contrast checks inside the map that axe could
+// not finish. The open/close glyphs are icons, not text (axe: nonBmp);
+// their colour is checked as a graphic, so they are left out.
 async function check(page) {
   await page.addScriptTag({ path: AXE });
   return page.evaluate(async (runOnly) => {
@@ -28,13 +29,14 @@ async function check(page) {
     const r = await axe.run(document, { runOnly });
     document.getElementById('svg').style.display = '';
     const aa = /^wcag(2|21|22)a{1,2}$/;
+    const contrast = ['color-contrast', 'color-contrast-enhanced'];
     return {
-      violations: r.violations.filter((v) => v.tags.some((t) => aa.test(t)))
+      violations: r.violations.filter((v) => v.tags.some((t) => aa.test(t)) || v.tags.includes('wcag146'))
         .flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(' ')}`)),
-      unfinished: r.incomplete.filter((v) => v.id === 'color-contrast')
+      unfinished: r.incomplete.filter((v) => contrast.includes(v.id))
         .flatMap((v) => v.nodes.filter((n) => n.any.every((c) => c.data?.messageKey !== 'nonBmp')
           && document.querySelector('#map').contains(document.querySelector(n.target[0])))
-          .map((n) => n.target.join(' '))),
+          .map((n) => `${v.id} ${n.target.join(' ')}`)),
     };
   }, RUN_ONLY);
 }
@@ -62,19 +64,19 @@ test('page text is never run', async () => {
   }
 });
 
-test('the review page is a model of itself without A/AA gaps', async () => {
+test('the review page is a model of itself without A/AA or 1.4.6 gaps', async () => {
   const file = join(tmp(), 'index.html');
   writeFileSync(file, render(await generate(fixture('structure.html'))));
   const m = await generate(pathToFileURL(file).href);
   const all = flat(m);
   const bad = all.flatMap((n) => (n.gaps || []).map((g) => [n.name || n.role, g[1], g[2]]))
-    .filter((g) => ['A', 'AA'].includes(m.levels[g[1]]));
+    .filter((g) => ['A', 'AA'].includes(m.levels[g[1]]) || g[1] === '1.4.6');
   assert.deepEqual(bad, []);
   assert.ok(all.some((n) => n.lm === 'main'));
   assert.equal(all.filter((n) => n.h === 1).length, 1);
 });
 
-test('the review page has no A/AA gaps in two views and both themes', async () => {
+test('the review page has no A/AA or 1.4.6 gaps in two views and both themes', async () => {
   const file = join(tmp(), 'index.html');
   writeFileSync(file, render(await generate(fixture('gaps.html'))));
   const browser = await chromium.launch();
@@ -88,6 +90,49 @@ test('the review page has no A/AA gaps in two views and both themes', async () =
       await page.locator('#map .n .pick').filter({ hasText: 'image' }).first().click();
       assert.ok((await page.locator('#det').innerText()).includes('1.1.1'));
       assert.deepEqual(await check(page), { violations: [], unfinished: [] }, `${colorScheme}, Gaps`);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+// Every colour pair of the review page, painted by the browser in both
+// themes. Text needs 7 to 1 (1.4.6; all text on the page is small).
+// Borders, outlines, the focus mark and the arrows need 3 to 1 (1.4.11);
+// axe-core has no rule for these. The Tab order line is drawn at the
+// opacity the page uses.
+test('review page colours: text 7 to 1, graphics 3 to 1, both themes', async () => {
+  const file = join(tmp(), 'index.html');
+  writeFileSync(file, render({ url: 'file:///x', title: 'T', notes: [], root: { id: 'r', t: 'Page', comp: 'RootWebArea', role: 'RootWebArea', c: [] } }));
+  const lineOpacity = Number(readFileSync(new URL('../review/template.html', import.meta.url), 'utf8')
+    .match(/stroke="var\(--line\)"[^>]*opacity="([\d.]+)"/)[1]);
+  const browser = await chromium.launch();
+  try {
+    for (const colorScheme of ['light', 'dark']) {
+      const page = await browser.newPage({ colorScheme });
+      await page.goto(pathToFileURL(file).href);
+      const low = await page.evaluate((lineOpacity) => {
+        const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d');
+        const css = getComputedStyle(document.documentElement);
+        // The colour of a token as the browser paints it, with an alpha
+        // over a backdrop: [r, g, b] in sRGB.
+        const paint = (token, alpha = 1, under) => {
+          if (under) { ctx.globalAlpha = 1; ctx.fillStyle = css.getPropertyValue(`--${under}`); ctx.fillRect(0, 0, 1, 1); }
+          ctx.globalAlpha = alpha; ctx.fillStyle = css.getPropertyValue(`--${token}`); ctx.fillRect(0, 0, 1, 1);
+          return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+        };
+        const lum = (rgb) => { const [r, g, b] = rgb.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+        const surfaces = ['bg', 'bg2', 'sel'];
+        const pairs = [];
+        for (const fg of ['fg', 'mut', 'acc', 'err']) for (const bg of surfaces) pairs.push([`${fg} on ${bg}`, paint(fg), paint(bg), 7]);
+        for (const bg of ['acc', 'err', 'warn', 'aaa']) pairs.push([`bg on ${bg}`, paint('bg'), paint(bg), 7]);
+        for (const g of ['bd', 'dimbd', 'acc', 'err', 'warn', 'fg', 'mut']) for (const bg of surfaces) pairs.push([`${g} on ${bg}`, paint(g), paint(bg), 3]);
+        for (const bg of surfaces) pairs.push([`line on ${bg}`, paint('line', lineOpacity, bg), paint(bg), 3]);
+        return pairs.map(([name, a, b, need]) => [name, +ratio(a, b).toFixed(2), need]).filter(([, r, need]) => r < need);
+      }, lineOpacity);
+      assert.deepEqual(low, [], colorScheme);
       await page.close();
     }
   } finally {
