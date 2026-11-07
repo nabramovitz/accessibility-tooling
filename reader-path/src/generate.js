@@ -41,16 +41,25 @@ function boxOf(ax, role) {
   return undefined;
 }
 
+// The document an iframe shows, from its flat [name, value, ...] attribute
+// list: about:srcdoc for srcdoc (it wins over src), else src without its
+// query and fragment.
+function frameSrc(attributes = []) {
+  const attr = (name) => {
+    for (let i = 0; i < attributes.length; i += 2) if (attributes[i] === name) return attributes[i + 1];
+    return undefined;
+  };
+  if (attr('srcdoc') !== undefined) return 'about:srcdoc';
+  const src = attr('src');
+  return src ? src.split(/[?#]/)[0] : 'about:blank';
+}
+
 function indexDom(domRoot) {
   const dom = new Map(); // backendNodeId -> { name, parent }
   const notes = [];
   const visit = (n, parent) => {
     dom.set(n.backendNodeId, { name: n.nodeName.toLowerCase(), parent });
-    if (n.nodeName === 'IFRAME') {
-      const a = n.attributes || [];
-      const i = a.indexOf('src');
-      notes.push(`iframe not read: ${i >= 0 ? a[i + 1] : ''}`);
-    }
+    if (n.nodeName === 'IFRAME') notes.push(`iframe not read: ${frameSrc(n.attributes)}`);
     for (const c of [...(n.shadowRoots || []), ...(n.children || [])]) visit(c, n.backendNodeId);
   };
   visit(domRoot, null);
@@ -59,7 +68,7 @@ function indexDom(domRoot) {
 
 // Returns { root, nearestKept }; nearestKept(backendId) is the kept model node
 // for that DOM node or its nearest ancestor.
-function buildTree(nodes, dom) {
+export function buildTree(nodes, dom) {
   const customOf = (id) => {
     for (let x = id; x != null; x = dom.get(x)?.parent) {
       const name = dom.get(x)?.name;
@@ -92,7 +101,8 @@ function buildTree(nodes, dom) {
     let here = keptParent;
     if (isKept(n, isRoot)) {
       const name = n.name?.value || '';
-      const node = { id: `n${n.backendDOMNodeId}`, role, name };
+      const id = n.backendDOMNodeId != null ? `n${n.backendDOMNodeId}` : `a${n.nodeId}`;
+      const node = { id, role, name };
       node.t = name || role;
       node.comp = customOf(n.backendDOMNodeId) || role;
       if (n.description?.value) node.desc = n.description.value;
@@ -109,7 +119,10 @@ function buildTree(nodes, dom) {
       keptParent.text = keptParent.text ? `${keptParent.text} ${n.name.value}` : n.name.value;
     }
     if (n.backendDOMNodeId != null && here) kept.set(n.backendDOMNodeId, here);
-    for (const id of n.childIds || []) build(ax.get(id), here, false);
+    for (const id of n.childIds || []) {
+      const child = ax.get(id);
+      if (child) build(child, here, false);
+    }
     return here;
   };
   const root = build(nodes[0], null, true);
@@ -224,9 +237,7 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
     const id = node.backendNodeId;
     if (node.nodeName === 'IFRAME') {
       if (id === prev) continue; // focus is moving inside the frame, which is not read
-      const a = node.attributes || [];
-      const i = a.indexOf('src');
-      notes.push(`Tab stops inside iframe not read: ${i >= 0 ? a[i + 1] : 'about:srcdoc'}`);
+      notes.push(`Tab stops inside iframe not read: ${frameSrc(node.attributes)}`);
     }
     if (id === prev) {
       return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
