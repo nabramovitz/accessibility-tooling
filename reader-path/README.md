@@ -97,8 +97,7 @@ catalog in `catalog/`, a copy of the GSA/openacr catalog (see
 
 What each level means here:
 
-- `supports`: the automated checks passed on every page and none
-  failed.
+- `supports`: a check passed on at least one page and none failed.
 - `partially-supports`: a check failed on at least one page. The note
   names the page and the gap. The tool never writes `does-not-support`;
   whether a gap hits "the majority of product functionality" is for a
