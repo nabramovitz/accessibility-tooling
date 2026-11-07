@@ -74,7 +74,8 @@ Windows path such as `C:\pages\page.html`.
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
-query and no fragment, as a redirect can carry a sign-in token there.
+query, no fragment, no user name and no password, as a redirect can
+carry a sign-in token there.
 When the final URL is not the requested one (query and fragment left
 out), a run note says so. A sign-in page in place of the page you asked for shows up there.
 
@@ -95,25 +96,51 @@ component (`none` for chapter 3) is written. The rows come from the
 catalog in `catalog/`, a copy of the GSA/openacr catalog (see
 `catalog/NOTICE`).
 
-What each level means here:
+The tool writes three levels. It never proposes a level that its
+checks do not support; when in doubt it writes `not-evaluated`.
 
-- `supports`: a check passed on at least one page and none failed.
+- `supports`: a check passed, every page has a result for the row (a
+  pass, or a rule with nothing to check), and no check failed or needs
+  review on any page. 4.1.1 is always `supports`; the note links the
+  W3C texts that say why.
 - `partially-supports`: a check failed on at least one page. The note
-  names the page and the gap. The tool never writes `does-not-support`;
-  whether a gap hits "the majority of product functionality" is for a
-  person to say.
-- `not-applicable`: every check found nothing to test on every page.
-- `not-evaluated`: no automated check covers the row, or axe-core could
-  not decide. The note starts with `Needs a person:`.
+  names the page and the gap.
+- `not-evaluated`: anything else. The note says what a person must
+  look at, after `Needs a person:`: no automated check covers the row;
+  a page has no result for it (for example, axe-core did not run
+  there); axe-core could not decide (also when other rules passed); or
+  the rules found nothing to check, so a person says if the row is not
+  applicable.
+
+The tool never writes `does-not-support` (whether a gap hits "the
+majority of product functionality" is for a person to say) and never
+writes `not-applicable` (an axe-core rule with nothing to check does
+not show that the criterion does not apply).
+
+A chapter 3 row (302.x) takes the worst level of its related WCAG rows,
+in this order: `does-not-support`, `partially-supports`,
+`not-evaluated`, `supports`, `not-applicable`. The related rows are the
+ones in the report, base rows included, so a chapter 3 row can be
+`does-not-support` or `not-applicable` only when a person wrote that
+for its WCAG rows.
+
+Notes are Markdown, as OpenACR renders them: each line is a paragraph,
+and Markdown punctuation in a title from the page is escaped. A local
+page (a `file:` URL) is named by its file name only.
 
 A person confirms every row before the report is published. A report
 cannot be published with `not-evaluated` at level A or AA; the command
-prints how many such rows remain.
+prints how many such rows remain, how many rows it proposed as
+`supports` from automated rules only, and each model file where
+axe-core did not run on all of the page.
 
 - `--out <file.yaml>`: required.
-- `--base <yaml>`: a report that a person owns. Its top-level fields
-  and its rows are kept as they are; the tool only fills the rows the
-  base does not have. When a base row says `supports` or
+- `--base <yaml>`: a report that a person owns. Its rows and its
+  top-level fields are kept as they are, except `catalog` and
+  `report_date`, which the tool always sets. The tool only fills the
+  rows the base does not have. The base is read as plain YAML (an
+  unquoted date stays text), and every `num` is written as a string.
+  When a base row says `supports` or
   `not-applicable` and the new evidence says `partially-supports`, the
   command prints that row number and both levels. Chapters that the
   tool does not write (hardware, software, support documentation) are
@@ -143,7 +170,8 @@ plain `bun test` also works, but stops a test after 5 seconds;
 - No frames: the content of an iframe is not read. A run note says so.
 - The Tab walk stops at 500 Tab stops; a run note says so. Focus that
   does not move, or that goes round a loop without coming back to the
-  start, is a 2.1.2 gap.
+  start, is a 2.1.2 gap. A walk that stops at 500, or that passes an
+  iframe whose Tab stops it does not read, puts 2.1.2 in review.
 - Gaps come from the axe-core rules only. A rule cannot judge whether a
   name or a text is a good one.
 - The results need a person to confirm them.
