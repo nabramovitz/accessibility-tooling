@@ -292,3 +292,13 @@ test('a person-owned evaluation_methods_used is kept', () => {
   const { report } = buildReport([model({})], { title: 'T', evaluation_methods_used: 'By hand, then reader-path.' }, catalog, OPTS);
   assert.equal(report.evaluation_methods_used, 'By hand, then reader-path.');
 });
+
+test('a person row that ranks better than the new evidence is a conflict line', () => {
+  const m = model({ '1.4.3': entry({ review: ['color-contrast'] }), '1.1.1': entry({ pass: ['image-alt'] }) });
+  const base = { title: 'T', chapters: {
+    success_criteria_level_aa: { criteria: [hand('1.4.3', 'supports')] },
+    success_criteria_level_a: { criteria: [hand('1.1.1', 'not-evaluated'), hand('1.3.1', 'does-not-support')] },
+  } };
+  const { conflicts } = buildReport([m], base, catalog, OPTS);
+  assert.deepEqual(conflicts, ['base row 1.4.3: supports; new evidence: not-evaluated']);
+});
