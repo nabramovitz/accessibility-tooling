@@ -24,7 +24,7 @@ test('a focus loop that skips the start is a gap', async () => {
   assert.deepEqual(flat(m).filter((n) => n.tab).map((n) => n.name), ['A', 'B', 'C']);
 });
 
-test('more than 500 Tab stops is a note, not a gap', async () => {
+test('more than 500 Tab stops is a note and review, not a gap', async () => {
   const m = await generate(fixture('many.html'));
   assert.equal(m.root.gaps, undefined);
   assert.ok(m.notes.includes('Tab walk stopped at 500 Tab stops; the rest not recorded'));
@@ -71,5 +71,10 @@ test('the Tab walk is a check of 2.1.2', async () => {
     assert.ok(!m.checks['2.1.2'].pass.includes('tab-walk'), f);
   }
   const many = await generate(fixture('many.html'));
-  assert.ok(many.checks['2.1.2'].pass.includes('tab-walk'));
+  assert.deepEqual(many.checks['2.1.2'], { pass: [], fail: [], review: ['tab-walk'], na: [] });
+});
+
+test('a Tab walk past an iframe it cannot read is review, not pass', async () => {
+  const m = await generate(fixture('iframe-tab.html'));
+  assert.deepEqual(m.checks['2.1.2'], { pass: [], fail: [], review: ['tab-walk'], na: [] });
 });
