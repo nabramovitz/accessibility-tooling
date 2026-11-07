@@ -115,11 +115,31 @@ function buildTree(nodes, dom) {
   return { root, nearestKept };
 }
 
+// Adds axe-core to each frame. A frame that refuses it (for example one that
+// is removed while the page loads) is a note; the run goes on.
+export async function addAxe(frames, notes) {
+  for (const frame of frames) {
+    try {
+      await frame.addScriptTag({ path: AXE_PATH });
+    } catch {
+      notes.push(`axe not added to frame: ${bare(frame.url())}`);
+    }
+  }
+}
+
 // Runs axe-core and puts gaps (node.gaps) and contrast (node.contrast) on the
 // nearest kept node. A target that cannot be placed is a gap on the root.
-async function axePass(page, cdp, nearestKept, root, model) {
-  for (const frame of page.frames()) await frame.addScriptTag({ path: AXE_PATH });
-  const results = await page.evaluate((runOnly) => axe.run(document, { runOnly }), RUN_ONLY);
+// When axe-core does not run, a note says why and the model has no gaps.
+async function axePass(page, cdp, nearestKept, root, model, notes) {
+  await addAxe(page.frames(), notes);
+  let results;
+  try {
+    results = await page.evaluate((runOnly) => axe.run(document, { runOnly }), RUN_ONLY);
+  } catch (e) {
+    const why = String(e.message).split('\n')[0].replace(/^page\.evaluate: (?:\w*Error: )?/, '');
+    notes.push(`axe-core did not run: ${why}`);
+    return;
+  }
 
   const place = async (target) => {
     if (target.length !== 1) return undefined;
@@ -238,7 +258,7 @@ export async function generate(url, opts = {}) {
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
     const { root, nearestKept } = buildTree(nodes, dom);
     const model = {};
-    await axePass(page, cdp, nearestKept, root, model);
+    await axePass(page, cdp, nearestKept, root, model, notes);
     await tabWalk(page, cdp, nearestKept, root, notes, model);
 
     const title = await page.title();

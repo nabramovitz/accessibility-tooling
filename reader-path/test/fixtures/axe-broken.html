@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Broken axe</title>
+<script>
+  // A page that owns the name "axe": the added axe-core cannot replace it.
+  const stub = Object.freeze({ run: () => Promise.reject(new Error('stub axe')) });
+  Object.defineProperty(window, 'axe', { get: () => stub, set: () => {}, configurable: false });
+</script></head>
+<body><main><button>One</button><button>Two</button></main></body></html>
