@@ -95,6 +95,43 @@ test('the review page has no A/AA gaps in two views and both themes', async () =
   }
 });
 
+// The other review page tests open the page with this CSP in force.
+test('the review page has a strict CSP', () => {
+  const html = render({ url: 'file:///x', title: 'T', notes: [], root: { id: 'r', t: 'Page', comp: 'RootWebArea', role: 'RootWebArea', c: [] } });
+  assert.ok(html.includes(`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">`));
+});
+
+test('review page: depth buttons, empty views, contrast on a box with children', async () => {
+  const model = {
+    url: 'file:///x', title: 'T', generated: '2026-01-01T00:00:00.000Z', notes: [],
+    root: { id: 'r', t: 'Page', comp: 'RootWebArea', role: 'RootWebArea', name: 'Page', c: [
+      { id: 'p', t: 'Panel', comp: 'region', role: 'region', name: 'Panel', lm: 'region', text: 'Panel text',
+        contrast: { ratio: 4.5, fg: '#767676', bg: '#ffffff' }, c: [
+          { id: 'b', t: 'Go', comp: 'button', role: 'button', name: 'Go', tab: 1, c: [] },
+        ] },
+    ] },
+  };
+  const file = join(tmp(), 'index.html');
+  writeFileSync(file, render(model));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(file).href);
+    assert.deepEqual(await page.locator('#levels button').allInnerTexts(), ['Depth 1', 'Depth 2', 'Depth 3', 'Depth 4', 'All']);
+    for (const view of ['Actions and results', 'Messages']) {
+      await page.getByRole('button', { name: view, exact: true }).click();
+      assert.equal(await page.locator('#empty').innerText(), `${view}: none in this model.`);
+      assert.equal(await page.locator('#map').isVisible(), false);
+    }
+    await page.getByRole('button', { name: 'Structure', exact: true }).click();
+    assert.equal(await page.locator('#empty').isVisible(), false);
+    await page.locator('#map .pick').filter({ hasText: 'Panel' }).first().click();
+    assert.ok((await page.locator('#det').innerText()).includes('4.50 to 1 (#767676 on #ffffff)'));
+  } finally {
+    await browser.close();
+  }
+});
+
 test('cli writes model.json and index.html', () => {
   const out = join(tmp(), 'out');
   execFileSync('node', [CLI, fixture('structure.html'), '--out', out]);
