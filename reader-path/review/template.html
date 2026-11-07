@@ -6,8 +6,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reader path model: {{TITLE}}</title>
 <style>
-:root{--bg:#fff;--bg2:#f5f5f7;--fg:#1d1d1f;--mut:#636366;--bd:#c7c7cc;--dimbd:#e5e5ea;--acc:#0a66d8;--sel:#e3effd;--err:#c9302c;--warn:#9a5b00;--line:#0a66d8;--aaa:#6b3fa0}
-@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--bg2:#2a2a2d;--fg:#f2f2f7;--mut:#a1a1a6;--bd:#4a4a4e;--dimbd:#333336;--acc:#6cb2ff;--sel:#17324f;--err:#ff7b72;--warn:#ffb340;--line:#6cb2ff;--aaa:#c7a6f5}}
+/* Colours: the Stratos theme hues (slate text, primary blue, danger red,
+   warning amber); lightness changed only where text needs 7 to 1 (WCAG
+   1.4.6) and borders, outlines and arrows 3 to 1 (1.4.11). The purple
+   AAA chip is this page's own. */
+:root{
+  --bg:oklch(100% 0 0);--bg2:oklch(96.826% 0.0069 247.9);--sel:oklch(95% 0.0236 255.59);
+  --fg:oklch(27.95% 0.0368 260.03);--mut:oklch(42.84% 0.0407 257.42);
+  --bd:oklch(55.439% 0.0407 257.42);--dimbd:oklch(62.27% 0.0192 261.32);
+  --acc:oklch(43.51% 0.176 259.81);--line:var(--acc);
+  --err:oklch(44.369% 0.1613 26.9);--warn:oklch(47.319% 0.1247 46.2);--aaa:#6b3fa0}
+@media (prefers-color-scheme:dark){:root{
+  --bg:oklch(20.768% 0.0398 265.75);--bg2:oklch(27.95% 0.0368 260.03);--sel:oklch(32% 0.1378 265.52);
+  --fg:oklch(96.826% 0.0069 247.9);--mut:oklch(80.47% 0.0351 256.79);
+  --bd:oklch(71.067% 0.0351 256.79);--dimbd:oklch(58.37% 0.0392 257.29);
+  --acc:oklch(80.47% 0.0994 254.62);--line:var(--acc);
+  --err:oklch(81.57% 0.1035 19.57);--warn:oklch(87.897% 0.1534 91.61);--aaa:#c7a6f5}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 header{padding:12px 16px 8px;border-bottom:1px solid var(--bd)}
@@ -160,7 +174,7 @@ function paint(){
   order.filter(n => n !== s && n.comp === s.comp && s.comp.includes('-')).forEach(n => dom(n.id).classList.add('same'));
   let lines = '';
   const arrow = (a, b, col, dash) => { if (!vis(a) || !vis(b) || a === b) return; const [x1,y1] = pt(a), [x2,y2] = pt(b); lines += `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="${col}" stroke-width="2" fill="none" ${dash?'stroke-dasharray="5 4"':''} marker-end="url(#ah)"/>`; };
-  if (P.line) { const v = on.filter(n => vis(n.id)); for (let i = 1; i < v.length; i++) { const [x1,y1] = pt(v[i-1].id, 1), [x2,y2] = pt(v[i].id, 1); lines += `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="var(--line)" stroke-width="1.5" opacity=".55" fill="none" marker-end="url(#ah)"/>`; } }
+  if (P.line) { const v = on.filter(n => vis(n.id)); for (let i = 1; i < v.length; i++) { const [x1,y1] = pt(v[i-1].id, 1), [x2,y2] = pt(v[i].id, 1); lines += `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="var(--line)" stroke-width="1.5" opacity=".8" fill="none" marker-end="url(#ah)"/>`; } }
   (s.acts||[]).forEach(a => { if (a.to) { dom(a.to).classList.add('tgt'); arrow(s.id, a.to, 'var(--warn)'); } });
   (s.msgs||[]).forEach(m => { if (m.to) { dom(m.to).classList.add('tgt'); arrow(s.id, m.to, 'var(--err)', 1); } });
   incoming(s.id).filter(m => m.from !== s).forEach(m => { dom(m.from.id).classList.add('tgt'); arrow(m.from.id, s.id, 'var(--err)', 1); });
