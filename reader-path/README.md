@@ -11,7 +11,7 @@ success criterion and its level.
 
 ## Install
 
-With Bun (1.3.14 is the tested version):
+With Bun (1.4.4 is the tested version):
 
 ```
 bun install
