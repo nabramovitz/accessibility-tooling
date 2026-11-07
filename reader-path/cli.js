@@ -21,10 +21,17 @@ delete process.env[ARGV];
 if (!process.versions.bun && !token) {
   const bun = findBun();
   if (bun) {
+    // Ctrl+C reaches both runs. This one waits for the Bun run to close
+    // its browser, then exits as it did.
+    const wait = () => {};
+    process.on('SIGINT', wait);
+    process.on('SIGTERM', wait);
     const r = runBun(bun, [fileURLToPath(import.meta.url), TOKEN], {
       stdio: 'inherit',
       env: { ...process.env, [ARGV]: JSON.stringify(argv) },
     });
+    process.off('SIGINT', wait);
+    process.off('SIGTERM', wait);
     if (!r.error) {
       if (r.signal) process.kill(process.pid, r.signal);
       process.exit(r.status ?? 1);
