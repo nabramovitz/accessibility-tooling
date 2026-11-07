@@ -6,12 +6,38 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
 import { generate } from '../src/generate.js';
+import { RUN_ONLY } from '../src/axe.js';
 import { render } from '../src/render.js';
 import { fixture, flat } from './helpers.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'reader-path-'));
 const CLI = fileURLToPath(new URL('../cli.js', import.meta.url));
+const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+
+// Runs axe-core on the page as it is now. The arrow layer is hidden first:
+// axe counts it as an overlap and then cannot measure the text below it.
+// Returns the A/AA violations, and the contrast checks inside the map that
+// axe could not finish. The open/close glyphs are icons, not text (axe:
+// nonBmp); their colour is checked as a graphic, so they are left out.
+async function check(page) {
+  await page.addScriptTag({ path: AXE });
+  return page.evaluate(async (runOnly) => {
+    document.getElementById('svg').style.display = 'none';
+    const r = await axe.run(document, { runOnly });
+    document.getElementById('svg').style.display = '';
+    const aa = /^wcag(2|21|22)a{1,2}$/;
+    return {
+      violations: r.violations.filter((v) => v.tags.some((t) => aa.test(t)))
+        .flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(' ')}`)),
+      unfinished: r.incomplete.filter((v) => v.id === 'color-contrast')
+        .flatMap((v) => v.nodes.filter((n) => n.any.every((c) => c.data?.messageKey !== 'nonBmp')
+          && document.querySelector('#map').contains(document.querySelector(n.target[0])))
+          .map((n) => n.target.join(' '))),
+    };
+  }, RUN_ONLY);
+}
 
 test('page text is never run', async () => {
   const evil = '<img src=x onerror="window.hit=1"></script><b id="x">';
@@ -46,6 +72,27 @@ test('the review page is a model of itself without A/AA gaps', async () => {
   assert.deepEqual(bad, []);
   assert.ok(all.some((n) => n.lm === 'main'));
   assert.equal(all.filter((n) => n.h === 1).length, 1);
+});
+
+test('the review page has no A/AA gaps in two views and both themes', async () => {
+  const file = join(tmp(), 'index.html');
+  writeFileSync(file, render(await generate(fixture('gaps.html'))));
+  const browser = await chromium.launch();
+  try {
+    for (const colorScheme of ['light', 'dark']) {
+      const page = await browser.newPage({ colorScheme, bypassCSP: true });
+      await page.goto(pathToFileURL(file).href);
+      assert.deepEqual(await check(page), { violations: [], unfinished: [] }, `${colorScheme}, Structure`);
+      await page.getByRole('button', { name: 'Gaps', exact: true }).click();
+      await page.getByRole('button', { name: /^Level AAA/ }).click();
+      await page.locator('#map .n .pick').filter({ hasText: 'image' }).first().click();
+      assert.ok((await page.locator('#det').innerText()).includes('1.1.1'));
+      assert.deepEqual(await check(page), { violations: [], unfinished: [] }, `${colorScheme}, Gaps`);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
 });
 
 test('cli writes model.json and index.html', () => {
