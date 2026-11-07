@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { loadCatalog } from '../src/acr.js';
@@ -229,4 +229,9 @@ test('chapters that is not a mapping stops the command', async () => {
 test('a model file that cannot be read stops the command', async () => {
   const gone = join(tmp(), 'gone.json');
   await fails([gone, '--out', join(tmp(), 'r.yaml')], `reader-path: cannot read ${gone}`);
+});
+
+test('a model given twice counts once', async () => {
+  const { report } = await acr([PASS, relative(process.cwd(), PASS)]);
+  assert.match(report.evaluation_methods_used, /on 1 page\(s\)/);
 });

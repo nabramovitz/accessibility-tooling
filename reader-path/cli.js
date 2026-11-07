@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { findBun, runBun } from './src/bun.js';
@@ -81,6 +81,9 @@ async function writeAcr(files, { base, out }) {
   // Loaded here, so a run that hands over to Bun does not load them.
   const { default: yaml } = await import('js-yaml');
   const { buildReport, dump, loadCatalog } = await import('./src/acr.js');
+  // A file given twice, in any spelling, is one page.
+  const seen = new Set();
+  files = files.filter((f) => !seen.has(resolve(f)) && seen.add(resolve(f)));
   const models = files.map(loadModel);
   const own = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   const axe = createRequire(import.meta.url)('axe-core/package.json');
