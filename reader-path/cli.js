@@ -1,4 +1,8 @@
-#!/usr/bin/env node
+#!/bin/sh
+":" //; if bun --version >/dev/null 2>&1; then exec bun "$0" "$@"; fi; exec node "$0" "$@"
+// The two lines above run this file with Bun when `bun --version` works,
+// else with Node.js. For sh they are commands; for JavaScript, line 2 is
+// a string and a comment.
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
