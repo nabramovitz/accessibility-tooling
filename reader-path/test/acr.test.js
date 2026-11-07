@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { proposeRows, loadCatalog } from '../src/acr.js';
+import { proposeRows, buildReport, loadCatalog } from '../src/acr.js';
 
 const catalog = loadCatalog();
 const none = { pass: [], fail: [], review: [], na: [] };
@@ -255,4 +255,40 @@ test('302.1 and 302.9 with only supports rows: not-evaluated, a person checks th
   assert.equal(adh(rows, '302.9').level, 'not-evaluated');
   assert.ok(lines(rows, '302.9').includes('Needs a person: reading level.'));
   assert.equal(adh(rows, '302.7').level, 'supports');
+});
+
+const OPTS = { version: '0', axe: '4', date: '2026-11-07' };
+const copy = (x) => JSON.parse(JSON.stringify(x));
+const at = (report, ch, num) => report.chapters[ch].criteria.find((r) => r.num === num).components[0].adherence;
+const hand = (num, level) => ({ num, components: [{ name: 'web', adherence: { level, notes: 'By hand.' } }] });
+
+test('a base row the tool wrote is proposed again from the new evidence', () => {
+  const a = model({ '1.4.3': entry({ pass: ['color-contrast'] }) }, { finalUrl: 'https://x.test/a' });
+  const b = model({ '1.4.3': entry({ review: ['color-contrast'] }) }, { finalUrl: 'https://x.test/b' });
+  const c = model({}, { finalUrl: 'https://x.test/c' });
+  const first = buildReport([a], null, catalog, OPTS).report;
+  assert.equal(at(first, 'success_criteria_level_aa', '1.4.3').level, 'supports');
+  const base = { ...copy(first), title: 'Mine' };
+  const { report } = buildReport([a, b, c], base, catalog, OPTS);
+  assert.equal(report.title, 'Mine');
+  assert.equal(at(report, 'success_criteria_level_aa', '1.4.3').level, 'not-evaluated');
+  assert.match(report.evaluation_methods_used, /on 3 page\(s\)/);
+});
+
+test('a chapter 3 row the tool wrote follows a WCAG row a person changed', () => {
+  const b = { title: 'T', chapters: {
+    success_criteria_level_a: { criteria: ['2.1.1', '2.1.2', '2.2.1', '2.5.1', '2.5.2'].map((n) => hand(n, 'supports')) },
+    success_criteria_level_aa: { criteria: [hand('2.5.8', 'supports')] },
+  } };
+  const first = buildReport([model({})], b, catalog, OPTS).report;
+  assert.equal(at(first, 'functional_performance_criteria', '302.7').level, 'supports');
+  const next = copy(first);
+  next.chapters.success_criteria_level_a.criteria.find((r) => r.num === '2.1.2').components[0].adherence.level = 'does-not-support';
+  const { report } = buildReport([model({})], next, catalog, OPTS);
+  assert.equal(at(report, 'functional_performance_criteria', '302.7').level, 'does-not-support');
+});
+
+test('a person-owned evaluation_methods_used is kept', () => {
+  const { report } = buildReport([model({})], { title: 'T', evaluation_methods_used: 'By hand, then reader-path.' }, catalog, OPTS);
+  assert.equal(report.evaluation_methods_used, 'By hand, then reader-path.');
 });

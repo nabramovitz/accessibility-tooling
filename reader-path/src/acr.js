@@ -123,12 +123,18 @@ export function proposeRows(models, catalog, levelOf) {
 }
 
 const BASE_LEVELS = ['supports', 'not-applicable'];
+const METHODS = 'Automated checks with reader-path ';
+// A row whose note still ends with the tool's end line is the tool's own
+// row from an earlier run, not a person's: it is proposed again.
+const TOOL_END = /(?:^|\n)Proposed by reader-path from automated checks[^\n]*; a person confirms\.\s*$/;
 // A num that YAML read as a number (302.6, 402) is written as a string.
 const strNums = (rows) => rows.map((r) => ({ ...r, num: String(r.num) }));
-const level = (row) => row.components?.find((c) => c.name === 'web' || c.name === 'none')?.adherence?.level;
+const adherence = (row) => row.components?.find?.((c) => c?.name === 'web' || c?.name === 'none')?.adherence;
+const level = (row) => adherence(row)?.level;
+const toolOwned = (row) => TOOL_END.test(String(adherence(row)?.notes ?? ''));
 
 // The report: the base file's fields as they are, the tool's rows for
-// the nums the base does not have. The chapter 3 rows come from the WCAG
+// the nums the base does not have or has as the tool's own rows. The chapter 3 rows come from the WCAG
 // rows after this merge. Returns { report, conflicts, pending, automated }:
 // conflicts are lines for base rows that new evidence contradicts, pending
 // is the number of A and AA rows still not-evaluated, automated the number
@@ -142,15 +148,17 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   };
   report.catalog = '2.5-edition-wcag-2.2-508-en';
   report.report_date = date;
-  report.evaluation_methods_used ??= `Automated checks with reader-path ${version} and axe-core ${axe} in ${models[0].browser}, `
-    + `on ${models.length} page(s). A person confirms every row.`;
+  if (report.evaluation_methods_used == null || String(report.evaluation_methods_used).startsWith(METHODS)) {
+    report.evaluation_methods_used = `${METHODS}${version} and axe-core ${axe} in ${models[0].browser}, `
+      + `on ${models.length} page(s). A person confirms every row.`;
+  }
   const chapters = {};
   const conflicts = [];
   let pending = 0;
   let automated = 0;
   const merged = new Map();
   for (const id of CHAPTERS) {
-    const mine = new Map((report.chapters?.[id]?.criteria || []).map((r) => [String(r.num), r]));
+    const mine = new Map((report.chapters?.[id]?.criteria || []).filter((r) => !toolOwned(r)).map((r) => [String(r.num), r]));
     const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => merged.get(sc))[id] : own[id];
     const rows = proposed.map((p) => {
       const b = mine.get(p.num);
