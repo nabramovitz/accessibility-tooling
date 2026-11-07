@@ -237,3 +237,9 @@ test('a model given twice counts once', async () => {
   const { report } = await acr([PASS, relative(process.cwd(), PASS)]);
   assert.match(report.evaluation_methods_used, /on 1 page\(s\)/);
 });
+
+test('one row is "1 row"', async () => {
+  const one = file(JSON.stringify({ ...JSON.parse(readFileSync(PASS, 'utf8')), checks: { '1.1.1': { pass: ['image-alt'], fail: [], review: [], na: [] } } }), 'one.json');
+  const { stdout } = await acr([one]);
+  assert.ok(stdout.split('\n').includes('1 row proposed supports from automated rules only; a person confirms them'));
+});
