@@ -19,7 +19,8 @@ const FPC = {
   '302.9': { rows: ['2.4.6', '3.2.3', '3.2.4', '3.3.1', '3.3.2'], extra: 'Note: reading level needs a person.' },
 };
 // First is worst.
-const WORST = ['partially-supports', 'not-evaluated', 'supports', 'not-applicable'];
+const WORST = ['does-not-support', 'partially-supports', 'not-evaluated', 'supports', 'not-applicable'];
+const FPC_ID = 'functional_performance_criteria';
 
 export function loadCatalog() {
   return yaml.load(readFileSync(new URL('../catalog/2.5-edition-wcag-2.2-508-en.yaml', import.meta.url), 'utf8'));
@@ -72,17 +73,19 @@ function wcag(models, sc) {
   return { level: pass.length && !review.length && !missing.length ? 'supports' : 'not-evaluated', lines };
 }
 
-function fpc(num, byCriterion) {
+function fpc(num, levelOf) {
   const { rows, extra } = FPC[num];
   if (!rows.length) return { level: 'not-evaluated', lines: ['Needs a person: does any function need speech?'] };
-  const levels = rows.map((r) => byCriterion(r).level);
+  const levels = rows.map(levelOf);
   const level = WORST.find((l) => levels.includes(l));
   const lines = [`Worst of the related rows: ${rows.map((r, i) => `${r} ${levels[i]}`).join(', ')}`];
   if (extra) lines.push(extra);
   return { level, lines };
 }
 
-export function proposeRows(models, catalog) {
+// levelOf(num), when given, is the level of a WCAG row for the chapter 3
+// rows (a row a person wrote); undefined means the tool's own proposal.
+export function proposeRows(models, catalog, levelOf) {
   if (!models.length) throw new Error('no models');
   const cache = new Map();
   const byCriterion = (sc) => {
@@ -93,10 +96,10 @@ export function proposeRows(models, catalog) {
   const out = {};
   for (const id of CHAPTERS) {
     const chapter = catalog.chapters.find((c) => c.id === id);
-    const isFpc = id === 'functional_performance_criteria';
+    const isFpc = id === FPC_ID;
     out[id] = chapter.criteria.map((c) => {
       const num = String(c.id);
-      const { level, lines } = isFpc ? fpc(num, byCriterion) : byCriterion(num);
+      const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level) : byCriterion(num);
       return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, end].join('\n') } }] };
     });
   }
@@ -107,12 +110,13 @@ const BASE_LEVELS = ['supports', 'not-applicable'];
 const level = (row) => row.components?.find((c) => c.name === 'web' || c.name === 'none')?.adherence?.level;
 
 // The report: the base file's fields as they are, the tool's rows for
-// the nums the base does not have. Returns { report, conflicts, pending }:
+// the nums the base does not have. The chapter 3 rows come from the WCAG
+// rows after this merge. Returns { report, conflicts, pending, automated }:
 // conflicts are lines for base rows that new evidence contradicts, pending
 // is the number of A and AA rows still not-evaluated, automated the number
 // of WCAG rows the tool wrote as supports from rules (4.1.1 is not one).
 export function buildReport(models, base, catalog, { version, axe, date }) {
-  const proposed = proposeRows(models, catalog);
+  const own = proposeRows(models, catalog);
   const report = base && Object.keys(base).length ? { ...base } : {
     title: 'Accessibility Conformance Report (draft)',
     product: { name: 'PRODUCT NAME' },
@@ -126,13 +130,14 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   const conflicts = [];
   let pending = 0;
   let automated = 0;
+  const merged = new Map();
   for (const id of CHAPTERS) {
-    const own = report.chapters?.[id]?.criteria || [];
-    const mine = new Map(own.map((r) => [String(r.num), r]));
-    const rows = proposed[id].map((p) => {
+    const mine = new Map((report.chapters?.[id]?.criteria || []).map((r) => [String(r.num), r]));
+    const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => merged.get(sc))[id] : own[id];
+    const rows = proposed.map((p) => {
       const b = mine.get(p.num);
       if (!b) {
-        if (id !== 'functional_performance_criteria' && p.num !== '4.1.1' && level(p) === 'supports') automated++;
+        if (id !== FPC_ID && p.num !== '4.1.1' && level(p) === 'supports') automated++;
         return p;
       }
       mine.delete(p.num);
@@ -142,6 +147,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
       return b;
     });
     rows.push(...mine.values());
+    for (const r of rows) merged.set(String(r.num), level(r) ?? 'not-evaluated');
     if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
     chapters[id] = { ...report.chapters?.[id], criteria: rows };
   }
