@@ -33,8 +33,9 @@ test('axeContrast reads passes, violations and incomplete', () => {
 test('gaps are placed on their nodes', async () => {
   const m = await generate(fixture('gaps.html'));
   const all = flat(m);
-  const img = all.find((n) => n.gaps?.some((g) => g[1] === '1.1.1'));
+  const img = all.find((n) => n.role === 'image' && n.gaps?.some((g) => g[1] === '1.1.1'));
   assert.ok(img);
+  assert.notEqual(img, m.root);
   assert.equal(img.gaps.find((g) => g[1] === '1.1.1')[3], 'name');
   const btn = all.find((n) => n.role === 'button' && n.gaps?.some((g) => g[1] === '4.1.2'));
   assert.ok(btn);
