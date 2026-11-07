@@ -110,7 +110,7 @@ const level = (row) => row.components?.find((c) => c.name === 'web' || c.name ==
 // is the number of A and AA rows still not-evaluated.
 export function buildReport(models, base, catalog, { version, axe, date }) {
   const proposed = proposeRows(models, catalog);
-  const report = base ? { ...base } : {
+  const report = base && Object.keys(base).length ? { ...base } : {
     title: 'Accessibility Conformance Report (draft)',
     product: { name: 'PRODUCT NAME' },
     author: { email: 'AUTHOR EMAIL' },
@@ -119,11 +119,11 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   report.report_date = date;
   report.evaluation_methods_used ??= `Automated checks with reader-path ${version} and axe-core ${axe} in ${models[0].browser}, `
     + `on ${models.length} page(s). A person confirms every row.`;
-  const chapters = { ...(report.chapters || {}) };
+  const chapters = {};
   const conflicts = [];
   let pending = 0;
   for (const id of CHAPTERS) {
-    const own = chapters[id]?.criteria || [];
+    const own = report.chapters?.[id]?.criteria || [];
     const mine = new Map(own.map((r) => [String(r.num), r]));
     const rows = proposed[id].map((p) => {
       const b = mine.get(p.num);
@@ -136,8 +136,9 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
     });
     rows.push(...mine.values());
     if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
-    chapters[id] = { ...chapters[id], criteria: rows };
+    chapters[id] = { ...report.chapters?.[id], criteria: rows };
   }
+  for (const [id, chapter] of Object.entries(report.chapters || {})) chapters[id] ??= chapter;
   report.chapters = chapters;
   return { report, conflicts, pending };
 }

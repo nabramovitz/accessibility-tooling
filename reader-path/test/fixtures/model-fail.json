@@ -1,7 +1,7 @@
 {
   "url": "https://x.test/bad?token=1#h",
   "finalUrl": "https://x.test/bad",
-  "browser": "Chromium 140.0.0.0",
+  "browser": "chromium 140.0.7339.16",
   "generated": "2026-11-07T10:00:00.000Z",
   "root": {
     "r": "document",

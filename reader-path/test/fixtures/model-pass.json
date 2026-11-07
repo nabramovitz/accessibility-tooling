@@ -1,7 +1,7 @@
 {
   "url": "https://x.test/ok",
   "finalUrl": "https://x.test/ok",
-  "browser": "Chromium 140.0.0.0",
+  "browser": "chromium 140.0.7339.16",
   "generated": "2026-11-07T10:01:00.000Z",
   "root": { "r": "document", "t": "Good page" },
   "checks": {
