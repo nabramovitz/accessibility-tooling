@@ -1,20 +1,45 @@
-#!/bin/sh
-":" //; if bun --version >/dev/null 2>&1; then exec bun "$0" "$@"; fi; exec node "$0" "$@"
-// The two lines above run this file with Bun when `bun --version` works,
-// else with Node.js. For sh they are commands; for JavaScript, line 2 is
-// a string and a comment.
+#!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { generate } from './src/generate.js';
-import { render } from './src/render.js';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { findBun } from './src/bun.js';
+
+// Under Node.js, when `bun --version` works, this file runs itself again
+// with Bun and exits as that run exits. The arguments go to that run as
+// JSON in READER_PATH_ARGV, so no shell reads them on the way; the
+// variable also tells that run not to look for Bun again.
+const ARGV = 'READER_PATH_ARGV';
+if (!process.versions.bun && process.env[ARGV] === undefined) {
+  const bun = findBun();
+  if (bun) {
+    const r = spawnSync(bun[0], [...bun.slice(1), fileURLToPath(import.meta.url)], {
+      stdio: 'inherit',
+      env: { ...process.env, [ARGV]: JSON.stringify(process.argv.slice(2)) },
+    });
+    if (!r.error) {
+      if (r.signal) process.kill(process.pid, r.signal);
+      process.exit(r.status ?? 1);
+    }
+  }
+}
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
   + ' [--wait-for <selector>] [--settle <ms>]';
 
 try {
+  // Loaded here, so a run that hands over to Bun does not load them.
+  const { generate } = await import('./src/generate.js');
+  const { render } = await import('./src/render.js');
+
+  let args = process.argv.slice(2);
+  if (process.env[ARGV] !== undefined) {
+    args = JSON.parse(process.env[ARGV]);
+    delete process.env[ARGV];
+  }
   const { values, positionals } = parseArgs({
+    args,
     allowPositionals: true,
     options: {
       out: { type: 'string', default: 'reader-path-out' },
