@@ -10,7 +10,7 @@ const model = (checks, over = {}) => ({
 });
 const rowOf = (rows, num) => Object.values(rows).flat().find((r) => r.num === num);
 const adh = (rows, num) => rowOf(rows, num).components[0].adherence;
-const lines = (rows, num) => adh(rows, num).notes.split('\n');
+const lines = (rows, num) => adh(rows, num).notes.split('\n\n');
 const END = (n) => `Proposed by reader-path from automated checks on ${n} page(s); a person confirms.`;
 
 test('a failing rule on any page: partially-supports, with the gaps', () => {
@@ -152,7 +152,7 @@ test('every note ends with the proposed-by line; no does-not-support or not-appl
   assert.ok(all.length > 80);
   for (const r of all) {
     const a = r.components[0].adherence;
-    assert.equal(a.notes.split('\n').at(-1), END(2));
+    assert.equal(a.notes.split('\n\n').at(-1), END(2));
     assert.notEqual(a.level, 'does-not-support');
     assert.notEqual(a.level, 'not-applicable');
   }
@@ -184,11 +184,24 @@ test('an unplaced gap keeps no selector', () => {
   assert.ok(n.includes('T: not placed - Links must have names'));
 });
 
-test('a gap why with line breaks is one line', () => {
-  const why = 'Fix any of the following:\n  Element has no name\n\nFix all of the following:\n  Other';
+test('a gap why with line breaks is one line, its lines joined with "; "', () => {
+  const why = 'Fix any of the following:\n  Element has no alt\n  No aria-label\n\nFix all of the following:\n  Other';
   const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { r: 'document', t: 'T', gaps: [[why, '1.1.1', 'g']] } });
   const l = lines(proposeRows([m], catalog), '1.1.1');
-  assert.ok(l.includes('https://x.test/a: T: Fix any of the following: Element has no name Fix all of the following: Other'));
+  assert.ok(l.includes('https://x.test/a: T: Fix any of the following: Element has no alt; No aria-label; Fix all of the following: Other'));
+});
+
+test('note lines are Markdown paragraphs', () => {
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { r: 'document', t: 'T', gaps: [['a', '1.1.1', 'g'], ['b', '1.1.1', 'g']] } });
+  assert.equal(adh(proposeRows([m], catalog), '1.1.1').notes,
+    ['Failing rules: x on 1 of 1 page(s)', 'https://x.test/a: T: a', 'https://x.test/a: T: b', END(1)].join('\n\n'));
+});
+
+test('Markdown punctuation in a node title is escaped', () => {
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { r: 'document', t: '- [x]: #y | z', gaps: [['why', '1.1.1', 'g']] } });
+  assert.ok(lines(proposeRows([m], catalog), '1.1.1').includes('https://x.test/a: \\- \\[x\\]: \\#y \\| z: why'));
+  const all = model({ '1.1.1': entry({ fail: ['x'] }) }, { root: { r: 'document', t: '+\\`*_()<>', gaps: [['why', '1.1.1', 'g']] } });
+  assert.ok(lines(proposeRows([all], catalog), '1.1.1').includes('https://x.test/a: \\+\\\\\\`\\*\\_\\(\\)\\<\\>: why'));
 });
 
 test('no models throws', () => {
