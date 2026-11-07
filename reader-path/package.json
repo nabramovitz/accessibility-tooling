@@ -6,7 +6,9 @@
   "type": "module",
   "engines": { "node": ">=22" },
   "bin": { "reader-path": "cli.js" },
-  "scripts": { "test": "node --test" },
+  "scripts": {
+    "test": "if bun --version >/dev/null 2>&1; then bun test --timeout 30000; else node --test; fi"
+  },
   "dependencies": {
     "axe-core": "4.14.0",
     "playwright": "1.64.1"
