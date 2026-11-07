@@ -201,6 +201,20 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
   stop('Tab does not move focus out of this control.', `Tab walk stopped after ${MAX_TABS} presses`);
 }
 
+// A url without its query and fragment: these can hold sign-in tokens.
+export function bare(u) {
+  try {
+    const x = new URL(u);
+    x.search = '';
+    x.hash = '';
+    return x.href;
+  } catch {
+    return String(u).split(/[?#]/)[0];
+  }
+}
+
+// opts: storageState, ignoreHTTPSErrors, waitFor (a selector), settle (ms
+// to wait after load).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -210,11 +224,17 @@ export async function generate(url, opts = {}) {
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: 'load' });
+    const response = await page.goto(url, { waitUntil: 'load' });
+    if (opts.waitFor) await page.waitForSelector(opts.waitFor);
+    if (opts.settle) await page.waitForTimeout(opts.settle);
+    const finalUrl = page.url();
+    const notes = [];
+    if (bare(finalUrl) !== bare(url)) notes.push(`Page moved to ${bare(finalUrl)}`);
     const cdp = await context.newCDPSession(page);
 
     const { root: domRoot } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
-    const { dom, notes } = indexDom(domRoot);
+    const { dom, notes: domNotes } = indexDom(domRoot);
+    notes.push(...domNotes);
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
     const { root, nearestKept } = buildTree(nodes, dom);
     const model = {};
@@ -226,6 +246,8 @@ export async function generate(url, opts = {}) {
     return {
       ...model,
       url,
+      finalUrl,
+      ...(response ? { status: response.status() } : {}),
       title,
       generated: new Date().toISOString(),
       browser: `chromium ${version}`,
