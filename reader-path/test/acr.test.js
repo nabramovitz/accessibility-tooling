@@ -302,3 +302,16 @@ test('a person row that ranks better than the new evidence is a conflict line', 
   const { conflicts } = buildReport([m], base, catalog, OPTS);
   assert.deepEqual(conflicts, ['base row 1.4.3: supports; new evidence: not-evaluated']);
 });
+
+test('an unknown base level is not-evaluated for chapter 3 and is printed', () => {
+  const base = { title: 'T', chapters: {
+    success_criteria_level_a: { criteria: [hand('1.4.1', 'partialy-supports')] },
+    success_criteria_level_aa: { criteria: [hand('1.4.11', 'supports')] },
+  } };
+  const { report, conflicts } = buildReport([model({})], base, catalog, OPTS);
+  assert.equal(at(report, 'functional_performance_criteria', '302.3').level, 'not-evaluated');
+  assert.ok(at(report, 'functional_performance_criteria', '302.3').notes.includes('1.4.1 not-evaluated, 1.4.11 supports'));
+  assert.ok(conflicts.includes('base row 1.4.1: unknown level partialy-supports'));
+  const none = { title: 'T', chapters: { success_criteria_level_a: { criteria: [hand('1.4.1', 'x')] }, success_criteria_level_aa: { criteria: [hand('1.4.11', 'y')] } } };
+  assert.equal(at(buildReport([model({})], none, catalog, OPTS).report, 'functional_performance_criteria', '302.3').level, 'not-evaluated');
+});

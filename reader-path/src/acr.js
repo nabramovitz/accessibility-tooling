@@ -166,6 +166,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
         return p;
       }
       mine.delete(p.num);
+      if (!WORST.includes(level(b))) conflicts.push(`base row ${p.num}: unknown level ${level(b) ?? '(none)'}`);
       // WORST order: a higher index is a better level.
       if (WORST.indexOf(level(b)) > WORST.indexOf(level(p))) {
         conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: ${level(p)}`);
@@ -173,7 +174,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
       return b;
     });
     rows.push(...mine.values());
-    for (const r of rows) merged.set(String(r.num), level(r) ?? 'not-evaluated');
+    for (const r of rows) merged.set(String(r.num), WORST.includes(level(r)) ? level(r) : 'not-evaluated');
     if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
     chapters[id] = { ...report.chapters?.[id], criteria: strNums(rows) };
   }
