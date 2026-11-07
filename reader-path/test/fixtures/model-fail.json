@@ -6,7 +6,7 @@
   "root": {
     "r": "document",
     "t": "Bad page",
-    "c": [{ "r": "button", "t": "- [x]: #y", "gaps": [["Contrast is too low", "1.4.3", "Elements must meet contrast"]] }]
+    "c": [{ "r": "button", "t": "- [x]: #y | z", "gaps": [["Contrast is too low", "1.4.3", "Elements must meet contrast"]] }]
   },
   "checks": {
     "1.4.3": { "pass": [], "fail": ["color-contrast"], "review": [], "na": [] },

@@ -30,19 +30,23 @@ const label = (m) => m.finalUrl ?? bare(m.url);
 const list = (m, sc, kind) => m.checks?.[sc]?.[kind] ?? [];
 const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc, kind)))];
 
-// One line. An unplaced gap has an axe selector in its text, and a selector
-// can hold a url with a query or an attribute value from the page, so the
-// text is not used: the goal (rule help text) is written instead.
+// One line: the lines of an axe-core summary are joined with "; ". An
+// unplaced gap has an axe selector in its text, and a selector can hold a
+// url with a query or an attribute value from the page, so the text is not
+// used: the goal (rule help text) is written instead.
 function plain([why, , goal]) {
   const w = why.startsWith('not placed') ? `not placed - ${goal}` : why;
-  return w.replace(/\s+/g, ' ').trim();
+  return w.split(/\r?\n/).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean).join('; ').replace(/:; /g, ': ');
 }
+
+// A node title comes from the page; notes are read as Markdown.
+const md = (s) => String(s).replace(/[\\`*_[\]()<>|#]/g, '\\$&').replace(/^[-+]/, '\\$&');
 
 function gapLines(models, sc) {
   const out = [];
   for (const m of models) {
     walk(m.root, (node) => {
-      for (const gap of node.gaps || []) if (gap[1] === sc) out.push(`${label(m)}: ${node.t || node.role}: ${plain(gap)}`);
+      for (const gap of node.gaps || []) if (gap[1] === sc) out.push(`${label(m)}: ${md(node.t || node.role)}: ${plain(gap)}`);
     });
   }
   return out.length > MAX_GAP_LINES ? [...out.slice(0, MAX_GAP_LINES), `and ${out.length - MAX_GAP_LINES} more`] : out;
@@ -100,7 +104,7 @@ export function proposeRows(models, catalog, levelOf) {
     out[id] = chapter.criteria.map((c) => {
       const num = String(c.id);
       const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level) : byCriterion(num);
-      return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, end].join('\n') } }] };
+      return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, end].join('\n\n') } }] };
     });
   }
   return out;
