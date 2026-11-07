@@ -29,10 +29,11 @@ const label = (m) => m.finalUrl ?? bare(m.url);
 const list = (m, sc, kind) => m.checks?.[sc]?.[kind] ?? [];
 const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc, kind)))];
 
-// One line, and no selector: an axe selector can hold a url with a query
-// or an attribute value from the page.
-function plain(why) {
-  const w = why.startsWith('not placed: ') ? `not placed - ${why.split(' - ').slice(1).join(' - ')}` : why;
+// One line. An unplaced gap has an axe selector in its text, and a selector
+// can hold a url with a query or an attribute value from the page, so the
+// text is not used: the goal (rule help text) is written instead.
+function plain([why, , goal]) {
+  const w = why.startsWith('not placed') ? `not placed - ${goal}` : why;
   return w.replace(/\s+/g, ' ').trim();
 }
 
@@ -40,7 +41,7 @@ function gapLines(models, sc) {
   const out = [];
   for (const m of models) {
     walk(m.root, (node) => {
-      for (const [why, c] of node.gaps || []) if (c === sc) out.push(`${label(m)}: ${node.t || node.role}: ${plain(why)}`);
+      for (const gap of node.gaps || []) if (gap[1] === sc) out.push(`${label(m)}: ${node.t || node.role}: ${plain(gap)}`);
     });
   }
   return out.length > MAX_GAP_LINES ? [...out.slice(0, MAX_GAP_LINES), `and ${out.length - MAX_GAP_LINES} more`] : out;
