@@ -44,9 +44,10 @@ in a browser. A path to a local file also works for `<url>`.
   many milliseconds more.
 
 The model has the requested `url`, the `finalUrl` after redirects and
-scripts, and the HTTP `status` of the main response. When the final URL
-is not the requested one (query and fragment left out), a run note says
-so. A sign-in page in place of the page you asked for shows up there.
+scripts, and the HTTP `status` of the main response. `finalUrl` has no
+query and no fragment, as a redirect can carry a sign-in token there.
+When the final URL is not the requested one (query and fragment left
+out), a run note says so. A sign-in page in place of the page you asked for shows up there.
 
 Run notes also say when axe-core could not be added to a frame or did
 not run; the tree and the Tab order are still written.
