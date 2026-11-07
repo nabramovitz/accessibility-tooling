@@ -33,6 +33,28 @@ export function axeToGaps(results) {
   return gaps;
 }
 
+// The rule ids of each criterion, by result. A rule with no criterion tag is
+// left out; a rule with two criterion tags is in both.
+export function axeToChecks(results) {
+  const checks = {};
+  const lists = { passes: 'pass', violations: 'fail', incomplete: 'review', inapplicable: 'na' };
+  for (const [key, list] of Object.entries(lists)) {
+    for (const rule of results[key] || []) {
+      for (const t of rule.tags) {
+        const m = /^wcag(\d)(\d)(\d+)$/.exec(t);
+        if (m) addCheck(checks, `${m[1]}.${m[2]}.${m[3]}`, list, rule.id);
+      }
+    }
+  }
+  return checks;
+}
+
+// Adds a rule id to a list of a criterion, once.
+export function addCheck(checks, sc, list, id) {
+  const entry = (checks[sc] ||= { pass: [], fail: [], review: [], na: [] });
+  if (!entry[list].includes(id)) entry[list].push(id);
+}
+
 export function axeContrast(results) {
   const out = [];
   for (const list of [results.violations, results.passes, results.incomplete]) {

@@ -2,7 +2,7 @@ import './hold-children.js';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { RUN_ONLY, axeToGaps, axeContrast } from './axe.js';
+import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
@@ -159,6 +159,10 @@ async function axePass(page, cdp, nearestKept, root, model, notes) {
     return;
   }
 
+  for (const [sc, lists] of Object.entries(axeToChecks(results))) {
+    for (const [list, ids] of Object.entries(lists)) ids.forEach((id) => addCheck(model.checks, sc, list, id));
+  }
+
   const place = async (target) => {
     if (target.length !== 1) return undefined;
     try {
@@ -222,6 +226,7 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
   const stop = (why, note) => {
     (root.gaps ||= []).push([why, '2.1.2', 'Tab moves focus to the next control']);
     (model.levels ||= {})['2.1.2'] = 'A';
+    addCheck(model.checks, '2.1.2', 'fail', 'tab-walk');
     notes.push(note);
   };
   const seen = new Set();
@@ -305,9 +310,11 @@ export async function generate(url, opts = {}) {
     notes.push(...domNotes);
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
     const { root, nearestKept } = buildTree(nodes, dom);
-    const model = {};
+    const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
     await tabWalk(page, cdp, nearestKept, root, notes, model);
+    // A stop gap put 'tab-walk' in fail; every other end is a pass.
+    if (!model.checks['2.1.2']?.fail.includes('tab-walk')) addCheck(model.checks, '2.1.2', 'pass', 'tab-walk');
 
     const title = await page.title();
     const version = browser.version();
