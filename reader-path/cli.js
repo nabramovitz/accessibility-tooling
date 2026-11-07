@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { findBun, runBun } from './src/bun.js';
 
@@ -42,32 +43,74 @@ if (!process.versions.bun && !token) {
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
   + ' [--wait-for <selector>] [--settle <ms>]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] --out <file.yaml>';
-const ACR_USAGE = 'usage: ' + USAGE.split('\n')[1].trim();
+
+const usage = (text) => Object.assign(new Error(text), { usage: true });
+
+function loadModel(f) {
+  let m;
+  try { m = JSON.parse(readFileSync(f, 'utf8')); } catch { m = null; }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) throw new Error(`not a model file: ${f}`);
+  if (!m.checks) throw new Error(`model has no checks; run reader-path again: ${f}`);
+  return m;
+}
+
+function loadBase(f, yaml) {
+  const base = yaml.load(readFileSync(f, 'utf8')) ?? {};
+  if (typeof base !== 'object' || Array.isArray(base)) throw new Error(`base is not a YAML mapping: ${f}`);
+  for (const [id, chapter] of Object.entries(base.chapters ?? {})) {
+    const rows = chapter?.criteria;
+    if (rows === undefined) continue;
+    if (!Array.isArray(rows)) throw new Error(`criteria is not a list: ${id} in ${f}`);
+    const seen = new Set();
+    for (const r of rows) {
+      const num = String(r?.num);
+      if (seen.has(num)) throw new Error(`base has two rows for ${num} in ${id}`);
+      seen.add(num);
+    }
+  }
+  return base;
+}
 
 async function writeAcr(files, { base, out }) {
+  // Loaded here, so a run that hands over to Bun does not load them.
   const { default: yaml } = await import('js-yaml');
   const { buildReport, dump, loadCatalog } = await import('./src/acr.js');
-  const models = files.map((f) => {
-    const m = JSON.parse(readFileSync(f, 'utf8'));
-    if (!m.checks) throw new Error(`model has no checks; run reader-path again: ${f}`);
-    return m;
-  });
+  const models = files.map(loadModel);
   const own = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
-  const axe = JSON.parse(readFileSync(new URL('./node_modules/axe-core/package.json', import.meta.url), 'utf8'));
+  const axe = createRequire(import.meta.url)('axe-core/package.json');
   const d = new Date();
   const date = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, '0')).join('-');
-  const { report, conflicts, pending } = buildReport(models, base ? yaml.load(readFileSync(base, 'utf8')) : null,
-    loadCatalog(), { version: own.version, axe: axe.version, date });
+  const loaded = base ? loadBase(base, yaml) : null;
+  const { report, conflicts, pending } = buildReport(models, loaded, loadCatalog(), { version: own.version, axe: axe.version, date });
+  mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, dump(report));
   console.log(`wrote ${out}`);
-  conflicts.forEach((c) => console.log(c));
-  if (!base) console.log('fill title, product.name and author.email before the report is used');
+  conflicts.forEach((x) => console.log(x));
+  if (!Object.keys(loaded ?? {}).length) console.log('fill title, product.name and author.email before the report is used');
   console.log(`${pending} A and AA rows still not-evaluated (a report cannot be published with them)`);
 }
 
-try {
-  // Loaded here, so a run that hands over to Bun does not load them.
+async function writePage(url, values) {
+  const { generate, pageUrl } = await import('./src/generate.js');
+  const { render } = await import('./src/render.js');
+  const out = values.out ?? 'reader-path-out';
+  const settle = values.settle === undefined ? undefined : Number(values.settle);
+  if (settle !== undefined && !(Number.isInteger(settle) && settle >= 0)) {
+    throw new Error('--settle takes a whole number of milliseconds');
+  }
+  const model = await generate(pageUrl(url), {
+    storageState: values['storage-state'],
+    ignoreHTTPSErrors: values['ignore-https-errors'],
+    waitFor: values['wait-for'],
+    settle,
+  });
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'model.json'), JSON.stringify(model, null, 2) + '\n');
+  writeFileSync(join(out, 'index.html'), render(model));
+  console.log(`wrote ${join(out, 'index.html')} and ${join(out, 'model.json')}`);
+}
 
+try {
   const { values, positionals } = parseArgs({
     args: passed === undefined ? argv : JSON.parse(passed),
     allowPositionals: true,
@@ -81,29 +124,13 @@ try {
     },
   });
   if (positionals[0] === 'acr') {
-    if (positionals.length < 2 || !values.out) throw new Error(ACR_USAGE);
+    if (positionals.length < 2 || !values.out) throw usage(USAGE);
     await writeAcr(positionals.slice(1), values);
-    process.exit(0);
+  } else {
+    if (positionals.length !== 1) throw usage(USAGE);
+    await writePage(positionals[0], values);
   }
-  if (positionals.length !== 1) throw new Error(USAGE);
-  const { generate, pageUrl } = await import('./src/generate.js');
-  const { render } = await import('./src/render.js');
-  const out = values.out ?? 'reader-path-out';
-  const settle = values.settle === undefined ? undefined : Number(values.settle);
-  if (settle !== undefined && !(Number.isInteger(settle) && settle >= 0)) {
-    throw new Error('--settle takes a whole number of milliseconds');
-  }
-  const model = await generate(pageUrl(positionals[0]), {
-    storageState: values['storage-state'],
-    ignoreHTTPSErrors: values['ignore-https-errors'],
-    waitFor: values['wait-for'],
-    settle,
-  });
-  mkdirSync(out, { recursive: true });
-  writeFileSync(join(out, 'model.json'), JSON.stringify(model, null, 2) + '\n');
-  writeFileSync(join(out, 'index.html'), render(model));
-  console.log(`wrote ${join(out, 'index.html')} and ${join(out, 'model.json')}`);
 } catch (e) {
-  console.error(`reader-path: ${String(e.message).split(/\r?\n/)[0]}`);
+  console.error(`reader-path: ${e.usage ? e.message : String(e.message).split(/\r?\n/)[0]}`);
   process.exit(1);
 }
