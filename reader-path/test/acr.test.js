@@ -229,6 +229,14 @@ test('failing rules are one line over the pages', () => {
   assert.ok(lines(proposeRows([a, b, c], catalog), '1.1.1').includes('Failing rules: r1, r2 on 2 of 3 page(s)'));
 });
 
+test('a Tab walk in review is named as such, not as an axe-core rule', () => {
+  const rows = proposeRows([model({ '2.1.2': entry({ review: ['tab-walk', 'r'] }) })], catalog);
+  assert.equal(adh(rows, '2.1.2').level, 'not-evaluated');
+  assert.ok(lines(rows, '2.1.2').includes('Needs a person: the Tab walk did not read every Tab stop (see the run notes)'));
+  assert.ok(lines(rows, '2.1.2').includes('Needs a person: axe-core could not decide (r)'));
+  assert.ok(!adh(rows, '2.1.2').notes.includes('decide (tab-walk'));
+});
+
 test('pass with review on any page: not-evaluated, with both rule lists', () => {
   const rows = proposeRows([model({ '1.4.3': entry({ pass: ['p'] }) }), model({ '1.4.3': entry({ pass: ['q'], review: ['color-contrast'] }) })], catalog);
   assert.equal(adh(rows, '1.4.3').level, 'not-evaluated');

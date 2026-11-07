@@ -78,7 +78,10 @@ function wcag(models, sc) {
   const missing = models.filter((m) => !['pass', 'review', 'na'].some((kind) => list(m, sc, kind).length));
   const lines = [];
   if (pass.length) lines.push(`Rules that passed: ${pass.join(', ')}, on ${passing.length} of ${models.length} page(s)`);
-  if (review.length) lines.push(`Needs a person: axe-core could not decide (${review.join(', ')})`);
+  // tab-walk is the tool's own check of 2.1.2, not an axe-core rule.
+  const axeReview = review.filter((r) => r !== 'tab-walk');
+  if (review.includes('tab-walk')) lines.push('Needs a person: the Tab walk did not read every Tab stop (see the run notes)');
+  if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
   if (!pass.length && na.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${na.join(', ')}); is the row not applicable?`);
   if (missing.length) lines.push(`Needs a person: no automated result on ${missing.length} of ${models.length} page(s)`);
   return { level: pass.length && !review.length && !missing.length ? 'supports' : 'not-evaluated', lines };
