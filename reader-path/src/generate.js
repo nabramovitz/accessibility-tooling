@@ -133,6 +133,12 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
     const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
     if (node.nodeName === 'BODY') return;
     const id = node.backendNodeId;
+    if (node.nodeName === 'IFRAME') {
+      if (id === prev) continue; // focus is moving inside the frame, which is not read
+      const a = node.attributes || [];
+      const i = a.indexOf('src');
+      notes.push(`Tab stops inside iframe not read: ${i >= 0 ? a[i + 1] : 'about:srcdoc'}`);
+    }
     if (id === prev) {
       return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }

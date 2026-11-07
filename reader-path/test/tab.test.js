@@ -29,3 +29,13 @@ test('a page with no Tab stop', async () => {
   assert.equal(m.root.gaps, undefined);
   assert.equal(m.levels, undefined);
 });
+
+test('Tab stops inside an iframe are not a trap', async () => {
+  const m = await generate(fixture('iframe-tab.html'));
+  const stops = flat(m).filter((n) => n.tab).sort((a, b) => a.tab - b.tab);
+  assert.equal(stops.length, 3);
+  assert.equal(stops[0].name, 'A');
+  assert.equal(stops[2].name, 'Z');
+  assert.equal(m.root.gaps, undefined);
+  assert.equal(m.notes.filter((x) => x === 'Tab stops inside iframe not read: about:srcdoc').length, 1);
+});
