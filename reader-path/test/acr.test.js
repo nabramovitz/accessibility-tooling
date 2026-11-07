@@ -175,6 +175,14 @@ test('the page label falls back to the bare url', () => {
   assert.ok(!adh(proposeRows([m], catalog), '1.1.1').notes.includes('token'));
 });
 
+test('a file: page is named by its file name only', () => {
+  const u = 'file:///Users/someone/pages/my%20page.html';
+  const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { url: u, finalUrl: u, root: { r: 'document', t: 'T', gaps: [['why', '1.1.1', 'g']] } });
+  const rows = proposeRows([m], catalog);
+  assert.ok(lines(rows, '1.1.1').includes('my page.html: T: why'));
+  assert.ok(!adh(rows, '1.1.1').notes.includes('someone'));
+});
+
 test('an unplaced gap keeps no selector', () => {
   const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, {
     root: { r: 'document', t: 'T', gaps: [['not placed: a[aria-label="A - token=abc"] > b - Fix this', '2.4.4', 'Links must have names']] },

@@ -273,12 +273,15 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
   return 'review';
 }
 
-// A url without its query and fragment: these can hold sign-in tokens.
+// A url without its query, fragment, user name and password: these can
+// hold sign-in tokens.
 export function bare(u) {
   try {
     const x = new URL(u);
     x.search = '';
     x.hash = '';
+    x.username = '';
+    x.password = '';
     return x.href;
   } catch {
     return String(u).split(/[?#]/)[0];
