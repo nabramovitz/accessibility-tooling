@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reader path model: {{TITLE}}</title>
 <style>
@@ -17,7 +18,7 @@ h1{font-size:17px;margin:0 0 2px} .meta{margin:0 0 6px;overflow-wrap:anywhere} .
 .bar button{font:inherit;padding:3px 10px;border:1px solid var(--bd);border-radius:14px;background:var(--bg2);color:var(--fg);cursor:pointer}
 .bar button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--bg)}
 .wrap{display:flex;gap:14px;align-items:flex-start;padding:12px 16px}
-#map{position:relative;flex:1;min-width:0}
+#map{position:relative;flex:1;min-width:0} #empty{flex:1;margin:0}
 #svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 #det{width:430px;flex:none;position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto;background:var(--bg2);border:1.5px solid var(--acc);border-radius:10px;padding:12px 14px}
 @media (max-width:1000px){
@@ -66,7 +67,7 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
   <p class="mut meta">{{URL}} · generated {{GENERATED}}</p>
   <section class="sub" aria-labelledby="how"><h2 id="how">How to read this page</h2>
     <p>A box is one part of the page as the browser gives it to assistive technology. It shows what a screen reader gets there: the role, the accessible name, the description and the state. Select a box to see its content on the right.</p>
-    <p>Each path button shows the same boxes in a different view. Structure shows the boxes inside each other. Reading order, Tab order and Headings number the boxes and join them with arrows. Landmarks marks the page regions. Actions and results lists what a control does. Messages shows the message boxes. Gaps shows the boxes that have a gap at the chosen level.</p>
+    <p>Each path button shows the same boxes in a different view. Structure shows the boxes inside each other. Reading order, Tab order and Headings number the boxes and join them with arrows. Landmarks marks the page regions. Messages shows the message boxes. Gaps shows the boxes that have a gap at the chosen level. Actions and results (what a control does) and the events in Messages are filled by a later version; a view with nothing in this model says "none in this model".</p>
     <p>"Now" is what the page gives today. "Goal" is what it should give, and where the goal comes from: a WCAG 2.2 success criterion with its level (A, AA or AAA), or "our rule", the rule of comparable information. The goal level buttons choose which gaps are shown: A, AA (includes A) or AAA (includes both). A red dashed box has a gap at the chosen level. The drill down buttons open or close the boxes by depth.</p>
     <p>The results come from the browser's accessibility tree and from the axe-core rules. A person must confirm them; this page is not an evaluation.</p>
   </section>
@@ -76,6 +77,7 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
   <div class="bar" id="levels" role="group" aria-labelledby="levelsl"><span class="l" id="levelsl">Drill down</span></div>
 </header>
 <main class="wrap">
+  <p id="empty" hidden></p>
   <div id="map"><svg id="svg" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--mut)"/></marker></defs></svg></div>
   <section id="det" tabindex="0" aria-label="Content of the selected box"></section>
 </main>
@@ -94,7 +96,7 @@ const LV = {...(MODEL.levels || {}), rule:'rule'};
 
 // ---- Drawing. Sketch code. ----
 const $ = s => document.querySelector(s), map = $('#map'), det = $('#det'), svg = $('#svg');
-const byId = {}, order = [], parent = {};
+const byId = {}, order = [], parent = {}, parts = {}; // parts: id -> { d, pick, gc, bdg }
 (function walk(n, p, d){ byId[n.id] = n; n.depth = d; parent[n.id] = p; order.push(n); (n.c||[]).forEach(c => walk(c, n, d+1)); })(M, null, 0);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const incoming = id => order.flatMap(n => (n.msgs||[]).filter(m => m.to === id).map(m => ({...m, from:n})));
@@ -122,12 +124,13 @@ function el(n){
   const lbl = `<button class="pick" aria-pressed="false"><span class="bdg"></span><span><span class="comp">${esc(n.comp)}${n.when ? ' · '+esc(n.when) : ''}</span><br><span class="t">${esc(n.t)}</span>${n.ex ? ' <span class="ex">(example)</span>' : ''}${chips}</span></button>`;
   if (n.c) { d.className = 'c'; d.innerHTML = `<div class="ch"><button class="tg" aria-expanded="true" aria-label="Inside ${esc(n.t)}">▾</button>${lbl}</div><div class="cb"></div>`; n.c.forEach(c => d.lastChild.append(el(c))); }
   else { d.className = 'n'; d.innerHTML = lbl; }
+  const head = n.c ? d.firstChild : d;
+  parts[n.id] = {d, pick:head.querySelector('.pick'), gc:head.querySelector('.gc'), bdg:head.querySelector('.bdg')};
   return d;
 }
 map.append(el(M));
 const shut = (d, b) => { d.classList.toggle('closed', b); const t = d.querySelector('.tg'); t.textContent = b ? '▸' : '▾'; t.setAttribute('aria-expanded', !b); };
-const dom = id => map.querySelector(`[data-id="${CSS.escape(id)}"]`);
-const own = (d, s) => d.querySelector(d.classList.contains('c') ? ':scope > .ch ' + s : s);
+const dom = id => parts[id].d;
 map.addEventListener('click', e => {
   const box = e.target.closest('[data-id]'); if (!box) return;
   if (e.target.closest('.tg')) shut(box, !box.classList.contains('closed'));
@@ -135,19 +138,24 @@ map.addEventListener('click', e => {
   else return;
   e.stopPropagation(); paint();
 });
-det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); own(dom(sel), '.pick').focus(); } });
+det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } });
 function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
 function setLevel(k){ order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
 
 const vis = id => { const d = dom(id); return d && d.offsetParent !== null; };
-const pt = (id, anchor) => { const d = dom(id), t = (anchor && own(d, '.bdg')) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
+const pt = (id, anchor) => { const d = dom(id), t = (anchor && parts[id].bdg) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
+let shownMode = mode;
 function paint(){
   const P = PATHS[mode], on = order.filter(P.on); if (P.sort) on.sort(P.sort);
-  order.forEach(n => { const d = dom(n.id), g = gapsOf(n).length, i = on.indexOf(n);
-    d.classList.remove('sel','same','tgt'); d.classList.toggle('dim', mode !== 'structure' && !P.on(n)); d.classList.toggle('hasgap', g > 0);
-    own(d, '.pick').setAttribute('aria-pressed', n.id === sel);
-    own(d, '.gc').innerHTML = g ? `<span class="chip g">${g} gap${g > 1 ? 's' : ''}</span>` : '';
-    own(d, '.bdg').innerHTML = (P.badge && i >= 0) ? `<span class="chip bd">${esc(P.badge(n, i))}</span> ` : ''; });
+  const at = new Map(on.map((n, i) => [n, i]));
+  const empty = mode !== 'structure' && !on.length, note = $('#empty');
+  note.hidden = !empty; map.hidden = empty; note.textContent = empty ? P.l + (mode === 'gaps' ? ' at the chosen level' : '') + ': none in this model.' : '';
+  if (mode !== shownMode) { shownMode = mode; if (empty) $('#say').textContent = note.textContent; }
+  order.forEach(n => { const {d, pick, gc, bdg} = parts[n.id], g = gapsOf(n).length, i = at.has(n) ? at.get(n) : -1;
+    d.classList.remove('sel','same','tgt'); d.classList.toggle('dim', mode !== 'structure' && i < 0); d.classList.toggle('hasgap', g > 0);
+    pick.setAttribute('aria-pressed', n.id === sel);
+    gc.innerHTML = g ? `<span class="chip g">${g} gap${g > 1 ? 's' : ''}</span>` : '';
+    bdg.innerHTML = (P.badge && i >= 0) ? `<span class="chip bd">${esc(P.badge(n, i))}</span> ` : ''; });
   const s = byId[sel]; dom(sel).classList.add('sel');
   order.filter(n => n !== s && n.comp === s.comp && s.comp.includes('-')).forEach(n => dom(n.id).classList.add('same'));
   let lines = '';
@@ -179,7 +187,7 @@ function detail(n){
   det.innerHTML = `<div class="comp">${path.join(' › ') || 'top'}</div><h2>${esc(n.t)}${n.ex ? ' <span class="ex">(example)</span>' : ''}</h2>
   <table class="ng"><thead><tr><th>content</th><th>now (from the HTML)</th><th>goal</th></tr></thead><tbody>
   ${ng('role','role')}${ng('accessible name','name')}${ng('accessible description','desc')}${ng('state','state')}
-  ${(!n.c || n.tab) ? contrast('text contrast', [['AA','1.4.3','4.5 to 1'],['AAA','1.4.6','7 to 1']], n.contrast) : ''}${n.tab ? contrast('control edge and focus mark', [['AA','1.4.11','3 to 1']]) : ''}
+  ${(!n.c || n.tab || n.contrast) ? contrast('text contrast', [['AA','1.4.3','4.5 to 1'],['AAA','1.4.6','7 to 1']], n.contrast) : ''}${n.tab ? contrast('control edge and focus mark', [['AA','1.4.11','3 to 1']]) : ''}
   </tbody></table>
   ${other.length ? '<h3>More gaps and goals</h3><ul>'+other.map(g => `<li>${srcOf(g)}<span class="gt">${esc(g[0])}</span><br>Goal: <b>${esc(g[2])}</b></li>`).join('')+'</ul>' : ''}
   ${(n.acts||[]).length ? '<h3>Steps out (action → result)</h3><ul>'+n.acts.map(a => `<li><b>${esc(a.do)}</b> · <span class="k">${esc(a.keys)}</span><br>${a.gap ? '<span class="gt">gap · </span>' : ''}${esc(a.res)}${a.to ? ' → '+go(a.to) : ''}</li>`).join('')+'</ul>' : ''}
@@ -193,8 +201,8 @@ const btn = (bar, text, fn, data) => { const b = document.createElement('button'
 Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
 [['A','Level A'],['AA','Level AA (target; includes A)'],['AAA','Level AAA (includes A and AA)']].forEach(([k, l]) => btn('#goal', l, () => { level = k; }, {lv:k}));
 btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
-[['Area', 1], ['Common blocks and page', 2], ['Components', 3], ['Inside components', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k)));
-addEventListener('resize', paint); setLevel(3);
+[['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k)));
+let resized; addEventListener('resize', () => { clearTimeout(resized); resized = setTimeout(paint, 100); }); setLevel(3);
 if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
 </script>
 </body>
