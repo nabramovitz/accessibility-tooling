@@ -100,7 +100,8 @@ function fpc(num, levelOf) {
 }
 
 // levelOf(num), when given, is the level of a WCAG row for the chapter 3
-// rows (a row a person wrote); undefined means the tool's own proposal.
+// rows (a row a person wrote); undefined means the tool's own proposal. A
+// chapter 3 row built with a person's level says so in its end line.
 export function proposeRows(models, catalog, levelOf) {
   if (!models.length) throw new Error('no models');
   const cache = new Map();
@@ -108,7 +109,7 @@ export function proposeRows(models, catalog, levelOf) {
     if (!cache.has(sc)) cache.set(sc, wcag(models, sc));
     return cache.get(sc);
   };
-  const end = `Proposed by reader-path from automated checks on ${models.length} page(s); a person confirms.`;
+  const end = (from) => `Proposed by reader-path from ${from} on ${models.length} page(s); a person confirms.`;
   const out = {};
   for (const id of CHAPTERS) {
     const chapter = catalog.chapters.find((c) => c.id === id);
@@ -116,7 +117,9 @@ export function proposeRows(models, catalog, levelOf) {
     out[id] = chapter.criteria.map((c) => {
       const num = String(c.id);
       const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level) : byCriterion(num);
-      return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, end].join('\n\n') } }] };
+      const fromBase = isFpc && FPC[num].rows.some((sc) => levelOf?.(sc) !== undefined);
+      const last = end(fromBase ? 'automated checks and the base file' : 'automated checks');
+      return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, last].join('\n\n') } }] };
     });
   }
   return out;
@@ -155,10 +158,13 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   const conflicts = [];
   let pending = 0;
   let automated = 0;
-  const merged = new Map();
+  // The levels of the person rows in the report, for chapter 3.
+  const person = new Map();
   for (const id of CHAPTERS) {
     const mine = new Map((report.chapters?.[id]?.criteria || []).filter((r) => !toolOwned(r)).map((r) => [String(r.num), r]));
-    const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => merged.get(sc))[id] : own[id];
+    const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => person.get(sc))[id] : own[id];
+    // A person row in another chapter than the catalog's also counts.
+    for (const [num, b] of mine) person.set(num, WORST.includes(level(b)) ? level(b) : 'not-evaluated');
     const rows = proposed.map((p) => {
       const b = mine.get(p.num);
       if (!b) {
@@ -174,7 +180,6 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
       return b;
     });
     rows.push(...mine.values());
-    for (const r of rows) merged.set(String(r.num), WORST.includes(level(r)) ? level(r) : 'not-evaluated');
     if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
     chapters[id] = { ...report.chapters?.[id], criteria: strNums(rows) };
   }

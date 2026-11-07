@@ -315,3 +315,19 @@ test('an unknown base level is not-evaluated for chapter 3 and is printed', () =
   const none = { title: 'T', chapters: { success_criteria_level_a: { criteria: [hand('1.4.1', 'x')] }, success_criteria_level_aa: { criteria: [hand('1.4.11', 'y')] } } };
   assert.equal(at(buildReport([model({})], none, catalog, OPTS).report, 'functional_performance_criteria', '302.3').level, 'not-evaluated');
 });
+
+test('a chapter 3 row built with a person level names the base file in its end line', () => {
+  const rows = proposeRows([model({}), model({})], catalog, (sc) => (sc === '1.4.1' ? 'supports' : undefined));
+  assert.equal(lines(rows, '302.3').at(-1), 'Proposed by reader-path from automated checks and the base file on 2 page(s); a person confirms.');
+  assert.equal(lines(rows, '302.7').at(-1), END(2));
+  const base = { title: 'T', chapters: { success_criteria_level_a: { criteria: [hand('2.1.2', 'supports')] } } };
+  const { report } = buildReport([model({})], base, catalog, OPTS);
+  assert.match(at(report, 'functional_performance_criteria', '302.7').notes, /automated checks and the base file on 1 page\(s\); a person confirms\.$/);
+  assert.match(at(report, 'functional_performance_criteria', '302.3').notes, /Proposed by reader-path from automated checks on 1 page/);
+});
+
+test('a person row in another chapter still counts for chapter 3', () => {
+  const base = { title: 'T', chapters: { success_criteria_level_aa: { criteria: [hand('2.1.2', 'does-not-support')] } } };
+  const { report } = buildReport([model({})], base, catalog, OPTS);
+  assert.equal(at(report, 'functional_performance_criteria', '302.7').level, 'does-not-support');
+});
