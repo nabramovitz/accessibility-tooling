@@ -163,11 +163,11 @@ test('the page label falls back to the bare url', () => {
 
 test('an unplaced gap keeps no selector', () => {
   const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, {
-    root: { r: 'document', t: 'T', gaps: [['not placed: a[href="/x?token=abc"] > b - Fix this', '2.4.4', 'g']] },
+    root: { r: 'document', t: 'T', gaps: [['not placed: a[aria-label="A - token=abc"] > b - Fix this', '2.4.4', 'Links must have names']] },
   });
   const n = adh(proposeRows([m], catalog), '2.4.4').notes;
   assert.ok(!n.includes('token'));
-  assert.ok(n.includes('T: not placed - Fix this'));
+  assert.ok(n.includes('T: not placed - Links must have names'));
 });
 
 test('a gap why with line breaks is one line', () => {
