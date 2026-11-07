@@ -60,3 +60,16 @@ test('a page that stops every Tab press is a gap', async () => {
   assert.ok(m.root.gaps.some((g) => g[1] === '2.1.2'));
   assert.ok(m.notes.includes('Tab walk stopped: focus did not move'));
 });
+
+test('the Tab walk is a check of 2.1.2', async () => {
+  const ok = await generate(fixture('tab.html'));
+  assert.ok(ok.checks['2.1.2'].pass.includes('tab-walk'));
+  assert.ok(!ok.checks['2.1.2'].fail.includes('tab-walk'));
+  for (const f of ['trap.html', 'trap-loop.html']) {
+    const m = await generate(fixture(f));
+    assert.ok(m.checks['2.1.2'].fail.includes('tab-walk'), f);
+    assert.ok(!m.checks['2.1.2'].pass.includes('tab-walk'), f);
+  }
+  const many = await generate(fixture('many.html'));
+  assert.ok(many.checks['2.1.2'].pass.includes('tab-walk'));
+});

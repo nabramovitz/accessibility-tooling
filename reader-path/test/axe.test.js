@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generate, addAxe } from '../src/generate.js';
-import { axeToGaps, axeContrast } from '../src/axe.js';
+import { axeToGaps, axeContrast, axeToChecks } from '../src/axe.js';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { fixture, flat } from './helpers.js';
@@ -78,4 +78,29 @@ test('a frame that refuses axe-core is a note', async () => {
   });
   await addAxe([frame('http://h/a', false), frame('http://h/b?token=1#x', true)], notes);
   assert.deepEqual(notes, ['axe not added to frame: http://h/b']);
+});
+
+test('axeToChecks lists rule ids by criterion and result', () => {
+  const rule = (id, ...tags) => ({ id, tags });
+  const c = axeToChecks({
+    passes: [rule('p1', 'wcag2a', 'wcag111'), rule('p1', 'wcag2a', 'wcag111')],
+    violations: [rule('v1', 'wcag2a', 'wcag111')],
+    incomplete: [rule('i1', 'wcag21aa', 'wcag1410')],
+    inapplicable: [rule('n1', 'wcag2a', 'wcag111', 'wcag412'), rule('none', 'best-practice')],
+  });
+  assert.deepEqual(c, {
+    '1.1.1': { pass: ['p1'], fail: ['v1'], review: [], na: ['n1'] },
+    '1.4.10': { pass: [], fail: [], review: ['i1'], na: [] },
+    '4.1.2': { pass: [], fail: [], review: [], na: ['n1'] },
+  });
+});
+
+test('axeToChecks accepts results without lists', () => {
+  assert.deepEqual(axeToChecks({}), {});
+});
+
+test('a generated model has checks from axe-core', async () => {
+  const m = await generate(fixture('tab.html'));
+  assert.ok(Object.keys(m.checks).length > 1);
+  assert.deepEqual(Object.keys(m.checks['2.1.2']).sort(), ['fail', 'na', 'pass', 'review']);
 });
