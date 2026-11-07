@@ -150,7 +150,9 @@ async function axePass(page, cdp, nearestKept, root, model, notes) {
   try {
     results = await page.evaluate((runOnly) => axe.run(document, { runOnly }), RUN_ONLY);
   } catch (e) {
-    const why = String(e.message).split('\n')[0].replace(/^page\.evaluate: (?:\w*Error: )?/, '');
+    // Playwright starts the message with the call's name: "page.evaluate"
+    // under Node.js, "evaluate" under Bun. The note is the same for both.
+    const why = String(e.message).split('\n')[0].replace(/^(?:page\.)?evaluate: (?:\w*Error: )?/, '');
     notes.push(`axe-core did not run: ${why}`);
     return;
   }
