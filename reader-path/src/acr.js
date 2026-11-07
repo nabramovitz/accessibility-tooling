@@ -26,7 +26,14 @@ export function loadCatalog() {
   return yaml.load(readFileSync(new URL('../catalog/2.5-edition-wcag-2.2-508-en.yaml', import.meta.url), 'utf8'));
 }
 
-const label = (m) => m.finalUrl ?? bare(m.url);
+// A file: page is named by its file name only: the path can hold the
+// user's name, and the report is meant to be published.
+function label(m) {
+  const u = m.finalUrl ?? bare(m.url);
+  if (!/^file:/i.test(u)) return u;
+  const name = u.split('/').pop();
+  try { return decodeURIComponent(name); } catch { return name; }
+}
 const list = (m, sc, kind) => m.checks?.[sc]?.[kind] ?? [];
 const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc, kind)))];
 

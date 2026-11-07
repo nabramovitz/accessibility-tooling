@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generate, pageUrl } from '../src/generate.js';
+import { generate, pageUrl, bare } from '../src/generate.js';
 import { render } from '../src/render.js';
 import { selfSigned } from './cert.js';
 import { fixture, flat } from './helpers.js';
@@ -104,4 +104,9 @@ test('a path, also a Windows path, becomes a file URL', async () => {
   const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'out');
   await run('node', [CLI, fileURLToPath(fixture('structure.html')), '--out', out]);
   assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
+});
+
+test('a bare url has no query, fragment, user name or password', () => {
+  assert.equal(bare('https://user:tok@h.test/p?q=1#f'), 'https://h.test/p');
+  assert.equal(bare('https://user@h.test/p'), 'https://h.test/p');
 });
