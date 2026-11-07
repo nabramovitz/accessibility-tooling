@@ -1,0 +1,23 @@
+title: Example product ACR
+product:
+  name: Example
+author:
+  email: someone@example.test
+chapters:
+  success_criteria_level_aa:
+    notes: Kept as is.
+    criteria:
+      - num: 1.4.3
+        components:
+          - name: web
+            adherence:
+              level: supports
+              notes: Checked by hand.
+  hardware:
+    criteria:
+      - num: '402'
+        components:
+          - name: none
+            adherence:
+              level: not-applicable
+              notes: No hardware.

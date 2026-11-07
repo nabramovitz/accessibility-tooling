@@ -100,3 +100,46 @@ export function proposeRows(models, catalog) {
   }
   return out;
 }
+
+const BASE_LEVELS = ['supports', 'not-applicable'];
+const level = (row) => row.components?.find((c) => c.name === 'web' || c.name === 'none')?.adherence?.level;
+
+// The report: the base file's fields as they are, the tool's rows for
+// the nums the base does not have. Returns { report, conflicts, pending }:
+// conflicts are lines for base rows that new evidence contradicts, pending
+// is the number of A and AA rows still not-evaluated.
+export function buildReport(models, base, catalog, { version, axe, date }) {
+  const proposed = proposeRows(models, catalog);
+  const report = base ? { ...base } : {
+    title: 'Accessibility Conformance Report (draft)',
+    product: { name: 'PRODUCT NAME' },
+    author: { email: 'AUTHOR EMAIL' },
+  };
+  report.catalog = '2.5-edition-wcag-2.2-508-en';
+  report.report_date = date;
+  report.evaluation_methods_used ??= `Automated checks with reader-path ${version} and axe-core ${axe} in ${models[0].browser}, `
+    + `on ${models.length} page(s). A person confirms every row.`;
+  const chapters = { ...(report.chapters || {}) };
+  const conflicts = [];
+  let pending = 0;
+  for (const id of CHAPTERS) {
+    const own = chapters[id]?.criteria || [];
+    const mine = new Map(own.map((r) => [String(r.num), r]));
+    const rows = proposed[id].map((p) => {
+      const b = mine.get(p.num);
+      if (!b) return p;
+      mine.delete(p.num);
+      if (BASE_LEVELS.includes(level(b)) && level(p) === 'partially-supports') {
+        conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: partially-supports`);
+      }
+      return b;
+    });
+    rows.push(...mine.values());
+    if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
+    chapters[id] = { ...chapters[id], criteria: rows };
+  }
+  report.chapters = chapters;
+  return { report, conflicts, pending };
+}
+
+export const dump = (report) => yaml.dump(report, { lineWidth: 80, noRefs: true });
