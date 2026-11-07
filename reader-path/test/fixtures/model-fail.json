@@ -1,0 +1,15 @@
+{
+  "url": "https://x.test/bad?token=1#h",
+  "finalUrl": "https://x.test/bad",
+  "browser": "Chromium 140.0.0.0",
+  "generated": "2026-11-07T10:00:00.000Z",
+  "root": {
+    "r": "document",
+    "t": "Bad page",
+    "c": [{ "r": "button", "t": "- [x]: #y", "gaps": [["Contrast is too low", "1.4.3", "Elements must meet contrast"]] }]
+  },
+  "checks": {
+    "1.4.3": { "pass": [], "fail": ["color-contrast"], "review": [], "na": [] },
+    "1.1.1": { "pass": ["image-alt"], "fail": [], "review": [], "na": [] }
+  }
+}
