@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generate } from '../src/generate.js';
+import { generate, buildTree } from '../src/generate.js';
 import { fixture, flat } from './helpers.js';
 
 test('landmarks and headings', async () => {
@@ -35,4 +35,21 @@ test('a focusable generic element is its own node', async () => {
   const all = flat(await generate(fixture('focusable.html')));
   const kept = all.find((n) => n.lm === 'region' && n.name === 'Kept');
   assert.deepEqual(kept.c.map((n) => [n.role, n.text, n.tab]), [['generic', 'One', 1], ['generic', 'Two', 2]]);
+});
+
+test('iframe notes name the src without query and fragment', async () => {
+  const m = await generate(fixture('iframes.html'));
+  assert.deepEqual(m.notes.filter((x) => x.startsWith('iframe not read')),
+    ['iframe not read: frame.html', 'iframe not read: about:srcdoc']);
+  assert.ok(m.notes.includes('Tab stops inside iframe not read: frame.html'), m.notes.join(' | '));
+});
+
+test('a node with no DOM node and a missing child', () => {
+  const role = (value) => ({ value });
+  const { root } = buildTree([
+    { nodeId: '1', backendDOMNodeId: 1, role: role('RootWebArea'), childIds: ['2', '99'] },
+    { nodeId: '2', role: role('button'), name: { value: 'X' }, childIds: [] },
+  ], new Map());
+  assert.equal(root.id, 'n1');
+  assert.deepEqual(root.c.map((n) => [n.id, n.name]), [['a2', 'X']]);
 });
