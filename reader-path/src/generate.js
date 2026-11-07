@@ -1,3 +1,4 @@
+import './hold-children.js';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { RUN_ONLY, axeToGaps, axeContrast } from './axe.js';
