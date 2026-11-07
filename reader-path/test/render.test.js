@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { generate } from '../src/generate.js';
 import { RUN_ONLY } from '../src/axe.js';
 import { render } from '../src/render.js';
+import { findBun, runBun } from '../src/bun.js';
 import { fixture, flat } from './helpers.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'reader-path-'));
@@ -192,15 +193,18 @@ test('cli writes model.json and index.html', () => {
 });
 
 // A stand-in bun at the start of the PATH, for the cli tests: it answers
-// --version as told, logs a run and hands the run to node. On Windows it
-// is bun.cmd, and the PATH loses each directory with a real bun.exe, as
-// that is found before a .cmd file. Node is started by its full path, so
-// the PATH does not matter for it.
+// --version as told, logs a run and hands the run to node, with
+// process.versions.bun set, so cli.js takes it for a Bun run. On Windows
+// it is bun.cmd, and the PATH loses each directory with a real bun.exe,
+// as that is found before a .cmd file. Node is started by its full path,
+// so the PATH does not matter for it.
 function standInBun(works) {
   const dir = tmp();
   const bin = join(dir, 'bin');
   const log = join(dir, 'log');
+  const asBun = join(dir, 'as-bun.mjs');
   mkdirSync(bin);
+  writeFileSync(asBun, "Object.defineProperty(process.versions, 'bun', { value: '1.4.4', enumerable: true });\n");
   const env = { ...process.env };
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
   let path = (env[key] || '').split(delimiter);
@@ -210,7 +214,7 @@ function standInBun(works) {
       '@echo off',
       `if "%~1"=="--version" exit /b ${works ? 0 : 1}`,
       `echo run>>"${bat(log)}"`,
-      `"${bat(NODE)}" %*`,
+      `"${bat(NODE)}" --import "${bat(pathToFileURL(asBun).href)}" %*`,
     ].join('\r\n') + '\r\n');
     path = path.filter((d) => d && !existsSync(join(d, 'bun.exe')));
   } else {
@@ -218,7 +222,7 @@ function standInBun(works) {
       '#!/bin/sh',
       `if [ "$1" = --version ]; then exit ${works ? 0 : 1}; fi`,
       `echo run >> '${log}'`,
-      `exec '${NODE}' "$@"`,
+      `exec '${NODE}' --import '${pathToFileURL(asBun).href}' "$@"`,
     ].join('\n') + '\n', { mode: 0o755 });
   }
   env[key] = [bin, ...path].join(delimiter);
@@ -254,6 +258,27 @@ test('cli hands over to bun from a path that cmd.exe would read', () => {
   execFileSync(NODE, [join(app, 'cli.js'), fixture('structure.html'), '--out', out], { env: { ...env, x: 'EXPANDED' }, stdio: 'pipe' });
   assert.equal(title(out), 'Fixture');
   assert.equal(runs(), 1);
+});
+
+// A READER_PATH_ARGV left in the environment is not the arguments, under
+// Node.js, under the hand-over to Bun, and under a real Bun if found.
+test('cli ignores a READER_PATH_ARGV it did not set', () => {
+  for (const stale of ['[]', 'oops']) {
+    for (const works of [true, false]) {
+      const { dir, env, runs } = standInBun(works);
+      const out = join(dir, 'out');
+      execFileSync(NODE, [CLI, fixture('structure.html'), '--out', out], { env: { ...env, READER_PATH_ARGV: stale }, stdio: 'pipe' });
+      assert.equal(title(out), 'Fixture', `${stale}, bun ${works ? 'works' : 'fails'}`);
+      assert.equal(runs(), works ? 1 : 0);
+    }
+    const bun = findBun();
+    if (bun) {
+      const out = join(tmp(), 'out');
+      const r = runBun(bun, [CLI, fixture('structure.html'), '--out', out], { env: { ...process.env, READER_PATH_ARGV: stale }, stdio: 'pipe' });
+      assert.equal(r.status, 0, String(r.stderr));
+      assert.equal(title(out), 'Fixture', `${stale}, real bun`);
+    }
+  }
 });
 
 test('cli under bun exits as the bun run exits', () => {
