@@ -81,6 +81,48 @@ out), a run note says so. A sign-in page in place of the page you asked for show
 Run notes also say when axe-core could not be added to a frame or did
 not run; the tree and the Tab order are still written.
 
+## OpenACR draft
+
+```
+bun cli.js acr <model.json>... [--base <yaml>] --out <file.yaml>
+```
+
+This reads the `model.json` of one or more pages (made by this
+version or later: it needs the `checks` table) and writes a draft
+OpenACR report in YAML, with one row for each WCAG 2.2 criterion and
+each Section 508 chapter 3 provision (302.1 to 302.9). Only the `web`
+component (`none` for chapter 3) is written. The rows come from the
+catalog in `catalog/`, a copy of the GSA/openacr catalog (see
+`catalog/NOTICE`).
+
+What each level means here:
+
+- `supports`: the automated checks passed on every page and none
+  failed.
+- `partially-supports`: a check failed on at least one page. The note
+  names the page and the gap. The tool never writes `does-not-support`;
+  whether a gap hits "the majority of product functionality" is for a
+  person to say.
+- `not-applicable`: every check found nothing to test on every page.
+- `not-evaluated`: no automated check covers the row, or axe-core could
+  not decide. The note starts with `Needs a person:`.
+
+A person confirms every row before the report is published. A report
+cannot be published with `not-evaluated` at level A or AA; the command
+prints how many such rows remain.
+
+- `--out <file.yaml>`: required.
+- `--base <yaml>`: a report that a person owns. Its top-level fields
+  and its rows are kept as they are; the tool only fills the rows the
+  base does not have. When a base row says `supports` or
+  `not-applicable` and the new evidence says `partially-supports`, the
+  command prints that row number and both levels. Chapters that the
+  tool does not write (hardware, software, support documentation) are
+  kept from the base.
+
+Without `--base`, `title`, `product.name` and `author.email` are
+placeholders to fill in.
+
 ## Tests
 
 ```
