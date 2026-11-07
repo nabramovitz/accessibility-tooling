@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { generate } from './src/generate.js';
 import { render } from './src/render.js';
 
-const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>]';
+const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]';
 
 try {
   const { values, positionals } = parseArgs({
@@ -14,12 +14,16 @@ try {
     options: {
       out: { type: 'string', default: 'reader-path-out' },
       'storage-state': { type: 'string' },
+      'ignore-https-errors': { type: 'boolean' },
     },
   });
   if (positionals.length !== 1) throw new Error(USAGE);
   const arg = positionals[0];
   const url = /^[a-z][a-z0-9+.-]*:/i.test(arg) ? arg : pathToFileURL(arg).href;
-  const model = await generate(url, { storageState: values['storage-state'] });
+  const model = await generate(url, {
+    storageState: values['storage-state'],
+    ignoreHTTPSErrors: values['ignore-https-errors'],
+  });
   mkdirSync(values.out, { recursive: true });
   writeFileSync(join(values.out, 'model.json'), JSON.stringify(model, null, 2) + '\n');
   writeFileSync(join(values.out, 'index.html'), render(model));
