@@ -185,24 +185,58 @@ test('cli writes model.json and index.html', () => {
   assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes('Reader path model: Fixture'));
 });
 
-// cli.js starts as a shell script: it runs itself with Bun when
-// `bun --version` works, else with Node.js. A stand-in bun on the PATH
-// answers --version as told, logs a run and hands it to node.
-test('cli runs with bun when bun works, else with node', () => {
-  for (const works of [true, false]) {
-    const dir = tmp();
-    mkdirSync(join(dir, 'bin'));
-    writeFileSync(join(dir, 'bin', 'bun'), [
+// A stand-in bun at the start of the PATH, for the cli tests: it answers
+// --version as told, logs a run and hands the run to node. On Windows it
+// is bun.cmd, and the PATH loses each directory with a real bun.exe, as
+// that is found before a .cmd file.
+function standInBun(works) {
+  const dir = tmp();
+  const bin = join(dir, 'bin');
+  const log = join(dir, 'log');
+  mkdirSync(bin);
+  const env = { ...process.env };
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
+  let path = (env[key] || '').split(delimiter);
+  if (process.platform === 'win32') {
+    writeFileSync(join(bin, 'bun.cmd'), [
+      '@echo off',
+      `if "%~1"=="--version" exit /b ${works ? 0 : 1}`,
+      `echo run>>"${log}"`,
+      'node %*',
+    ].join('\r\n') + '\r\n');
+    path = path.filter((d) => d && !existsSync(join(d, 'bun.exe')));
+  } else {
+    writeFileSync(join(bin, 'bun'), [
       '#!/bin/sh',
       `if [ "$1" = --version ]; then exit ${works ? 0 : 1}; fi`,
-      `echo run >> '${join(dir, 'log')}'`,
+      `echo run >> '${log}'`,
       'exec node "$@"',
     ].join('\n') + '\n', { mode: 0o755 });
-    const env = { ...process.env, PATH: `${join(dir, 'bin')}${delimiter}${process.env.PATH}` };
-    execFileSync(CLI, [fixture('structure.html'), '--out', join(dir, 'out')], { env, stdio: 'pipe' });
-    assert.equal(JSON.parse(readFileSync(join(dir, 'out', 'model.json'), 'utf8')).title, 'Fixture');
-    assert.equal(existsSync(join(dir, 'log')), works, works ? 'bun works: bun runs it' : 'bun fails: node runs it');
   }
+  env[key] = [bin, ...path].join(delimiter);
+  const runs = () => (existsSync(log) ? readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean).length : 0);
+  return { dir, env, runs };
+}
+
+// cli.js runs itself again with Bun when `bun --version` works, else it
+// goes on with Node.js. The output directory name has characters that
+// a shell would read (and a Windows file name can hold), so it shows
+// the arguments reach the Bun run as they are.
+test('cli runs with bun when bun works, else with node', () => {
+  for (const works of [true, false]) {
+    const { dir, env, runs } = standInBun(works);
+    const out = join(dir, "out & (more) %PATH% $HOME ^!'");
+    execFileSync('node', [CLI, fixture('structure.html'), '--out', out], { env, stdio: 'pipe' });
+    assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
+    assert.equal(runs(), works ? 1 : 0, works ? 'bun works: bun runs it once' : 'bun fails: node runs it');
+  }
+});
+
+test('cli under bun exits as the bun run exits', () => {
+  const { env, runs } = standInBun(true);
+  assert.throws(() => execFileSync('node', [CLI, fixture('late.html'), '--settle', 'soon'], { env, stdio: 'pipe' }),
+    (e) => e.status === 1 && /--settle/.test(e.stderr) && e.stderr.toString().trim().split(/\r?\n/).length === 1);
+  assert.equal(runs(), 1);
 });
 
 test('cli exits 1 with one line when no url is given', () => {
