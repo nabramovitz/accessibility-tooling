@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generate } from '../src/generate.js';
+import { generate, addAxe } from '../src/generate.js';
 import { axeToGaps, axeContrast } from '../src/axe.js';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -61,4 +61,21 @@ test('an unplaced target goes on the root', async () => {
   } finally {
     srv.close();
   }
+});
+
+test('axe-core that does not run is a note, and the run goes on', async () => {
+  const m = await generate(fixture('axe-broken.html'));
+  assert.ok(m.notes.includes('axe-core did not run: stub axe'), m.notes.join(' | '));
+  assert.equal(m.root.role, 'RootWebArea');
+  assert.deepEqual(flat(m).filter((n) => n.tab).map((n) => n.name), ['One', 'Two']);
+});
+
+test('a frame that refuses axe-core is a note', async () => {
+  const notes = [];
+  const frame = (url, fail) => ({
+    url: () => url,
+    addScriptTag: () => (fail ? Promise.reject(new Error('Frame was detached')) : Promise.resolve()),
+  });
+  await addAxe([frame('http://h/a', false), frame('http://h/b?token=1#x', true)], notes);
+  assert.deepEqual(notes, ['axe not added to frame: http://h/b']);
 });
