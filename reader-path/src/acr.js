@@ -57,17 +57,19 @@ function wcag(models, sc) {
     const rules = `Failing rules: ${union(models, sc, 'fail').join(', ')} on ${failing.length} of ${models.length} page(s)`;
     return { level: 'partially-supports', lines: [rules, ...gapLines(models, sc)] };
   }
-  const review = union(models, sc, 'review');
+  // supports needs a pass, and a pass or na on every page. The tool never
+  // writes not-applicable: an axe-core rule with nothing to check does not
+  // show that the criterion does not apply.
+  const [pass, review, na] = ['pass', 'review', 'na'].map((kind) => union(models, sc, kind));
+  if (!pass.length && !review.length && !na.length) return { level: 'not-evaluated', lines: ['Needs a person: no automated check'] };
   const passing = models.filter((m) => list(m, sc, 'pass').length);
-  if (passing.length) {
-    const lines = [`Rules that passed: ${union(models, sc, 'pass').join(', ')}, on ${passing.length} of ${models.length} page(s)`];
-    if (review.length) lines.push(`Needs a person: axe-core could not decide (${review.join(', ')})`);
-    return { level: 'supports', lines };
-  }
-  if (review.length) return { level: 'not-evaluated', lines: [`Needs a person: axe-core could not decide (${review.join(', ')})`] };
-  const onlyNa = models.every((m) => list(m, sc, 'na').length);
-  if (onlyNa) return { level: 'not-applicable', lines: [`Rules that did not apply: ${union(models, sc, 'na').join(', ')}`] };
-  return { level: 'not-evaluated', lines: ['Needs a person: no automated check'] };
+  const missing = models.filter((m) => !['pass', 'review', 'na'].some((kind) => list(m, sc, kind).length));
+  const lines = [];
+  if (pass.length) lines.push(`Rules that passed: ${pass.join(', ')}, on ${passing.length} of ${models.length} page(s)`);
+  if (review.length) lines.push(`Needs a person: axe-core could not decide (${review.join(', ')})`);
+  if (!pass.length && na.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${na.join(', ')}); is the row not applicable?`);
+  if (missing.length) lines.push(`Needs a person: no automated result on ${missing.length} of ${models.length} page(s)`);
+  return { level: pass.length && !review.length && !missing.length ? 'supports' : 'not-evaluated', lines };
 }
 
 function fpc(num, byCriterion) {

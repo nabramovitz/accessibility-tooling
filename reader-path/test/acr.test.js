@@ -50,8 +50,8 @@ test('a note has at most 20 gap lines, then "and N more"', () => {
   assert.ok(l.includes('and 3 more'));
 });
 
-test('no fail and some pass: supports, with rules and page count', () => {
-  const rows = proposeRows([model({ '1.1.1': entry({ pass: ['image-alt', 'input-image-alt'], review: ['x'] }) }), model({})], catalog);
+test('no fail and pass or na on every page: supports, with rules and page count', () => {
+  const rows = proposeRows([model({ '1.1.1': entry({ pass: ['image-alt', 'input-image-alt'] }) }), model({ '1.1.1': entry({ na: ['image-alt'] }) })], catalog);
   const a = adh(rows, '1.1.1');
   assert.equal(a.level, 'supports');
   assert.ok(a.notes.includes('image-alt, input-image-alt'));
@@ -64,10 +64,10 @@ test('no fail, no pass, some review: not-evaluated, needs a person', () => {
   assert.ok(adh(rows, '1.4.3').notes.includes('Needs a person: axe-core could not decide (color-contrast)'));
 });
 
-test('only na on every page: not-applicable', () => {
+test('only na on every page: not-evaluated, a person says if the row applies', () => {
   const rows = proposeRows([model({ '1.2.1': entry({ na: ['video-caption'] }) }), model({ '1.2.1': entry({ na: ['audio-caption'] }) })], catalog);
-  assert.equal(adh(rows, '1.2.1').level, 'not-applicable');
-  assert.ok(adh(rows, '1.2.1').notes.includes('video-caption, audio-caption'));
+  assert.equal(adh(rows, '1.2.1').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.2.1').includes('Needs a person: the axe-core rules found nothing to check (video-caption, audio-caption); is the row not applicable?'));
 });
 
 test('na on one page, no entry on the other: not-evaluated', () => {
@@ -75,9 +75,11 @@ test('na on one page, no entry on the other: not-evaluated', () => {
   assert.equal(adh(rows, '1.2.1').level, 'not-evaluated');
 });
 
-test('pass on one page, no entry on another: supports', () => {
-  const rows = proposeRows([model({ '1.1.1': entry({ pass: ['image-alt'] }) }), model({})], catalog);
-  assert.equal(adh(rows, '1.1.1').level, 'supports');
+test('pass on one page, no entry on another: not-evaluated', () => {
+  const rows = proposeRows([model({ '1.1.1': entry({ pass: ['image-alt'] }) }), model({}), model({})], catalog);
+  assert.equal(adh(rows, '1.1.1').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.1.1').includes('Needs a person: no automated result on 2 of 3 page(s)'));
+  assert.ok(lines(rows, '1.1.1').includes('Rules that passed: image-alt, on 1 of 3 page(s)'));
 });
 
 test('no entry: not-evaluated, no automated check', () => {
@@ -106,13 +108,13 @@ test('chapter 3 takes the worst related level and names the rows', () => {
   assert.ok(n.includes('the rule of comparable information is checked in a later version'));
 });
 
-test('chapter 3 order: not-evaluated is worse than supports, not-applicable is best', () => {
+test('chapter 3 order: not-evaluated is worse than supports', () => {
   const rows = proposeRows([model({ '1.4.1': entry({ pass: ['r'] }) })], catalog);
   assert.equal(adh(rows, '302.3').level, 'not-evaluated');
+  const both = proposeRows([model({ '1.4.1': entry({ pass: ['r'] }), '1.4.11': entry({ pass: ['r'] }) })], catalog);
+  assert.equal(adh(both, '302.3').level, 'supports');
   const na = proposeRows([model({ '1.4.1': entry({ na: ['r'] }), '1.4.11': entry({ na: ['r'] }) })], catalog);
-  assert.equal(adh(na, '302.3').level, 'not-applicable');
-  const mix = proposeRows([model({ '1.4.1': entry({ na: ['r'] }), '1.4.11': entry({ pass: ['r'] }) })], catalog);
-  assert.equal(adh(mix, '302.3').level, 'supports');
+  assert.equal(adh(na, '302.3').level, 'not-evaluated');
 });
 
 test('302.6 needs a person', () => {
@@ -133,14 +135,16 @@ test('302.7 and 302.8 share rows; 302.9 adds the reading level sentence', () => 
   assert.ok(adh(rows, '302.5').notes.includes('1.4.7 '));
 });
 
-test('every note ends with the proposed-by line; no does-not-support', () => {
-  const rows = proposeRows([model({ '1.1.1': entry({ fail: ['x'] }) }), model({})], catalog);
+test('every note ends with the proposed-by line; no does-not-support or not-applicable', () => {
+  const na = Object.fromEntries(catalog.chapters.flatMap((c) => c.criteria).map((c) => [String(c.id), entry({ na: ['r'] })]));
+  const rows = proposeRows([model({ ...na, '1.1.1': entry({ fail: ['x'] }) }), model(na)], catalog);
   const all = Object.values(rows).flat();
   assert.ok(all.length > 80);
   for (const r of all) {
     const a = r.components[0].adherence;
     assert.equal(a.notes.split('\n').at(-1), END(2));
     assert.notEqual(a.level, 'does-not-support');
+    assert.notEqual(a.level, 'not-applicable');
   }
 });
 
@@ -193,9 +197,10 @@ test('failing rules are one line over the pages', () => {
   assert.ok(lines(proposeRows([a, b, c], catalog), '1.1.1').includes('Failing rules: r1, r2 on 2 of 3 page(s)'));
 });
 
-test('supports with review rules keeps the needs-a-person line', () => {
-  const rows = proposeRows([model({ '1.4.3': entry({ pass: ['p'], review: ['color-contrast'] }) })], catalog);
-  assert.equal(adh(rows, '1.4.3').level, 'supports');
+test('pass with review on any page: not-evaluated, with both rule lists', () => {
+  const rows = proposeRows([model({ '1.4.3': entry({ pass: ['p'] }) }), model({ '1.4.3': entry({ pass: ['q'], review: ['color-contrast'] }) })], catalog);
+  assert.equal(adh(rows, '1.4.3').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.4.3').includes('Rules that passed: p, q, on 2 of 2 page(s)'));
   assert.ok(lines(rows, '1.4.3').includes('Needs a person: axe-core could not decide (color-contrast)'));
 });
 
