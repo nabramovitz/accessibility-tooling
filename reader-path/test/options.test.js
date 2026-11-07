@@ -51,7 +51,7 @@ test('a page that renders late is read with --settle or --wait-for', async () =>
 
 test('--settle takes a number of milliseconds', async () => {
   await assert.rejects(run('node', [CLI, fixture('late.html'), '--settle', 'soon']),
-    (e) => e.code === 1 && /--settle/.test(e.stderr) && e.stderr.trim().split('\n').length === 1);
+    (e) => e.code === 1 && /--settle/.test(e.stderr) && e.stderr.trim().split(/\r?\n/).length === 1);
 });
 
 test('a redirect is a note, with the final url and status', async () => {
