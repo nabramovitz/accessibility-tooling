@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader path model: {{TITLE}}</title>
+<style>
+:root{--bg:#fff;--bg2:#f5f5f7;--fg:#1d1d1f;--mut:#6e6e73;--bd:#c7c7cc;--acc:#0a66d8;--sel:#e3effd;--err:#c9302c;--warn:#9a5b00;--line:#0a66d8;--aaa:#6b3fa0}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--bg2:#2a2a2d;--fg:#f2f2f7;--mut:#a1a1a6;--bd:#4a4a4e;--acc:#6cb2ff;--sel:#17324f;--err:#ff7b72;--warn:#ffb340;--line:#6cb2ff;--aaa:#c7a6f5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:12px 16px 8px;border-bottom:1px solid var(--bd)}
+h1{font-size:17px;margin:0 0 2px} .meta{margin:0 0 6px;overflow-wrap:anywhere} .sub,#notes{max-width:110ch} .sub h2,#notes h2{font-size:14px;margin:8px 0 2px} .sub p{margin:4px 0} #notes ul{margin:2px 0;padding-left:18px}
+[hidden]{display:none!important}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.bar span.l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 8px}
+.bar button{font:inherit;padding:3px 10px;border:1px solid var(--bd);border-radius:14px;background:var(--bg2);color:var(--fg);cursor:pointer}
+.bar button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--bg)}
+.wrap{display:flex;gap:14px;align-items:flex-start;padding:12px 16px}
+#map{position:relative;flex:1;min-width:0}
+#svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#det{width:430px;flex:none;position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto;background:var(--bg2);border:1.5px solid var(--acc);border-radius:10px;padding:12px 14px}
+@media (max-width:1000px){
+  .wrap{flex-direction:column;align-items:stretch}
+  #map{flex:none}
+  #det{width:auto;position:sticky;top:auto;bottom:0;max-height:40vh;z-index:2;box-shadow:0 -4px 14px rgba(0,0,0,.25)}
+}
+.c{border:1.5px solid var(--bd);border-radius:10px;padding:6px 8px 8px;background:var(--bg);margin:0;flex:1 1 100%}
+.c .c{background:var(--bg2)} .c .c .c{background:var(--bg)} .c .c .c .c{background:var(--bg2)}
+.ch{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tg{font:inherit;border:0;background:none;color:var(--mut);cursor:pointer;padding:0 2px;width:18px}
+.cb{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:6px}
+.closed>.cb{display:none}
+.n{border:1.5px solid var(--bd);border-radius:7px;padding:4px 8px;background:var(--bg);display:flex;flex:0 1 190px;min-width:130px}
+.comp{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+.t{font-weight:600}
+.chip{display:inline-block;border-radius:9px;padding:0 6px;font-size:10.5px;font-weight:600;margin-left:3px;white-space:nowrap}
+.g{background:var(--err);color:var(--bg)} .mb{border:1px solid var(--acc);color:var(--acc)} .nr{border:1px dashed var(--mut);color:var(--mut)} .ex{color:var(--mut);font-weight:400}
+.bd{background:var(--acc);color:var(--bg);min-width:20px;text-align:center}
+.lv{margin-left:0;margin-right:3px;color:var(--bg)} .lvA,.lvAA{background:var(--err)} .lvAAA{background:var(--aaa)} .lvrule{background:var(--warn)}
+.hasgap{border-style:dashed;border-color:var(--err)}
+.sel{outline:3px solid var(--acc);outline-offset:1px}
+.n.sel,.c.sel>.ch{background:var(--sel)}
+.same{outline:2px dotted var(--acc);outline-offset:1px}
+.tgt{outline:3px solid var(--warn);outline-offset:1px}
+.dim>.ch,.n.dim{opacity:.55}
+#det h2{font-size:15px;margin:2px 0 6px} #det h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:12px 0 3px}
+#det table{border-collapse:collapse;width:100%} #det th,#det td{text-align:left;vertical-align:top;padding:3px 6px 3px 0;border-bottom:1px solid var(--bd)}
+#det th{color:var(--mut);font-weight:500} #det tbody th{width:96px} #det .ng td{width:40%}
+#det ul{margin:0;padding-left:16px} #det li{margin:3px 0}
+.gt{color:var(--err);font-weight:600;white-space:pre-line} .k{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.kind{color:var(--bg);border-radius:9px;padding:0 7px;font-size:10.5px;font-weight:600}
+.status{background:var(--acc)} .warning{background:var(--warn)} .error{background:var(--err)}
+.mut{color:var(--mut)} .why{color:var(--mut);font-size:12px;white-space:pre-line}
+.pick{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer;display:flex;gap:4px;align-items:flex-start;flex:1}
+.lnk{font:inherit;color:var(--acc);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+button:focus-visible,summary:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Reader path model: {{TITLE}}</h1>
+  <p class="mut meta">{{URL}} · generated {{GENERATED}}</p>
+  <section class="sub" aria-labelledby="how"><h2 id="how">How to read this page</h2>
+    <p>A box is one part of the page as the browser gives it to assistive technology. It shows what a screen reader gets there: the role, the accessible name, the description and the state. Select a box to see its content on the right.</p>
+    <p>Each path button shows the same boxes in a different view. Structure shows the boxes inside each other. Reading order, Tab order and Headings number the boxes and join them with arrows. Landmarks marks the page regions. Actions and results lists what a control does. Messages shows the message boxes. Gaps shows the boxes that have a gap at the chosen level.</p>
+    <p>"Now" is what the page gives today. "Goal" is what it should give, and where the goal comes from: a WCAG 2.2 success criterion with its level (A, AA or AAA), or "our rule", the rule of comparable information. The goal level buttons choose which gaps are shown: A, AA (includes A) or AAA (includes both). A red dashed box has a gap at the chosen level. The drill down buttons open or close the boxes by depth.</p>
+    <p>The results come from the browser's accessibility tree and from the axe-core rules. A person must confirm them; this page is not an evaluation.</p>
+  </section>
+  <section id="notes" aria-labelledby="notesh" hidden><h2 id="notesh">Run notes</h2><ul></ul></section>
+  <div class="bar" id="modes" role="group" aria-labelledby="modesl"><span class="l" id="modesl">Path</span></div>
+  <div class="bar" id="goal" role="group" aria-labelledby="goall"><span class="l" id="goall">Goal level</span></div>
+  <div class="bar" id="levels" role="group" aria-labelledby="levelsl"><span class="l" id="levelsl">Drill down</span></div>
+</header>
+<main class="wrap">
+  <div id="map"><svg id="svg" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--mut)"/></marker></defs></svg></div>
+  <section id="det" tabindex="0" aria-label="Content of the selected box"></section>
+</main>
+<div id="say" class="sr" role="status"></div>
+<script type="application/json" id="model">{{MODEL}}</script>
+<script>
+// ---- The model. Read from the JSON block in this page. ----
+// t title on the map · comp component (custom element tag, else the role) · role/name/desc/state = what the browser gives now · tab = Tab position
+// h heading level · lm landmark · box message box · gaps: [why, source, goal, row]. source = a WCAG 2.2 success criterion, or 'rule' (our rule: comparable information).
+const MODEL = JSON.parse(document.getElementById('model').textContent);
+const M = MODEL.root;
+const LV = {...(MODEL.levels || {}), rule:'rule'};
+// A leaf has no children: drop the empty list the generator writes.
+(function clean(n){ if (n.c && !n.c.length) delete n.c; (n.c || []).forEach(clean); })(M);
+
+
+// ---- Drawing. Sketch code. ----
+const $ = s => document.querySelector(s), map = $('#map'), det = $('#det'), svg = $('#svg');
+const byId = {}, order = [], parent = {};
+(function walk(n, p, d){ byId[n.id] = n; n.depth = d; parent[n.id] = p; order.push(n); (n.c||[]).forEach(c => walk(c, n, d+1)); })(M, null, 0);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const incoming = id => order.flatMap(n => (n.msgs||[]).filter(m => m.to === id).map(m => ({...m, from:n})));
+// Goal level. AA is the target; AA includes A, and AAA includes both.
+const RANK = {A:1, AA:2, AAA:3}; let level = 'AA', ruleOn = true;
+const shown = g => LV[g[1]] === 'rule' ? ruleOn : RANK[LV[g[1]]] <= RANK[level];
+const gapsOf = n => (n.gaps||[]).filter(shown);
+const lvChip = s => `<span class="chip lv lv${s}">${s === 'rule' ? 'our rule' : 'Level ' + s}</span>`;
+const srcOf = g => lvChip(LV[g[1]]) + (g[1] === 'rule' ? '' : `<span class="mut">${esc(g[1])}</span> `);
+const PATHS = {
+  structure:{l:'Structure', on:n => true},
+  reading:{l:'Reading order', on:n => !n.c, badge:(n,i) => i+1, line:1},
+  tab:{l:'Tab order', on:n => n.tab, sort:(a, b) => a.tab - b.tab, badge:n => n.tab, line:1},
+  headings:{l:'Headings', on:n => n.h, badge:n => 'h'+n.h, line:1},
+  landmarks:{l:'Landmarks', on:n => n.lm, badge:n => n.lm},
+  actions:{l:'Actions and results', on:n => n.acts && n.acts.length, badge:n => '→'},
+  messages:{l:'Messages', on:n => n.box || (n.msgs && n.msgs.length), badge:n => n.box ? 'box' : 'event'},
+  gaps:{l:'Gaps', on:n => gapsOf(n).length, badge:n => gapsOf(n).length}
+};
+let mode = 'structure', sel = M.id;
+
+function el(n){
+  const d = document.createElement('div'); d.dataset.id = n.id;
+  const chips = '<span class="gc"></span>' + (n.box ? '<span class="chip mb">message box</span>' : '') + (n.common ? '<span class="chip mb">common block</span>' : '') + (n.nr ? '<span class="chip nr">part not read</span>' : '');
+  const lbl = `<button class="pick" aria-pressed="false"><span class="bdg"></span><span><span class="comp">${esc(n.comp)}${n.when ? ' · '+esc(n.when) : ''}</span><br><span class="t">${esc(n.t)}</span>${n.ex ? ' <span class="ex">(example)</span>' : ''}${chips}</span></button>`;
+  if (n.c) { d.className = 'c'; d.innerHTML = `<div class="ch"><button class="tg" aria-expanded="true" aria-label="Inside ${esc(n.t)}">▾</button>${lbl}</div><div class="cb"></div>`; n.c.forEach(c => d.lastChild.append(el(c))); }
+  else { d.className = 'n'; d.innerHTML = lbl; }
+  return d;
+}
+map.append(el(M));
+const shut = (d, b) => { d.classList.toggle('closed', b); const t = d.querySelector('.tg'); t.textContent = b ? '▸' : '▾'; t.setAttribute('aria-expanded', !b); };
+const dom = id => map.querySelector(`[data-id="${CSS.escape(id)}"]`);
+const own = (d, s) => d.querySelector(d.classList.contains('c') ? ':scope > .ch ' + s : s);
+map.addEventListener('click', e => {
+  const box = e.target.closest('[data-id]'); if (!box) return;
+  if (e.target.closest('.tg')) shut(box, !box.classList.contains('closed'));
+  else if (e.target.closest('.pick')) { sel = box.dataset.id; $('#say').textContent = 'Content shown for ' + byId[sel].t; }
+  else return;
+  e.stopPropagation(); paint();
+});
+det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); own(dom(sel), '.pick').focus(); } });
+function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
+function setLevel(k){ order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
+
+const vis = id => { const d = dom(id); return d && d.offsetParent !== null; };
+const pt = (id, anchor) => { const d = dom(id), t = (anchor && own(d, '.bdg')) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
+function paint(){
+  const P = PATHS[mode], on = order.filter(P.on); if (P.sort) on.sort(P.sort);
+  order.forEach(n => { const d = dom(n.id), g = gapsOf(n).length, i = on.indexOf(n);
+    d.classList.remove('sel','same','tgt'); d.classList.toggle('dim', mode !== 'structure' && !P.on(n)); d.classList.toggle('hasgap', g > 0);
+    own(d, '.pick').setAttribute('aria-pressed', n.id === sel);
+    own(d, '.gc').innerHTML = g ? `<span class="chip g">${g} gap${g > 1 ? 's' : ''}</span>` : '';
+    own(d, '.bdg').innerHTML = (P.badge && i >= 0) ? `<span class="chip bd">${esc(P.badge(n, i))}</span> ` : ''; });
+  const s = byId[sel]; dom(sel).classList.add('sel');
+  order.filter(n => n !== s && n.comp === s.comp && s.comp.includes('-')).forEach(n => dom(n.id).classList.add('same'));
+  let lines = '';
+  const arrow = (a, b, col, dash) => { if (!vis(a) || !vis(b) || a === b) return; const [x1,y1] = pt(a), [x2,y2] = pt(b); lines += `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="${col}" stroke-width="2" fill="none" ${dash?'stroke-dasharray="5 4"':''} marker-end="url(#ah)"/>`; };
+  if (P.line) { const v = on.filter(n => vis(n.id)); for (let i = 1; i < v.length; i++) { const [x1,y1] = pt(v[i-1].id, 1), [x2,y2] = pt(v[i].id, 1); lines += `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="var(--line)" stroke-width="1.5" opacity=".55" fill="none" marker-end="url(#ah)"/>`; } }
+  (s.acts||[]).forEach(a => { if (a.to) { dom(a.to).classList.add('tgt'); arrow(s.id, a.to, 'var(--warn)'); } });
+  (s.msgs||[]).forEach(m => { if (m.to) { dom(m.to).classList.add('tgt'); arrow(s.id, m.to, 'var(--err)', 1); } });
+  incoming(s.id).filter(m => m.from !== s).forEach(m => { dom(m.from.id).classList.add('tgt'); arrow(m.from.id, s.id, 'var(--err)', 1); });
+  svg.innerHTML = svg.querySelector('defs').outerHTML + lines;
+  document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mode));
+  document.querySelectorAll('#goal button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lv ? b.dataset.lv === level : ruleOn));
+  detail(s);
+}
+function detail(n){
+  const row = (k, v) => v ? `<tr><th>${k}</th><td>${esc(v)}</td></tr>` : '';
+  const go = id => `<button class="lnk" data-go="${id}">${esc(byId[id].t)}</button>`;
+  const same = order.filter(x => x.comp === n.comp && n.comp.includes('-')).length;
+  const tabs = order.filter(x => x.tab), G = gapsOf(n);
+  const path = []; for (let p = parent[n.id]; p; p = parent[p.id]) path.unshift(go(p.id));
+  const msgs = [...(n.msgs||[]).map(m => ({...m, dir:'from here'})), ...incoming(n.id).filter(m => m.from !== n).map(m => ({...m, dir:'from '+m.from.t}))];
+  // now | goal, for each content row
+  const ng = (label, key) => { const gs = G.filter(g => g[3] === key); if (!n[key] && !gs.length) return '';
+    return `<tr><th>${label}</th><td>${esc(n[key] || 'none')}</td><td>${gs.length ? gs.map(g => `${srcOf(g)}<br><b>${esc(g[2])}</b><br><span class="why">${esc(g[0])}</span>`).join('<br>') : '<span class="mut">no change found</span>'}</td></tr>`; };
+  const measured = c => c && c.ratio != null ? c.ratio.toFixed(2) + ' to 1' + (c.fg && c.bg ? ' (' + c.fg + ' on ' + c.bg + ')' : '') : (c && c.note) || 'not measured';
+  const contrast = (label, goals, c) => { const gs = goals.filter(g => RANK[g[0]] <= RANK[level]);
+    return `<tr><th>${label}</th><td>${esc(measured(c))}</td><td>${gs.length ? gs.map(g => `${lvChip(g[0])}<span class="mut">${g[1]}</span> <b>${g[2]}</b>`).join('<br>') : '<span class="mut">no goal at Level ' + level + '</span>'}</td></tr>`; };
+  const other = G.filter(g => !g[3]);
+  const all = order.flatMap(x => x.gaps || []), cnt = s => all.filter(g => LV[g[1]] === s).length;
+  det.innerHTML = `<div class="comp">${path.join(' › ') || 'top'}</div><h2>${esc(n.t)}${n.ex ? ' <span class="ex">(example)</span>' : ''}</h2>
+  <table class="ng"><thead><tr><th>content</th><th>now (from the HTML)</th><th>goal</th></tr></thead><tbody>
+  ${ng('role','role')}${ng('accessible name','name')}${ng('accessible description','desc')}${ng('state','state')}
+  ${(!n.c || n.tab) ? contrast('text contrast', [['AA','1.4.3','4.5 to 1'],['AAA','1.4.6','7 to 1']], n.contrast) : ''}${n.tab ? contrast('control edge and focus mark', [['AA','1.4.11','3 to 1']]) : ''}
+  </tbody></table>
+  ${other.length ? '<h3>More gaps and goals</h3><ul>'+other.map(g => `<li>${srcOf(g)}<span class="gt">${esc(g[0])}</span><br>Goal: <b>${esc(g[2])}</b></li>`).join('')+'</ul>' : ''}
+  ${(n.acts||[]).length ? '<h3>Steps out (action → result)</h3><ul>'+n.acts.map(a => `<li><b>${esc(a.do)}</b> · <span class="k">${esc(a.keys)}</span><br>${a.gap ? '<span class="gt">gap · </span>' : ''}${esc(a.res)}${a.to ? ' → '+go(a.to) : ''}</li>`).join('')+'</ul>' : ''}
+  ${msgs.length ? '<h3>Messages (event → content → message box)</h3><ul>'+msgs.map(m => `<li><span class="mut">${esc(m.dir)}:</span> ${esc(m.ev)} → <span class="kind ${m.kind}">${m.kind}</span> ${esc(m.text)} → ${m.to ? go(m.to) : '<span class="gt">no message box</span>'}${m.note ? '<br><span class="why">'+esc(m.note)+'</span>' : ''}</li>`).join('')+'</ul>' : ''}
+  <h3>About this box</h3><table><tbody>${row('definition', n.comp + (same > 1 ? '  — '+same+' instances on this page (dotted outline)' : ''))}${row('shown', n.when)}${row('text', n.text !== n.name && n.text)}${n.box ? row('message box', (n.box.stays ? 'stays: '+n.box.stays+' · ' : '') + 'live region: '+(n.box.live || 'none')) : ''}${n.tab ? row('Tab stop', n.tab+' of '+tabs.length+' in this model') : ''}${row('note', n.note)}${row('not read', n.nr)}${row('source', n.src)}</tbody></table>
+  ${n.c ? '<h3>Inside</h3><ul>'+n.c.map(c => `<li>${go(c.id)} <span class="mut">${esc(c.comp)}</span></li>`).join('')+'</ul>' : ''}
+  <h3>This model</h3><div class="mut">${order.length} boxes · ${tabs.length} Tab stops · ${order.filter(x => x.box).length} message boxes<br>
+  Gaps by source: Level A ${cnt('A')} · Level AA ${cnt('AA')} · Level AAA ${cnt('AAA')} · our rule ${cnt('rule')}. Shown now: ${order.reduce((a, x) => a + gapsOf(x).length, 0)}. Contrast measured on ${order.filter(x => x.contrast && x.contrast.ratio != null).length} boxes.</div>`;
+}
+const btn = (bar, text, fn, data) => { const b = document.createElement('button'); b.textContent = text; Object.assign(b.dataset, data || {}); b.onclick = () => { fn(); paint(); }; $(bar).append(b); };
+Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
+[['A','Level A'],['AA','Level AA (target; includes A)'],['AAA','Level AAA (includes A and AA)']].forEach(([k, l]) => btn('#goal', l, () => { level = k; }, {lv:k}));
+btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
+[['Area', 1], ['Common blocks and page', 2], ['Components', 3], ['Inside components', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k)));
+addEventListener('resize', paint); setLevel(3);
+if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
+</script>
+</body>
+</html>
