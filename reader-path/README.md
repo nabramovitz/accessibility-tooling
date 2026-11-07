@@ -28,21 +28,34 @@ npx playwright install chromium
 `.tool-versions` at the top of the repository names the tested versions
 of Bun and Node.js for asdf.
 
+It works on Linux, macOS and Windows, with no POSIX shell needed. The
+same commands work in sh, cmd and PowerShell. The workflow in
+`.github/workflows/reader-path.yml` runs the tests on all three, with
+Bun and with Node.js alone. In PowerShell, if the execution policy
+stops `npm` or `npx`, run `npm.cmd` and `npx.cmd`.
+
 ## Use
 
-In this directory:
+In this directory, with Bun:
 
 ```
-./cli.js <url> [--out <dir>] [--storage-state <file>]
+bun cli.js <url> [--out <dir>] [--storage-state <file>]
   [--ignore-https-errors] [--wait-for <selector>] [--settle <ms>]
 ```
 
-`./cli.js` runs with Bun when `bun --version` works, else with Node.js.
-To choose the runtime, run `bun cli.js <url> ...` or
-`node cli.js <url> ...`.
+Or with Node.js: `node cli.js <url> ...`. Under Node.js the command
+runs itself again with Bun when `bun --version` works, and goes on
+with Node.js when it does not. `bun cli.js` always runs with Bun. On
+Windows, Bun is looked for in the current directory before the PATH.
+
+On Linux and macOS, `./cli.js <url> ...` also works (it starts with
+Node.js). On Windows, `.\cli.js` does not run on its own: use
+`bun cli.js` or `node cli.js`, or the `reader-path` command that
+`npm install -g .` or `npm link` puts on the PATH.
 
 It writes `<dir>/model.json` and `<dir>/index.html`. Open `index.html`
-in a browser. A path to a local file also works for `<url>`.
+in a browser. A path to a local file also works for `<url>`, also a
+Windows path such as `C:\pages\page.html`.
 
 - `--out <dir>`: the output directory. The default is `reader-path-out`
   in the current directory. The files hold the page's text, and for a
@@ -74,9 +87,10 @@ not run; the tree and the Tab order are still written.
 bun run test
 ```
 
-Or `npm test`. Both run the tests with `bun test` when `bun --version`
-works, else with `node --test`. A plain `bun test` also works, but
-stops a test after 5 seconds; `bun run test` gives each test 30.
+Or `npm test`. Both run `test/run.mjs`, which runs the tests with
+`bun test` when `bun --version` works, else with `node --test`. A
+plain `bun test` also works, but stops a test after 5 seconds;
+`bun run test` gives each test 30.
 
 ## Limits
 
