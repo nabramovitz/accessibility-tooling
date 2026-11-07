@@ -1,6 +1,6 @@
 {
   "url": "https://x.test/old",
   "finalUrl": "https://x.test/old",
-  "browser": "Chromium 140.0.0.0",
+  "browser": "chromium 140.0.7339.16",
   "root": { "r": "document", "t": "Old page" }
 }

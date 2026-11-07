@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,11 +28,13 @@ test('two models give a report that loads, with catalog nums and levels', async 
   const { report } = await acr([FAIL, PASS]);
   const catalog = loadCatalog();
   const nums = new Set(catalog.chapters.flatMap((c) => c.criteria.map((x) => String(x.id))));
-  const terms = new Set(['supports', 'partially-supports', 'does-not-support', 'not-applicable', 'not-evaluated']);
+  const terms = new Set(catalog.terms.map((x) => x.id));
   assert.equal(report.catalog, '2.5-edition-wcag-2.2-508-en');
   assert.match(report.report_date, /^\d{4}-\d{2}-\d{2}$/);
-  assert.match(report.evaluation_methods_used, /reader-path 0\.1\.0.*axe-core 4\.\d+\.\d+.*Chromium 140.*2 page/s);
+  assert.match(report.evaluation_methods_used, /reader-path 0\.1\.0.*axe-core \d+\.\d+\.\d+.*chromium 140.*2 page/s);
   const rows = Object.values(report.chapters).flatMap((c) => c.criteria);
+  assert.ok(report.evaluation_methods_used.includes(`axe-core ${createRequire(import.meta.url)('axe-core/package.json').version} `));
+  assert.deepEqual(Object.keys(report.chapters), catalog.chapters.map((c) => c.id).filter((id) => id in report.chapters));
   assert.ok(rows.length > 80);
   for (const r of rows) {
     assert.ok(nums.has(r.num), r.num);
@@ -101,6 +104,58 @@ test('a model without checks stops the command', async () => {
 });
 
 test('acr needs a model and --out', async () => {
-  await assert.rejects(run('node', [CLI, 'acr', PASS]), (e) => e.code === 1 && /usage: reader-path acr/.test(e.stderr));
-  await assert.rejects(run('node', [CLI, 'acr', '--out', join(tmp(), 'r.yaml')]), (e) => e.code === 1 && /usage: reader-path acr/.test(e.stderr));
+  await assert.rejects(run('node', [CLI, 'acr', PASS]), (e) => e.code === 1 && /reader-path acr <model/.test(e.stderr));
+  await assert.rejects(run('node', [CLI, 'acr', '--out', join(tmp(), 'r.yaml')]), (e) => e.code === 1 && /reader-path acr <model/.test(e.stderr));
+});
+
+const fails = (args, message) => assert.rejects(run('node', [CLI, 'acr', ...args]), (e) => {
+  assert.equal(e.code, 1);
+  assert.equal(e.stderr.trim(), message);
+  return true;
+});
+const file = (text, name = 'b.yaml') => {
+  const p = join(tmp(), name);
+  writeFileSync(p, text);
+  return p;
+};
+
+test('a base that is not a mapping stops the command', async () => {
+  const b = file('- a\n- b\n');
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], `reader-path: base is not a YAML mapping: ${b}`);
+  const s = file('just text\n');
+  await fails([PASS, '--base', s, '--out', join(tmp(), 'r.yaml')], `reader-path: base is not a YAML mapping: ${s}`);
+});
+
+test('an empty base gets the placeholders and the fill line', async () => {
+  const { report, stdout } = await acr([PASS, '--base', file('')]);
+  assert.equal(report.product.name, 'PRODUCT NAME');
+  assert.match(stdout, /fill title, product\.name and author\.email/);
+});
+
+test('a chapter whose criteria is not a list stops the command', async () => {
+  const b = file('chapters:\n  success_criteria_level_a:\n    criteria: nope\n');
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], `reader-path: criteria is not a list: success_criteria_level_a in ${b}`);
+});
+
+test('two base rows with one num stop the command', async () => {
+  const row = '      - num: 1.1.1\n        components: []\n';
+  const b = file(`chapters:\n  success_criteria_level_a:\n    criteria:\n${row}${row}`);
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], 'reader-path: base has two rows for 1.1.1 in success_criteria_level_a');
+});
+
+test('a model file that is not a model stops the command without echoing it', async () => {
+  const bad = file('secret text', 'm.json');
+  await fails([bad, '--out', join(tmp(), 'r.yaml')], `reader-path: not a model file: ${bad}`);
+  const list = file('[1]', 'n.json');
+  await fails([list, '--out', join(tmp(), 'r.yaml')], `reader-path: not a model file: ${list}`);
+});
+
+test('--out in a new directory is made', async () => {
+  const out = join(tmp(), 'a', 'b', 'r.yaml');
+  await acr([PASS], out);
+  assert.ok(existsSync(out));
+});
+
+test('the usage error shows both forms', async () => {
+  await assert.rejects(run('node', [CLI]), (e) => e.code === 1 && /reader-path <url>[\s\S]*reader-path acr <model\.json>/.test(e.stderr));
 });
