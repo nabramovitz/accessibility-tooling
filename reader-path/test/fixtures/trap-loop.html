@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Trap loop</title></head>
+<body>
+<button>A</button>
+<button id="b">B</button>
+<button id="c">C</button>
+<script>
+  document.getElementById('c').addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); document.getElementById('b').focus(); }
+  });
+</script>
+</body></html>

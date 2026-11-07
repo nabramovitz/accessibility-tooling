@@ -111,6 +111,40 @@ function buildTree(nodes, dom) {
   return { root, nearestKept };
 }
 
+const MAX_TABS = 500;
+const ACTIVE = `(() => { let e = document.activeElement;
+  while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
+  return e; })()`;
+
+// Presses Tab and gives `tab` (1-based) to the nearest kept node of each stop.
+async function tabWalk(page, cdp, nearestKept, root, notes, model) {
+  const stop = (why, note) => {
+    (root.gaps ||= []).push([why, '2.1.2', 'Tab moves focus to the next control']);
+    (model.levels ||= {})['2.1.2'] = 'A';
+    notes.push(note);
+  };
+  let first = null;
+  let prev = null;
+  let n = 0;
+  for (let i = 0; i < MAX_TABS; i++) {
+    await page.keyboard.press('Tab');
+    const { result } = await cdp.send('Runtime.evaluate', { expression: ACTIVE, objectGroup: 'tab' });
+    if (!result.objectId) return;
+    const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
+    if (node.nodeName === 'BODY') return;
+    const id = node.backendNodeId;
+    if (id === prev) {
+      return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
+    }
+    if (id === first) return;
+    first ??= id;
+    prev = id;
+    const kept = nearestKept(id);
+    if (kept && !kept.tab) kept.tab = ++n;
+  }
+  stop('Tab does not move focus out of this control.', `Tab walk stopped after ${MAX_TABS} presses`);
+}
+
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -125,11 +159,14 @@ export async function generate(url, opts = {}) {
     const { root: domRoot } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
     const { dom, notes } = indexDom(domRoot);
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
-    const { root } = buildTree(nodes, dom);
+    const { root, nearestKept } = buildTree(nodes, dom);
+    const model = {};
+    await tabWalk(page, cdp, nearestKept, root, notes, model);
 
     const title = await page.title();
     const version = browser.version();
     return {
+      ...model,
       url,
       title,
       generated: new Date().toISOString(),

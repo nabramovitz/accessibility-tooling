@@ -1,13 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
-import { generate, walk } from '../src/generate.js';
-
-const fixture = (name) =>
-  pathToFileURL(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))).href;
-
-const flat = (m) => { const all = []; walk(m.root, (n) => all.push(n)); return all; };
+import { generate } from '../src/generate.js';
+import { fixture, flat } from './helpers.js';
 
 test('landmarks and headings', async () => {
   const m = await generate(fixture('structure.html'));
