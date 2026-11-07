@@ -197,3 +197,17 @@ test('chapter 3 rows use the base WCAG rows; base chapter 3 rows win', async () 
   const n = row(better, 'functional_performance_criteria', '302.2').components[0].adherence.notes;
   assert.ok(n.includes('1.4.4 supports, 1.4.10 supports'));
 });
+
+test('unquoted dates and nums in a base are written back as strings', async () => {
+  const b = file('title: T\nlast_modified_date: 2026-11-01\nchapters:\n  functional_performance_criteria:\n    criteria:\n'
+    + '      - num: 302.6\n        components:\n          - name: none\n            adherence:\n              level: supports\n              notes: By hand.\n'
+    + '  hardware:\n    criteria:\n      - num: 402\n        components: []\n');
+  const { report, text } = await acr([PASS, '--base', b]);
+  assert.equal(report.last_modified_date, '2026-11-01');
+  const r = row(report, 'functional_performance_criteria', '302.6');
+  assert.equal(r.components[0].adherence.notes, 'By hand.');
+  assert.equal(report.chapters.functional_performance_criteria.criteria.filter((x) => x.num === '302.6').length, 1);
+  assert.equal(report.chapters.hardware.criteria[0].num, '402');
+  for (const c of Object.values(report.chapters)) for (const x of c.criteria) assert.equal(typeof x.num, 'string', String(x.num));
+  assert.doesNotMatch(text, /T00:00:00/);
+});

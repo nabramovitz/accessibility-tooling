@@ -55,7 +55,8 @@ function loadModel(f) {
 }
 
 function loadBase(f, yaml) {
-  const base = yaml.load(readFileSync(f, 'utf8')) ?? {};
+  // The core schema has no timestamps: a date stays the text it was.
+  const base = yaml.load(readFileSync(f, 'utf8'), { schema: yaml.CORE_SCHEMA }) ?? {};
   if (typeof base !== 'object' || Array.isArray(base)) throw new Error(`base is not a YAML mapping: ${f}`);
   for (const [id, chapter] of Object.entries(base.chapters ?? {})) {
     const rows = chapter?.criteria;
