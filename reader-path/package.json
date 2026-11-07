@@ -7,7 +7,7 @@
   "engines": { "node": ">=22" },
   "bin": { "reader-path": "cli.js" },
   "scripts": {
-    "test": "if bun --version >/dev/null 2>&1; then bun test --timeout 30000; else node --test; fi"
+    "test": "node test/run.mjs"
   },
   "dependencies": {
     "axe-core": "4.14.0",
