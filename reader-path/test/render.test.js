@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, delimiter } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -138,6 +138,26 @@ test('cli writes model.json and index.html', () => {
   assert.ok(existsSync(join(out, 'index.html')));
   assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
   assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes('Reader path model: Fixture'));
+});
+
+// cli.js starts as a shell script: it runs itself with Bun when
+// `bun --version` works, else with Node.js. A stand-in bun on the PATH
+// answers --version as told, logs a run and hands it to node.
+test('cli runs with bun when bun works, else with node', () => {
+  for (const works of [true, false]) {
+    const dir = tmp();
+    mkdirSync(join(dir, 'bin'));
+    writeFileSync(join(dir, 'bin', 'bun'), [
+      '#!/bin/sh',
+      `if [ "$1" = --version ]; then exit ${works ? 0 : 1}; fi`,
+      `echo run >> '${join(dir, 'log')}'`,
+      'exec node "$@"',
+    ].join('\n') + '\n', { mode: 0o755 });
+    const env = { ...process.env, PATH: `${join(dir, 'bin')}${delimiter}${process.env.PATH}` };
+    execFileSync(CLI, [fixture('structure.html'), '--out', join(dir, 'out')], { env, stdio: 'pipe' });
+    assert.equal(JSON.parse(readFileSync(join(dir, 'out', 'model.json'), 'utf8')).title, 'Fixture');
+    assert.equal(existsSync(join(dir, 'log')), works, works ? 'bun works: bun runs it' : 'bun fails: node runs it');
+  }
 });
 
 test('cli exits 1 with one line when no url is given', () => {
