@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findBun } from './src/bun.js';
+import { findBun, runBun } from './src/bun.js';
 
 // Under Node.js, when `bun --version` works, this file runs itself again
 // with Bun and exits as that run exits. The arguments go to that run as
@@ -14,7 +13,7 @@ const ARGV = 'READER_PATH_ARGV';
 if (!process.versions.bun && process.env[ARGV] === undefined) {
   const bun = findBun();
   if (bun) {
-    const r = spawnSync(bun[0], [...bun.slice(1), fileURLToPath(import.meta.url)], {
+    const r = runBun(bun, [fileURLToPath(import.meta.url)], {
       stdio: 'inherit',
       env: { ...process.env, [ARGV]: JSON.stringify(process.argv.slice(2)) },
     });

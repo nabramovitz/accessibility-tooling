@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, cpSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -15,6 +15,12 @@ import { fixture, flat } from './helpers.js';
 const tmp = () => mkdtempSync(join(tmpdir(), 'reader-path-'));
 const CLI = fileURLToPath(new URL('../cli.js', import.meta.url));
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// The node that runs cli.js in the cli tests, found once, before a
+// test changes the PATH. Under bun test, process.execPath is Bun.
+const NODE = process.versions.bun
+  ? execFileSync('node', ['-p', 'process.execPath'], { encoding: 'utf8' }).trim()
+  : process.execPath;
 
 // Runs axe-core on the page as it is now. The arrow layer is hidden first:
 // axe counts it as an overlap and then cannot measure the text below it.
@@ -179,7 +185,7 @@ test('review page: depth buttons, empty views, contrast on a box with children',
 
 test('cli writes model.json and index.html', () => {
   const out = join(tmp(), 'out');
-  execFileSync('node', [CLI, fixture('structure.html'), '--out', out]);
+  execFileSync(NODE, [CLI, fixture('structure.html'), '--out', out]);
   assert.ok(existsSync(join(out, 'index.html')));
   assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
   assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes('Reader path model: Fixture'));
@@ -188,7 +194,8 @@ test('cli writes model.json and index.html', () => {
 // A stand-in bun at the start of the PATH, for the cli tests: it answers
 // --version as told, logs a run and hands the run to node. On Windows it
 // is bun.cmd, and the PATH loses each directory with a real bun.exe, as
-// that is found before a .cmd file.
+// that is found before a .cmd file. Node is started by its full path, so
+// the PATH does not matter for it.
 function standInBun(works) {
   const dir = tmp();
   const bin = join(dir, 'bin');
@@ -198,11 +205,12 @@ function standInBun(works) {
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
   let path = (env[key] || '').split(delimiter);
   if (process.platform === 'win32') {
+    const bat = (s) => s.replace(/%/g, '%%');
     writeFileSync(join(bin, 'bun.cmd'), [
       '@echo off',
       `if "%~1"=="--version" exit /b ${works ? 0 : 1}`,
-      `echo run>>"${log}"`,
-      'node %*',
+      `echo run>>"${bat(log)}"`,
+      `"${bat(NODE)}" %*`,
     ].join('\r\n') + '\r\n');
     path = path.filter((d) => d && !existsSync(join(d, 'bun.exe')));
   } else {
@@ -210,13 +218,15 @@ function standInBun(works) {
       '#!/bin/sh',
       `if [ "$1" = --version ]; then exit ${works ? 0 : 1}; fi`,
       `echo run >> '${log}'`,
-      'exec node "$@"',
+      `exec '${NODE}' "$@"`,
     ].join('\n') + '\n', { mode: 0o755 });
   }
   env[key] = [bin, ...path].join(delimiter);
   const runs = () => (existsSync(log) ? readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean).length : 0);
   return { dir, env, runs };
 }
+
+const title = (out) => JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title;
 
 // cli.js runs itself again with Bun when `bun --version` works, else it
 // goes on with Node.js. The output directory name has characters that
@@ -226,19 +236,33 @@ test('cli runs with bun when bun works, else with node', () => {
   for (const works of [true, false]) {
     const { dir, env, runs } = standInBun(works);
     const out = join(dir, "out & (more) %PATH% $HOME ^!'");
-    execFileSync('node', [CLI, fixture('structure.html'), '--out', out], { env, stdio: 'pipe' });
-    assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
+    execFileSync(NODE, [CLI, fixture('structure.html'), '--out', out], { env, stdio: 'pipe' });
+    assert.equal(title(out), 'Fixture');
     assert.equal(runs(), works ? 1 : 0, works ? 'bun works: bun runs it once' : 'bun fails: node runs it');
   }
 });
 
+// On Windows the path of cli.js goes through cmd.exe to reach bun.cmd.
+// A copy of the command in a directory whose name cmd would read shows
+// the path arrives as it is; x is set, so %x% would change if expanded.
+test('cli hands over to bun from a path that cmd.exe would read', () => {
+  const { dir, env, runs } = standInBun(true);
+  const app = join(dir, 'R&D^%x%');
+  for (const f of ['cli.js', 'package.json', 'src', 'review']) cpSync(join(ROOT, f), join(app, f), { recursive: true });
+  symlinkSync(join(ROOT, 'node_modules'), join(app, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const out = join(dir, 'out');
+  execFileSync(NODE, [join(app, 'cli.js'), fixture('structure.html'), '--out', out], { env: { ...env, x: 'EXPANDED' }, stdio: 'pipe' });
+  assert.equal(title(out), 'Fixture');
+  assert.equal(runs(), 1);
+});
+
 test('cli under bun exits as the bun run exits', () => {
   const { env, runs } = standInBun(true);
-  assert.throws(() => execFileSync('node', [CLI, fixture('late.html'), '--settle', 'soon'], { env, stdio: 'pipe' }),
+  assert.throws(() => execFileSync(NODE, [CLI, fixture('late.html'), '--settle', 'soon'], { env, stdio: 'pipe' }),
     (e) => e.status === 1 && /--settle/.test(e.stderr) && e.stderr.toString().trim().split(/\r?\n/).length === 1);
   assert.equal(runs(), 1);
 });
 
 test('cli exits 1 with one line when no url is given', () => {
-  assert.throws(() => execFileSync('node', [CLI], { stdio: 'pipe' }), (e) => e.status === 1 && e.stderr.toString().trim().split(/\r?\n/).length === 1);
+  assert.throws(() => execFileSync(NODE, [CLI], { stdio: 'pipe' }), (e) => e.status === 1 && e.stderr.toString().trim().split(/\r?\n/).length === 1);
 });
