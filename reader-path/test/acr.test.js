@@ -93,7 +93,8 @@ test('4.1.1 is supports with the errata links, whatever the checks say', () => {
   const a = adh(rows, '4.1.1');
   assert.equal(a.level, 'supports');
   assert.ok(a.notes.includes('https://www.w3.org/WAI/WCAG21/errata/'));
-  assert.ok(a.notes.includes('https://www.w3.org/WAI/standards-guidelines/wcag/faq/'));
+  assert.ok(a.notes.includes('https://www.w3.org/TR/2023/NOTE-UNDERSTANDING-WCAG20-20230921/ensure-compat-parses.html'));
+  assert.ok(!a.notes.includes('/faq/'));
 });
 
 test('chapter 3 takes the worst related level and names the rows', () => {
