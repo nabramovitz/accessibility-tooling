@@ -30,3 +30,9 @@ test('message box and state', async () => {
   assert.ok(box);
   assert.equal(all.find((n) => n.name === 'Menu').state, 'collapsed');
 });
+
+test('a focusable generic element is its own node', async () => {
+  const all = flat(await generate(fixture('focusable.html')));
+  const kept = all.find((n) => n.lm === 'region' && n.name === 'Kept');
+  assert.deepEqual(kept.c.map((n) => [n.role, n.text, n.tab]), [['generic', 'One', 1], ['generic', 'Two', 2]]);
+});

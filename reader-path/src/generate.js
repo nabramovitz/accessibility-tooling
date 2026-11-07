@@ -83,7 +83,8 @@ function buildTree(nodes, dom) {
     if (isRoot) return true;
     if (n.ignored) return false;
     const role = roleOf(n);
-    return !DROPPED.has(role) || LANDMARKS.has(role) || CUSTOM.test(dom.get(n.backendDOMNodeId)?.name || '');
+    return !DROPPED.has(role) || LANDMARKS.has(role) || prop(n, 'focusable') === true
+      || CUSTOM.test(dom.get(n.backendDOMNodeId)?.name || '');
   };
 
   const build = (n, keptParent, isRoot) => {
