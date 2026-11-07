@@ -29,11 +29,18 @@ const label = (m) => m.finalUrl ?? bare(m.url);
 const list = (m, sc, kind) => m.checks?.[sc]?.[kind] ?? [];
 const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc, kind)))];
 
+// One line, and no selector: an axe selector can hold a url with a query
+// or an attribute value from the page.
+function plain(why) {
+  const w = why.startsWith('not placed: ') ? `not placed - ${why.split(' - ').slice(1).join(' - ')}` : why;
+  return w.replace(/\s+/g, ' ').trim();
+}
+
 function gapLines(models, sc) {
   const out = [];
   for (const m of models) {
     walk(m.root, (node) => {
-      for (const [why, c] of node.gaps || []) if (c === sc) out.push(`${label(m)}: ${node.t ?? node.r}: ${why}`);
+      for (const [why, c] of node.gaps || []) if (c === sc) out.push(`${label(m)}: ${node.t || node.role}: ${plain(why)}`);
     });
   }
   return out.length > MAX_GAP_LINES ? [...out.slice(0, MAX_GAP_LINES), `and ${out.length - MAX_GAP_LINES} more`] : out;
@@ -42,18 +49,20 @@ function gapLines(models, sc) {
 // The proposal for one WCAG criterion over all pages: { level, lines }.
 function wcag(models, sc) {
   if (sc === '4.1.1') {
-    return { level: 'supports', lines: [`WCAG 2.2 removed 4.1.1. The W3C errata for WCAG 2.0 and 2.1 say HTML content always satisfies it: ${ERRATA.join(' ')}`] };
+    return { level: 'supports', lines: [`WCAG 2.2 removed 4.1.1. The WCAG 2.1 errata and the WCAG 2.0 Understanding note say content using HTML or XML always satisfies it: ${ERRATA.join(' ')}`] };
   }
   const failing = models.filter((m) => list(m, sc, 'fail').length);
   if (failing.length) {
-    const rules = failing.map((m) => `${label(m)}: failing rules ${list(m, sc, 'fail').join(', ')}`);
-    return { level: 'partially-supports', lines: [...rules, ...gapLines(models, sc)] };
-  }
-  const passing = models.filter((m) => list(m, sc, 'pass').length);
-  if (passing.length) {
-    return { level: 'supports', lines: [`Rules that passed: ${union(models, sc, 'pass').join(', ')}, on ${passing.length} of ${models.length} page(s)`] };
+    const rules = `Failing rules: ${union(models, sc, 'fail').join(', ')} on ${failing.length} of ${models.length} page(s)`;
+    return { level: 'partially-supports', lines: [rules, ...gapLines(models, sc)] };
   }
   const review = union(models, sc, 'review');
+  const passing = models.filter((m) => list(m, sc, 'pass').length);
+  if (passing.length) {
+    const lines = [`Rules that passed: ${union(models, sc, 'pass').join(', ')}, on ${passing.length} of ${models.length} page(s)`];
+    if (review.length) lines.push(`Needs a person: axe-core could not decide (${review.join(', ')})`);
+    return { level: 'supports', lines };
+  }
   if (review.length) return { level: 'not-evaluated', lines: [`Needs a person: axe-core could not decide (${review.join(', ')})`] };
   const onlyNa = models.every((m) => list(m, sc, 'na').length);
   if (onlyNa) return { level: 'not-applicable', lines: [`Rules that did not apply: ${union(models, sc, 'na').join(', ')}`] };
@@ -71,6 +80,7 @@ function fpc(num, byCriterion) {
 }
 
 export function proposeRows(models, catalog) {
+  if (!models.length) throw new Error('no models');
   const cache = new Map();
   const byCriterion = (sc) => {
     if (!cache.has(sc)) cache.set(sc, wcag(models, sc));
