@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generate } from '../src/generate.js';
+import { generate, pageUrl } from '../src/generate.js';
 import { render } from '../src/render.js';
 import { selfSigned } from './cert.js';
 import { fixture, flat } from './helpers.js';
@@ -91,4 +91,17 @@ test('a sign-in token in the final URL is not written', async () => {
   } finally {
     s.close();
   }
+});
+
+// A Windows path starts with a drive letter and a colon, as a URL starts
+// with its scheme; a scheme here has two letters or more.
+test('a path, also a Windows path, becomes a file URL', async () => {
+  assert.equal(pageUrl('https://localhost/a?b'), 'https://localhost/a?b');
+  assert.equal(pageUrl('about:blank'), 'about:blank');
+  assert.equal(pageUrl(fileURLToPath(fixture('late.html'))), fixture('late.html'));
+  assert.match(pageUrl('C:\\pages\\a.html'), /^file:\/\//);
+  assert.match(pageUrl('c:/pages/a.html'), /^file:\/\//);
+  const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'out');
+  await run('node', [CLI, fileURLToPath(fixture('structure.html')), '--out', out]);
+  assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).title, 'Fixture');
 });

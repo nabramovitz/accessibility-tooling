@@ -1,6 +1,7 @@
 import './hold-children.js';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { RUN_ONLY, axeToGaps, axeContrast } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -270,6 +271,13 @@ export function bare(u) {
   } catch {
     return String(u).split(/[?#]/)[0];
   }
+}
+
+// The url for a command line argument: a url as it is, else a file path
+// as a file: url. A scheme has two characters or more, so a Windows path
+// such as C:\page.html is a path.
+export function pageUrl(arg) {
+  return /^[a-z][a-z0-9+.-]+:/i.test(arg) ? arg : pathToFileURL(arg).href;
 }
 
 // opts: storageState, ignoreHTTPSErrors, waitFor (a selector), settle (ms
