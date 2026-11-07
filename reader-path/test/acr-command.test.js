@@ -47,7 +47,7 @@ test('two models give a report that loads, with catalog nums and levels', async 
 test('a title with YAML syntax reads back the same', async () => {
   const { report } = await acr([FAIL]);
   const notes = row(report, AA, '1.4.3').components[0].adherence.notes;
-  assert.ok(notes.split('\n').includes('https://x.test/bad: - [x]: #y: Contrast is too low'));
+  assert.ok(notes.split('\n\n').includes('https://x.test/bad: \\- \\[x\\]: \\#y \\| z: Contrast is too low'));
 });
 
 test('without --base: placeholders and a line to fill them', async () => {
