@@ -206,6 +206,7 @@ export async function generate(url, opts = {}) {
   try {
     const context = await browser.newContext({
       bypassCSP: true,
+      ...(opts.ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {}),
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
     const page = await context.newPage();
