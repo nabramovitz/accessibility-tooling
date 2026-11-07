@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tab</title></head>
+<body>
+<a href="#x">Link</a>
+<button tabindex="2">Tab two</button>
+<input aria-label="Search">
+<x-shadow></x-shadow>
+<script>
+  customElements.define('x-shadow', class extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }).innerHTML = '<button>Shadow button</button>'; }
+  });
+</script>
+</body></html>
