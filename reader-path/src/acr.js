@@ -111,6 +111,8 @@ export function proposeRows(models, catalog, levelOf) {
 }
 
 const BASE_LEVELS = ['supports', 'not-applicable'];
+// A num that YAML read as a number (302.6, 402) is written as a string.
+const strNums = (rows) => rows.map((r) => ({ ...r, num: String(r.num) }));
 const level = (row) => row.components?.find((c) => c.name === 'web' || c.name === 'none')?.adherence?.level;
 
 // The report: the base file's fields as they are, the tool's rows for
@@ -153,9 +155,11 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
     rows.push(...mine.values());
     for (const r of rows) merged.set(String(r.num), level(r) ?? 'not-evaluated');
     if (id.endsWith('_a') || id.endsWith('_aa')) pending += rows.filter((r) => level(r) === 'not-evaluated').length;
-    chapters[id] = { ...report.chapters?.[id], criteria: rows };
+    chapters[id] = { ...report.chapters?.[id], criteria: strNums(rows) };
   }
-  for (const [id, chapter] of Object.entries(report.chapters || {})) chapters[id] ??= chapter;
+  for (const [id, chapter] of Object.entries(report.chapters || {})) {
+    chapters[id] ??= Array.isArray(chapter?.criteria) ? { ...chapter, criteria: strNums(chapter.criteria) } : chapter;
+  }
   report.chapters = chapters;
   return { report, conflicts, pending, automated };
 }
