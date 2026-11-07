@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { findBun } from './src/bun.js';
 
 // Under Node.js, when `bun --version` works, this file runs itself again
@@ -30,7 +30,7 @@ const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [
 
 try {
   // Loaded here, so a run that hands over to Bun does not load them.
-  const { generate } = await import('./src/generate.js');
+  const { generate, pageUrl } = await import('./src/generate.js');
   const { render } = await import('./src/render.js');
 
   let args = process.argv.slice(2);
@@ -54,9 +54,7 @@ try {
   if (settle !== undefined && !(Number.isInteger(settle) && settle >= 0)) {
     throw new Error('--settle takes a whole number of milliseconds');
   }
-  const arg = positionals[0];
-  const url = /^[a-z][a-z0-9+.-]*:/i.test(arg) ? arg : pathToFileURL(arg).href;
-  const model = await generate(url, {
+  const model = await generate(pageUrl(positionals[0]), {
     storageState: values['storage-state'],
     ignoreHTTPSErrors: values['ignore-https-errors'],
     waitFor: values['wait-for'],
