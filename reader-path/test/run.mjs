@@ -4,8 +4,8 @@
 import { spawnSync } from 'node:child_process';
 import { ROOT, testCommand } from './command.js';
 
-const [file, ...args] = testCommand();
-const r = spawnSync(file, args, { stdio: 'inherit', cwd: ROOT });
+const { file, args, options } = testCommand();
+const r = spawnSync(file, args, { stdio: 'inherit', cwd: ROOT, ...options });
 if (r.error) {
   console.error(`test: ${r.error.message}`);
   process.exit(1);
