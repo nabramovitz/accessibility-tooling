@@ -4,7 +4,7 @@ import { walk, bare } from './generate.js';
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;
-const ERRATA = ['https://www.w3.org/WAI/WCAG21/errata/', 'https://www.w3.org/WAI/standards-guidelines/wcag/faq/'];
+const ERRATA = ['https://www.w3.org/WAI/WCAG21/errata/', 'https://www.w3.org/TR/2023/NOTE-UNDERSTANDING-WCAG20-20230921/ensure-compat-parses.html'];
 
 // Chapter 3 rows: the related WCAG rows and an extra sentence for the note.
 const FPC = {
