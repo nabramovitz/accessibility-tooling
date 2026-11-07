@@ -1,0 +1,68 @@
+name: reader-path
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reader-path/**'
+      - '.github/workflows/reader-path.yml'
+  pull_request:
+    paths:
+      - 'reader-path/**'
+      - '.github/workflows/reader-path.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}, ${{ matrix.runtime }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        runtime: [bun, node]
+    defaults:
+      run:
+        working-directory: reader-path
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+          cache: npm
+          cache-dependency-path: reader-path/package-lock.json
+
+      - if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      # The node job tests the Node.js path, so no Bun may be found.
+      - name: Check that no Bun is found
+        if: matrix.runtime == 'node'
+        run: node -e "import('./src/bun.js').then((m) => { if (m.findBun()) { console.error('a bun was found'); process.exit(1); } })"
+
+      - name: Install (npm)
+        if: matrix.runtime == 'node'
+        run: npm ci
+
+      - name: Install (bun)
+        if: matrix.runtime == 'bun'
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test (npm)
+        if: matrix.runtime == 'node'
+        run: npm test
+
+      - name: Test (bun)
+        if: matrix.runtime == 'bun'
+        run: bun run test
