@@ -211,3 +211,22 @@ test('unquoted dates and nums in a base are written back as strings', async () =
   for (const c of Object.values(report.chapters)) for (const x of c.criteria) assert.equal(typeof x.num, 'string', String(x.num));
   assert.doesNotMatch(text, /T00:00:00/);
 });
+
+test('a criteria row that is not a mapping stops the command', async () => {
+  const b = file('chapters:\n  success_criteria_level_a:\n    criteria:\n      - null\n');
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], `reader-path: criteria row is not a mapping: success_criteria_level_a in ${b}`);
+  const s = file('chapters:\n  success_criteria_level_a:\n    criteria:\n      - 1.1.1\n');
+  await fails([PASS, '--base', s, '--out', join(tmp(), 'r.yaml')], `reader-path: criteria row is not a mapping: success_criteria_level_a in ${s}`);
+});
+
+test('chapters that is not a mapping stops the command', async () => {
+  const b = file('chapters: text\n');
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], `reader-path: chapters is not a mapping: ${b}`);
+  const l = file('chapters: [a]\n');
+  await fails([PASS, '--base', l, '--out', join(tmp(), 'r.yaml')], `reader-path: chapters is not a mapping: ${l}`);
+});
+
+test('a model file that cannot be read stops the command', async () => {
+  const gone = join(tmp(), 'gone.json');
+  await fails([gone, '--out', join(tmp(), 'r.yaml')], `reader-path: cannot read ${gone}`);
+});

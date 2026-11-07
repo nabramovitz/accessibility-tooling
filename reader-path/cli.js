@@ -47,8 +47,10 @@ const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [
 const usage = (text) => Object.assign(new Error(text), { usage: true });
 
 function loadModel(f) {
+  let text;
+  try { text = readFileSync(f, 'utf8'); } catch { throw new Error(`cannot read ${f}`); }
   let m;
-  try { m = JSON.parse(readFileSync(f, 'utf8')); } catch { m = null; }
+  try { m = JSON.parse(text); } catch { m = null; }
   if (!m || typeof m !== 'object' || Array.isArray(m)) throw new Error(`not a model file: ${f}`);
   if (!m.checks) throw new Error(`model has no checks; run reader-path again: ${f}`);
   return m;
@@ -58,13 +60,16 @@ function loadBase(f, yaml) {
   // The core schema has no timestamps: a date stays the text it was.
   const base = yaml.load(readFileSync(f, 'utf8'), { schema: yaml.CORE_SCHEMA }) ?? {};
   if (typeof base !== 'object' || Array.isArray(base)) throw new Error(`base is not a YAML mapping: ${f}`);
+  const mapping = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+  if (base.chapters != null && !mapping(base.chapters)) throw new Error(`chapters is not a mapping: ${f}`);
   for (const [id, chapter] of Object.entries(base.chapters ?? {})) {
     const rows = chapter?.criteria;
     if (rows === undefined) continue;
     if (!Array.isArray(rows)) throw new Error(`criteria is not a list: ${id} in ${f}`);
     const seen = new Set();
     for (const r of rows) {
-      const num = String(r?.num);
+      if (!mapping(r)) throw new Error(`criteria row is not a mapping: ${id} in ${f}`);
+      const num = String(r.num);
       if (seen.has(num)) throw new Error(`base has two rows for ${num} in ${id}`);
       seen.add(num);
     }
