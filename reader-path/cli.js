@@ -63,7 +63,8 @@ function loadBase(f, yaml) {
   const mapping = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
   if (base.chapters != null && !mapping(base.chapters)) throw new Error(`chapters is not a mapping: ${f}`);
   for (const [id, chapter] of Object.entries(base.chapters ?? {})) {
-    const rows = chapter?.criteria;
+    if (!mapping(chapter)) throw new Error(`chapter is not a mapping: ${id} in ${f}`);
+    const rows = chapter.criteria;
     if (rows === undefined) continue;
     if (!Array.isArray(rows)) throw new Error(`criteria is not a list: ${id} in ${f}`);
     const seen = new Set();
