@@ -243,3 +243,10 @@ test('one row is "1 row"', async () => {
   const { stdout } = await acr([one]);
   assert.ok(stdout.split('\n').includes('1 row proposed supports from automated rules only; a person confirms them'));
 });
+
+test('a chapter that is not a mapping stops the command', async () => {
+  const b = file('chapters:\n  success_criteria_level_a: text\n');
+  await fails([PASS, '--base', b, '--out', join(tmp(), 'r.yaml')], `reader-path: chapter is not a mapping: success_criteria_level_a in ${b}`);
+  const h = file('chapters:\n  hardware: [a]\n');
+  await fails([PASS, '--base', h, '--out', join(tmp(), 'r.yaml')], `reader-path: chapter is not a mapping: hardware in ${h}`);
+});
