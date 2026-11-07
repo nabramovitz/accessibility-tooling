@@ -186,8 +186,21 @@ const ACTIVE = `(() => { let e = document.activeElement;
   while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
   return e; })()`;
 
+// Moves the start of sequential focus to the top of the document, so the
+// walk does not start where the page put focus (autofocus, a script). The
+// start is a temporary element with tabindex 1 at the top of the body: from
+// there, Tab goes to the first stop of the page order, positive tabindex
+// first. A tabindex -1 start would skip the positive tabindex stops. The
+// element is removed after the first Tab press.
+const START = 'data-reader-path-start';
+const TOP = `(() => { const e = document.createElement('span'); e.tabIndex = 1;
+  e.setAttribute('${START}', ''); document.body.prepend(e); e.focus(); })()`;
+const UNTOP = `(() => { const e = document.querySelector('[${START}]');
+  const still = !!e && document.activeElement === e; if (e) e.remove(); return still; })()`;
+
 // Presses Tab and gives `tab` (1-based) to the nearest kept node of each stop.
 async function tabWalk(page, cdp, nearestKept, root, notes, model) {
+  await cdp.send('Runtime.evaluate', { expression: TOP });
   const stop = (why, note) => {
     (root.gaps ||= []).push([why, '2.1.2', 'Tab moves focus to the next control']);
     (model.levels ||= {})['2.1.2'] = 'A';
@@ -198,6 +211,10 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
   let n = 0;
   for (let i = 0; i < MAX_TABS; i++) {
     await page.keyboard.press('Tab');
+    if (i === 0) {
+      const { result: still } = await cdp.send('Runtime.evaluate', { expression: UNTOP, returnByValue: true });
+      if (still.value) return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
+    }
     const { result } = await cdp.send('Runtime.evaluate', { expression: ACTIVE, objectGroup: 'tab' });
     if (!result.objectId) return;
     const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });

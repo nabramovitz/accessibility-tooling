@@ -39,3 +39,14 @@ test('Tab stops inside an iframe are not a trap', async () => {
   assert.equal(m.root.gaps, undefined);
   assert.equal(m.notes.filter((x) => x === 'Tab stops inside iframe not read: about:srcdoc').length, 1);
 });
+
+test('the Tab walk starts at the top, not where focus is', async () => {
+  const stops = flat(await generate(fixture('autofocus.html'))).filter((n) => n.tab).sort((a, b) => a.tab - b.tab);
+  assert.deepEqual(stops.map((n) => n.name), ['First', 'Second', 'Third']);
+});
+
+test('a page that stops every Tab press is a gap', async () => {
+  const m = await generate(fixture('trap-document.html'));
+  assert.ok(m.root.gaps.some((g) => g[1] === '2.1.2'));
+  assert.ok(m.notes.includes('Tab walk stopped: focus did not move'));
+});
