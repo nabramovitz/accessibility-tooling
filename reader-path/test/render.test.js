@@ -153,13 +153,13 @@ test('the review page has a strict CSP', () => {
   assert.ok(html.includes(`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">`));
 });
 
-test('review page: depth buttons, empty views, contrast on a box with children', async () => {
+test('review page: depth buttons, summary, only the chosen level, empty views, contrast', async () => {
   const model = {
-    url: 'file:///x', title: 'T', generated: '2026-01-01T00:00:00.000Z', notes: [],
+    url: 'file:///x', title: 'T', generated: '2026-01-01T00:00:00.000Z', notes: [], levels: { '1.4.3': 'AA', '1.4.6': 'AAA' },
     root: { id: 'r', t: 'Page', comp: 'RootWebArea', role: 'RootWebArea', name: 'Page', c: [
       { id: 'p', t: 'Panel', comp: 'region', role: 'region', name: 'Panel', lm: 'region', text: 'Panel text',
-        contrast: { ratio: 4.5, fg: '#767676', bg: '#ffffff' }, c: [
-          { id: 'b', t: 'Go', comp: 'button', role: 'button', name: 'Go', tab: 1, c: [] },
+        contrast: { ratio: 4.5, fg: '#767676', bg: '#ffffff' }, gaps: [['low contrast', '1.4.3', '4.5 to 1']], c: [
+          { id: 'b', t: 'Go', comp: 'button', role: 'button', name: 'Go', tab: 1, gaps: [['low contrast', '1.4.6', '7 to 1']], c: [] },
         ] },
     ] },
   };
@@ -174,6 +174,20 @@ test('review page: depth buttons, empty views, contrast on a box with children',
     assert.equal(await page.locator('#levels button[aria-pressed=true]').innerText(), 'Depth 3');
     await page.getByRole('button', { name: 'Depth 1', exact: true }).click();
     assert.equal(await page.locator('#levels button[aria-pressed=true]').innerText(), 'Depth 1');
+    // The summary counts the model, and each level's new boxes.
+    assert.equal(await page.locator('#sumc').innerText(), '3 boxes · 1 Tab stops · 0 headings · 1 landmarks · 0 message boxes · contrast measured on 1 boxes.');
+    assert.equal(await page.locator('#sumg').innerText(), 'Gaps: 2 in 2 boxes. By level: A 0 · AA 1 · AAA 1 · our rule 0. '
+      + 'Boxes that need work: 0 at Level A · 1 more at AA (1 in all) · 1 more at AAA (2 in all) · 0 more by our rule. Shown now: 1 gaps in 1 boxes.');
+    // Level AAA includes AA; "Only the chosen level" leaves AA out.
+    await page.getByRole('button', { name: /^Level AAA/ }).click();
+    assert.ok((await page.locator('#sumg').innerText()).endsWith('Shown now: 2 gaps in 2 boxes.'));
+    await page.getByRole('button', { name: 'Only the chosen level', exact: true }).click();
+    assert.equal(await page.locator('#goal button[data-only]').getAttribute('aria-pressed'), 'true');
+    assert.ok((await page.locator('#sumg').innerText()).endsWith('Shown now: 1 gaps in 1 boxes.'));
+    await page.getByRole('button', { name: 'Gaps', exact: true }).click();
+    assert.deepEqual(await page.locator('#map .hasgap .t').allInnerTexts(), ['Go']);
+    await page.getByRole('button', { name: 'Only the chosen level', exact: true }).click();
+    await page.getByRole('button', { name: /^Level AA / }).click();
     for (const view of ['Actions and results', 'Messages']) {
       await page.getByRole('button', { name: view, exact: true }).click();
       assert.equal(await page.locator('#empty').innerText(), `${view}: none in this model.`);
