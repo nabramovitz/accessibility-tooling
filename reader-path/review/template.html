@@ -82,10 +82,11 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
   <section class="sub" aria-labelledby="how"><h2 id="how">How to read this page</h2>
     <p>A box is one part of the page as the browser gives it to assistive technology. It shows what a screen reader gets there: the role, the accessible name, the description and the state. Select a box to see its content on the right.</p>
     <p>Each path button shows the same boxes in a different view. Structure shows the boxes inside each other. Reading order, Tab order and Headings number the boxes and join them with arrows. Landmarks marks the page regions. Messages shows the message boxes. Gaps shows the boxes that have a gap at the chosen level. Actions and results (what a control does) and the events in Messages are filled by a later version; a view with nothing in this model says "none in this model".</p>
-    <p>"Now" is what the page gives today. "Goal" is what it should give, and where the goal comes from: a WCAG 2.2 success criterion with its level (A, AA or AAA), or "our rule", the rule of comparable information. The goal level buttons choose which gaps are shown: A, AA (includes A) or AAA (includes both). A red dashed box has a gap at the chosen level. The drill down buttons open or close the boxes by depth.</p>
+    <p>"Now" is what the page gives today. "Goal" is what it should give, and where the goal comes from: a WCAG 2.2 success criterion with its level (A, AA or AAA), or "our rule", the rule of comparable information. The goal level buttons choose which gaps are shown: A, AA (includes A) or AAA (includes both); "Only the chosen level" leaves out the lower levels, so Level AAA then shows the AAA gaps alone. A red dashed box has a gap at the chosen level. The drill down buttons open or close the boxes by depth. "This model" counts what the page has and which boxes each level adds.</p>
     <p>The results come from the browser's accessibility tree and from the axe-core rules. A person must confirm them; this page is not an evaluation.</p>
   </section>
   <section id="notes" aria-labelledby="notesh" hidden><h2 id="notesh">Run notes</h2><ul></ul></section>
+  <section class="sub" id="sum" aria-labelledby="sumh"><h2 id="sumh">This model</h2><p id="sumc"></p><p id="sumg"></p></section>
   <div class="bar" id="modes" role="group" aria-labelledby="modesl"><span class="l" id="modesl">Path</span></div>
   <div class="bar" id="goal" role="group" aria-labelledby="goall"><span class="l" id="goall">Goal level</span></div>
   <div class="bar" id="levels" role="group" aria-labelledby="levelsl"><span class="l" id="levelsl">Drill down</span></div>
@@ -115,8 +116,9 @@ const byId = {}, order = [], parent = {}, parts = {}; // parts: id -> { d, pick,
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const incoming = id => order.flatMap(n => (n.msgs||[]).filter(m => m.to === id).map(m => ({...m, from:n})));
 // Goal level. AA is the target; AA includes A, and AAA includes both.
-const RANK = {A:1, AA:2, AAA:3}; let level = 'AA', ruleOn = true;
-const shown = g => LV[g[1]] === 'rule' ? ruleOn : RANK[LV[g[1]]] <= RANK[level];
+// "only" shows the gaps of the chosen level alone, without the lower levels.
+const RANK = {A:1, AA:2, AAA:3}; let level = 'AA', ruleOn = true, only = false;
+const shown = g => LV[g[1]] === 'rule' ? ruleOn : only ? LV[g[1]] === level : RANK[LV[g[1]]] <= RANK[level];
 const gapsOf = n => (n.gaps||[]).filter(shown);
 const lvChip = s => `<span class="chip lv lv${s}">${s === 'rule' ? 'our rule' : 'Level ' + s}</span>`;
 const srcOf = g => lvChip(LV[g[1]]) + (g[1] === 'rule' ? '' : `<span class="mut">${esc(g[1])}</span> `);
@@ -181,8 +183,9 @@ function paint(){
   incoming(s.id).filter(m => m.from !== s).forEach(m => { dom(m.from.id).classList.add('tgt'); arrow(m.from.id, s.id, 'var(--err)', 1); });
   svg.innerHTML = svg.querySelector('defs').outerHTML + lines;
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mode));
-  document.querySelectorAll('#goal button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lv ? b.dataset.lv === level : ruleOn));
+  document.querySelectorAll('#goal button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lv ? b.dataset.lv === level : b.dataset.only ? only : ruleOn));
   document.querySelectorAll('#levels button').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.k) === depth));
+  summary();
   detail(s);
 }
 function detail(n){
@@ -199,7 +202,6 @@ function detail(n){
   const contrast = (label, goals, c) => { const gs = goals.filter(g => RANK[g[0]] <= RANK[level]);
     return `<tr><th>${label}</th><td>${esc(measured(c))}</td><td>${gs.length ? gs.map(g => `${lvChip(g[0])}<span class="mut">${g[1]}</span> <b>${g[2]}</b>`).join('<br>') : '<span class="mut">no goal at Level ' + level + '</span>'}</td></tr>`; };
   const other = G.filter(g => !g[3]);
-  const all = order.flatMap(x => x.gaps || []), cnt = s => all.filter(g => LV[g[1]] === s).length;
   det.innerHTML = `<div class="comp">${path.join(' › ') || 'top'}</div><h2>${esc(n.t)}${n.ex ? ' <span class="ex">(example)</span>' : ''}</h2>
   <table class="ng"><thead><tr><th>content</th><th>now (from the HTML)</th><th>goal</th></tr></thead><tbody>
   ${ng('role','role')}${ng('accessible name','name')}${ng('accessible description','desc')}${ng('state','state')}
@@ -209,14 +211,26 @@ function detail(n){
   ${(n.acts||[]).length ? '<h3>Steps out (action → result)</h3><ul>'+n.acts.map(a => `<li><b>${esc(a.do)}</b> · <span class="k">${esc(a.keys)}</span><br>${a.gap ? '<span class="gt">gap · </span>' : ''}${esc(a.res)}${a.to ? ' → '+go(a.to) : ''}</li>`).join('')+'</ul>' : ''}
   ${msgs.length ? '<h3>Messages (event → content → message box)</h3><ul>'+msgs.map(m => `<li><span class="mut">${esc(m.dir)}:</span> ${esc(m.ev)} → <span class="kind ${m.kind}">${m.kind}</span> ${esc(m.text)} → ${m.to ? go(m.to) : '<span class="gt">no message box</span>'}${m.note ? '<br><span class="why">'+esc(m.note)+'</span>' : ''}</li>`).join('')+'</ul>' : ''}
   <h3>About this box</h3><table><tbody>${row('definition', n.comp + (same > 1 ? '  — '+same+' instances on this page (dotted outline)' : ''))}${row('shown', n.when)}${row('text', n.text !== n.name && n.text)}${n.box ? row('message box', (n.box.stays ? 'stays: '+n.box.stays+' · ' : '') + 'live region: '+(n.box.live || 'none')) : ''}${n.tab ? row('Tab stop', n.tab+' of '+tabs.length+' in this model') : ''}${row('note', n.note)}${row('not read', n.nr)}${row('source', n.src)}</tbody></table>
-  ${n.c ? '<h3>Inside</h3><ul>'+n.c.map(c => `<li>${go(c.id)} <span class="mut">${esc(c.comp)}</span></li>`).join('')+'</ul>' : ''}
-  <h3>This model</h3><div class="mut">${order.length} boxes · ${tabs.length} Tab stops · ${order.filter(x => x.box).length} message boxes<br>
-  Gaps by source: Level A ${cnt('A')} · Level AA ${cnt('AA')} · Level AAA ${cnt('AAA')} · our rule ${cnt('rule')}. Shown now: ${order.reduce((a, x) => a + gapsOf(x).length, 0)}. Contrast measured on ${order.filter(x => x.contrast && x.contrast.ratio != null).length} boxes.</div>`;
+  ${n.c ? '<h3>Inside</h3><ul>'+n.c.map(c => `<li>${go(c.id)} <span class="mut">${esc(c.comp)}</span></li>`).join('')+'</ul>' : ''}`;
+}
+// The counts at the top. "More at AA" counts the boxes that have no gap
+// at Level A but have one at AA, so each step up shows the boxes it adds.
+function summary(){
+  const all = order.flatMap(x => x.gaps || []), cnt = s => all.filter(g => LV[g[1]] === s).length;
+  const n = f => order.filter(f).length, has = (x, f) => (x.gaps || []).some(f);
+  const upTo = k => x => has(x, g => RANK[LV[g[1]]] <= k), bA = n(upTo(1)), bAA = n(upTo(2)), bAAA = n(upTo(3));
+  const bRule = n(x => has(x, g => LV[g[1]] === 'rule') && !has(x, g => LV[g[1]] !== 'rule'));
+  const shownGaps = order.reduce((a, x) => a + gapsOf(x).length, 0), shownBoxes = n(x => gapsOf(x).length);
+  $('#sumc').textContent = `${order.length} boxes · ${n(x => x.tab)} Tab stops · ${n(x => x.h)} headings · ${n(x => x.lm)} landmarks · ${n(x => x.box)} message boxes · contrast measured on ${n(x => x.contrast && x.contrast.ratio != null)} boxes.`;
+  $('#sumg').textContent = `Gaps: ${all.length} in ${n(x => (x.gaps || []).length)} boxes. By level: A ${cnt('A')} · AA ${cnt('AA')} · AAA ${cnt('AAA')} · our rule ${cnt('rule')}. `
+    + `Boxes that need work: ${bA} at Level A · ${bAA - bA} more at AA (${bAA} in all) · ${bAAA - bAA} more at AAA (${bAAA} in all) · ${bRule} more by our rule. `
+    + `Shown now: ${shownGaps} gaps in ${shownBoxes} boxes.`;
 }
 const btn = (bar, text, fn, data) => { const b = document.createElement('button'); b.textContent = text; Object.assign(b.dataset, data || {}); b.onclick = () => { fn(); paint(); }; $(bar).append(b); };
 Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
 [['A','Level A'],['AA','Level AA (target; includes A)'],['AAA','Level AAA (includes A and AA)']].forEach(([k, l]) => btn('#goal', l, () => { level = k; }, {lv:k}));
 btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
+btn('#goal', 'Only the chosen level', () => { only = !only; }, {only:1});
 [['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k), {k}));
 let resized; addEventListener('resize', () => { clearTimeout(resized); resized = setTimeout(paint, 100); }); setLevel(3);
 if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
