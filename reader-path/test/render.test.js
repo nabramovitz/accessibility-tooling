@@ -170,6 +170,10 @@ test('review page: depth buttons, empty views, contrast on a box with children',
     const page = await browser.newPage();
     await page.goto(pathToFileURL(file).href);
     assert.deepEqual(await page.locator('#levels button').allInnerTexts(), ['Depth 1', 'Depth 2', 'Depth 3', 'Depth 4', 'All']);
+    // The drill down bar marks the chosen depth like the other bars do.
+    assert.equal(await page.locator('#levels button[aria-pressed=true]').innerText(), 'Depth 3');
+    await page.getByRole('button', { name: 'Depth 1', exact: true }).click();
+    assert.equal(await page.locator('#levels button[aria-pressed=true]').innerText(), 'Depth 1');
     for (const view of ['Actions and results', 'Messages']) {
       await page.getByRole('button', { name: view, exact: true }).click();
       assert.equal(await page.locator('#empty').innerText(), `${view}: none in this model.`);
