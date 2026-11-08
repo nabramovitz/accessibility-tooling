@@ -26,6 +26,9 @@
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 header{padding:12px 16px 8px;border-bottom:1px solid var(--bd)}
 h1{font-size:17px;margin:0 0 2px} .meta{margin:0 0 6px;overflow-wrap:anywhere} .sub,#notes{max-width:110ch} .sub h2,#notes h2{font-size:14px;margin:8px 0 2px} .sub p{margin:4px 0} #notes ul{margin:2px 0;padding-left:18px}
+/* The summary: one tile for each count, then a table of the gaps by goal level. */
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;margin:6px 0 10px} .stats div{display:flex;flex-direction:column} .stats dt{order:2;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)} .stats dd{margin:0;font-size:20px;font-weight:600;line-height:1.1}
+.gaps{border-collapse:collapse;margin:4px 0} .gaps caption{text-align:left;font-weight:600;padding:0 0 4px} .gaps th,.gaps td{text-align:left;padding:3px 16px 3px 0;border-bottom:1px solid var(--bd)} .gaps th{color:var(--mut);font-weight:500} .gaps td.num{text-align:right;font-variant-numeric:tabular-nums}
 [hidden]{display:none!important}
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
 .bar span.l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 8px}
@@ -86,7 +89,11 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
     <p>The results come from the browser's accessibility tree and from the axe-core rules. A person must confirm them; this page is not an evaluation.</p>
   </section>
   <section id="notes" aria-labelledby="notesh" hidden><h2 id="notesh">Run notes</h2><ul></ul></section>
-  <section class="sub" id="sum" aria-labelledby="sumh"><h2 id="sumh">This model</h2><p id="sumc"></p><p id="sumg"></p></section>
+  <section class="sub" id="sum" aria-labelledby="sumh"><h2 id="sumh">This model</h2>
+    <dl id="sumc" class="stats"></dl>
+    <table id="sumg" class="gaps"><caption></caption><thead><tr><th scope="col">Goal level</th><th scope="col">Gaps</th><th scope="col">Boxes this level adds</th><th scope="col">Boxes that need work</th></tr></thead><tbody></tbody></table>
+    <p id="sumn" class="mut"></p>
+  </section>
   <div class="bar" id="modes" role="group" aria-labelledby="modesl"><span class="l" id="modesl">Path</span></div>
   <div class="bar" id="goal" role="group" aria-labelledby="goall"><span class="l" id="goall">Goal level</span></div>
   <div class="bar" id="levels" role="group" aria-labelledby="levelsl"><span class="l" id="levelsl">Drill down</span></div>
@@ -220,11 +227,13 @@ function summary(){
   const n = f => order.filter(f).length, has = (x, f) => (x.gaps || []).some(f);
   const upTo = k => x => has(x, g => RANK[LV[g[1]]] <= k), bA = n(upTo(1)), bAA = n(upTo(2)), bAAA = n(upTo(3));
   const bRule = n(x => has(x, g => LV[g[1]] === 'rule') && !has(x, g => LV[g[1]] !== 'rule'));
-  const shownGaps = order.reduce((a, x) => a + gapsOf(x).length, 0), shownBoxes = n(x => gapsOf(x).length);
-  $('#sumc').textContent = `${order.length} boxes · ${n(x => x.tab)} Tab stops · ${n(x => x.h)} headings · ${n(x => x.lm)} landmarks · ${n(x => x.box)} message boxes · contrast measured on ${n(x => x.contrast && x.contrast.ratio != null)} boxes.`;
-  $('#sumg').textContent = `Gaps: ${all.length} in ${n(x => (x.gaps || []).length)} boxes. By level: A ${cnt('A')} · AA ${cnt('AA')} · AAA ${cnt('AAA')} · our rule ${cnt('rule')}. `
-    + `Boxes that need work: ${bA} at Level A · ${bAA - bA} more at AA (${bAA} in all) · ${bAAA - bAA} more at AAA (${bAAA} in all) · ${bRule} more by our rule. `
-    + `Shown now: ${shownGaps} gaps in ${shownBoxes} boxes.`;
+  const shownGaps = order.reduce((a, x) => a + gapsOf(x).length, 0), shownBoxes = n(x => gapsOf(x).length), pl = (k, w) => k + ' ' + (k === 1 ? w : w + (w.endsWith('x') ? 'es' : 's'));
+  $('#sumc').innerHTML = [['boxes', order.length], ['Tab stops', n(x => x.tab)], ['headings', n(x => x.h)], ['landmarks', n(x => x.lm)], ['message boxes', n(x => x.box)], ['contrast measured', n(x => x.contrast && x.contrast.ratio != null)]]
+    .map(([l, v]) => `<div><dt>${l}</dt><dd>${v}</dd></div>`).join('');
+  $('#sumg caption').textContent = `Gaps: ${pl(all.length, 'gap')} in ${pl(n(x => (x.gaps || []).length), 'box')}`;
+  $('#sumg tbody').innerHTML = [['A', cnt('A'), bA, bA], ['AA', cnt('AA'), bAA - bA, bAA], ['AAA', cnt('AAA'), bAAA - bAA, bAAA], ['rule', cnt('rule'), bRule, bAAA + bRule]]
+    .map(([s, ...v]) => `<tr><th scope="row">${lvChip(s)}</th>${v.map(x => `<td class="num">${x}</td>`).join('')}</tr>`).join('');
+  $('#sumn').textContent = `Shown now: ${pl(shownGaps, 'gap')} in ${pl(shownBoxes, 'box')}.`;
 }
 const btn = (bar, text, fn, data) => { const b = document.createElement('button'); b.textContent = text; Object.assign(b.dataset, data || {}); b.onclick = () => { fn(); paint(); }; $(bar).append(b); };
 Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
