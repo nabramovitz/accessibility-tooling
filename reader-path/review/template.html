@@ -154,7 +154,8 @@ map.addEventListener('click', e => {
 });
 det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } });
 function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
-function setLevel(k){ order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
+let depth = 3;
+function setLevel(k){ depth = k; order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
 
 const vis = id => { const d = dom(id); return d && d.offsetParent !== null; };
 const pt = (id, anchor) => { const d = dom(id), t = (anchor && parts[id].bdg) || (d.classList.contains('c') ? d.querySelector('.ch') : d), r = t.getBoundingClientRect(), m = map.getBoundingClientRect(); return [r.left - m.left + (anchor ? r.width/2 : Math.min(r.width/2, 60)), r.top - m.top + r.height/2]; };
@@ -181,6 +182,7 @@ function paint(){
   svg.innerHTML = svg.querySelector('defs').outerHTML + lines;
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mode));
   document.querySelectorAll('#goal button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lv ? b.dataset.lv === level : ruleOn));
+  document.querySelectorAll('#levels button').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.k) === depth));
   detail(s);
 }
 function detail(n){
@@ -215,7 +217,7 @@ const btn = (bar, text, fn, data) => { const b = document.createElement('button'
 Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }, {m:k}));
 [['A','Level A'],['AA','Level AA (target; includes A)'],['AAA','Level AAA (includes A and AA)']].forEach(([k, l]) => btn('#goal', l, () => { level = k; }, {lv:k}));
 btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
-[['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k)));
+[['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k), {k}));
 let resized; addEventListener('resize', () => { clearTimeout(resized); resized = setTimeout(paint, 100); }); setLevel(3);
 if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
 </script>
