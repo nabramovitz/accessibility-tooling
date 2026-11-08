@@ -175,15 +175,18 @@ test('review page: depth buttons, summary, only the chosen level, empty views, c
     await page.getByRole('button', { name: 'Depth 1', exact: true }).click();
     assert.equal(await page.locator('#levels button[aria-pressed=true]').innerText(), 'Depth 1');
     // The summary counts the model, and each level's new boxes.
-    assert.equal(await page.locator('#sumc').innerText(), '3 boxes · 1 Tab stops · 0 headings · 1 landmarks · 0 message boxes · contrast measured on 1 boxes.');
-    assert.equal(await page.locator('#sumg').innerText(), 'Gaps: 2 in 2 boxes. By level: A 0 · AA 1 · AAA 1 · our rule 0. '
-      + 'Boxes that need work: 0 at Level A · 1 more at AA (1 in all) · 1 more at AAA (2 in all) · 0 more by our rule. Shown now: 1 gaps in 1 boxes.');
+    assert.deepEqual(await page.locator('#sumc dt').allTextContents(), ['boxes', 'Tab stops', 'headings', 'landmarks', 'message boxes', 'contrast measured']);
+    assert.deepEqual(await page.locator('#sumc dd').allInnerTexts(), ['3', '1', '0', '1', '0', '1']);
+    assert.equal(await page.locator('#sumg caption').innerText(), 'Gaps: 2 gaps in 2 boxes');
+    // Columns: gaps at the level, boxes the level adds, boxes that need work up to the level.
+    assert.deepEqual(await page.locator('#sumg tbody tr').allInnerTexts(), ['Level A\t0\t0\t0', 'Level AA\t1\t1\t1', 'Level AAA\t1\t1\t2', 'our rule\t0\t0\t2']);
+    assert.equal(await page.locator('#sumn').innerText(), 'Shown now: 1 gap in 1 box.');
     // Level AAA includes AA; "Only the chosen level" leaves AA out.
     await page.getByRole('button', { name: /^Level AAA/ }).click();
-    assert.ok((await page.locator('#sumg').innerText()).endsWith('Shown now: 2 gaps in 2 boxes.'));
+    assert.equal(await page.locator('#sumn').innerText(), 'Shown now: 2 gaps in 2 boxes.');
     await page.getByRole('button', { name: 'Only the chosen level', exact: true }).click();
     assert.equal(await page.locator('#goal button[data-only]').getAttribute('aria-pressed'), 'true');
-    assert.ok((await page.locator('#sumg').innerText()).endsWith('Shown now: 1 gaps in 1 boxes.'));
+    assert.equal(await page.locator('#sumn').innerText(), 'Shown now: 1 gap in 1 box.');
     await page.getByRole('button', { name: 'Gaps', exact: true }).click();
     assert.deepEqual(await page.locator('#map .hasgap .t').allInnerTexts(), ['Go']);
     await page.getByRole('button', { name: 'Only the chosen level', exact: true }).click();
