@@ -359,3 +359,10 @@ test('a run rule in review or na gets its own line, not the axe-core wording', (
   assert.ok(lines(rows, '1.2.1').includes('Needs a person: no audio or video element found on any page; is the row not applicable?'));
   assert.equal(adh(rows, '1.2.1').level, 'not-evaluated');
 });
+
+test('the 3.2.4 review line carries the run details', () => {
+  const a = model({ '3.2.4': entry({ review: ['run-identification'] }) }, { runDetails: { 'run-identification': ['app-x button: "A", "B"'] } });
+  const b = model({ '3.2.4': entry({ review: ['run-identification'] }) }, { finalUrl: 'https://x.test/b' });
+  const rows = proposeRows([a, b], catalog);
+  assert.ok(lines(rows, '3.2.4').includes('Needs a person: a component that appears once on a page carries different names on different pages: app-x button: "A", "B"'));
+});
