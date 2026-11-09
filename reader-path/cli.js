@@ -42,6 +42,7 @@ if (!process.versions.bun && !token) {
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
   + ' [--wait-for <selector>] [--settle <ms>]\n'
+  + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [page options]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] --out <file.yaml>';
 
 const usage = (text) => Object.assign(new Error(text), { usage: true });
@@ -109,20 +110,36 @@ async function writeAcr(files, { base, out }) {
   console.log(`${automated} ${rows(automated)} proposed supports from automated rules only; a person confirms them`);
 }
 
-async function writePage(url, values) {
-  const { generate, pageUrl } = await import('./src/generate.js');
-  const { render } = await import('./src/render.js');
-  const out = values.out ?? 'reader-path-out';
+function pageOptions(values) {
   const settle = values.settle === undefined ? undefined : Number(values.settle);
   if (settle !== undefined && !(Number.isInteger(settle) && settle >= 0)) {
     throw new Error('--settle takes a whole number of milliseconds');
   }
-  const model = await generate(pageUrl(url), {
+  return {
     storageState: values['storage-state'],
     ignoreHTTPSErrors: values['ignore-https-errors'],
     waitFor: values['wait-for'],
     settle,
-  });
+  };
+}
+
+async function writeRun(start, values) {
+  const { crawl } = await import('./src/crawl.js');
+  const { pageUrl } = await import('./src/generate.js');
+  const max = values.max === undefined ? undefined : Number(values.max);
+  if (max !== undefined && !(Number.isInteger(max) && max > 0)) throw new Error('--max takes a whole number of pages');
+  const urls = values.urls === undefined ? undefined
+    : readFileSync(values.urls, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map(pageUrl);
+  const { out, run } = await crawl(start === undefined ? undefined : pageUrl(start), { ...pageOptions(values), out: values.out, max, urls });
+  console.log(`wrote ${join(out, 'run.json')}: ${run.pages.length} page(s), ${run.dropped.length} dropped, ${run.skipped.length} skipped`);
+  for (const s of run.skipped) console.log(`skipped ${s.url}: ${s.why}`);
+}
+
+async function writePage(url, values) {
+  const { generate, pageUrl } = await import('./src/generate.js');
+  const { render } = await import('./src/render.js');
+  const out = values.out ?? 'reader-path-out';
+  const model = await generate(pageUrl(url), pageOptions(values));
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'model.json'), JSON.stringify(model, null, 2) + '\n');
   writeFileSync(join(out, 'index.html'), render(model));
@@ -140,9 +157,14 @@ try {
       'ignore-https-errors': { type: 'boolean' },
       'wait-for': { type: 'string' },
       settle: { type: 'string' },
+      max: { type: 'string' },
+      urls: { type: 'string' },
     },
   });
-  if (positionals[0] === 'acr') {
+  if (positionals[0] === 'crawl') {
+    if (positionals.length > 2 || (positionals.length === 1 && !values.urls)) throw usage(USAGE);
+    await writeRun(positionals[1], values);
+  } else if (positionals[0] === 'acr') {
     if (positionals.length < 2 || !values.out) throw usage(USAGE);
     await writeAcr(positionals.slice(1), values);
   } else {
