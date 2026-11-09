@@ -80,7 +80,42 @@ When the final URL is not the requested one (query and fragment left
 out), a run note says so. A sign-in page in place of the page you asked for shows up there.
 
 Run notes also say when axe-core could not be added to a frame or did
-not run; the tree and the Tab order are still written.
+not run; the tree and the Tab order are still written. A `main`
+landmark with no content after the settle time gets the note
+`Page content empty`: an empty route, a page behind a gate, or a page
+that needs a longer `--settle`.
+
+## Crawl: a run over a site
+
+```
+bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [page options]
+```
+
+This finds the pages of a site from `<url>` by their links, breadth
+first, and reads each one as above. It follows links only (`a[href]`
+on the same site): it never presses a button or sends a form, so a
+page reached only that way (a stepper, a dialog) is not in the run
+unless `--urls` names it. Paths with `login` or `logout` are skipped,
+and a sign-in page in place of a page stops the crawl with a note.
+
+One page stands for each route shape: a path segment that is a UUID
+or all digits counts as `id`, so `/apps/<guid>/routes` is read once.
+The page options (`--storage-state`, `--ignore-https-errors`,
+`--wait-for`, `--settle`) apply to every page.
+
+- `--out <dir>`: the run directory. The default is `reader-path-run`.
+  Each page goes to `<dir>/pages/<shape>/` (`model.json` and
+  `index.html`; `<shape>` is the path with `/` as `_` and ids as `id`),
+  and `<dir>/run.json` lists the pages, the pages dropped because they
+  moved to another page of the run (a default tab), and the URLs
+  skipped. The same care as for `--out` above: the models hold the
+  signed-in content.
+- `--max <n>`: the most pages to read. The default is 100.
+- `--urls <file>`: one URL a line; the crawl reads these and finds no
+  others.
+
+Then `bun cli.js acr <dir>/pages/*/model.json --out <file.yaml>`
+writes the report for the run.
 
 ## OpenACR draft
 
@@ -105,6 +140,17 @@ checks do not support; when in doubt it writes `not-evaluated`.
   W3C texts that say why.
 - `partially-supports`: a check failed on at least one page. The note
   names the page and the gap.
+With two or more models, the tool also runs its own checks over the
+whole run, beside the axe-core rules and the Tab walk (`tab-walk`,
+2.1.2): `run-title` (2.4.2: the same title on every page is a fail),
+`run-navigation` (3.2.3: the navigation items and their order),
+`run-identification` (3.2.4: a component that appears once on a page
+with different names on different pages goes to review), `run-help`
+(3.2.6: a help or documentation link on every page, some pages, or
+none), `run-ways` (2.4.5: navigation plus a search on every page, else
+review), and `run-media` (1.2.1 to 1.2.9 and 1.4.7: audio and video
+elements counted; none found is evidence for the person, never a level).
+
 - `not-evaluated`: anything else. The note says what a person must
   look at, after `Needs a person:`: no automated check covers the row;
   a page has no result for it (for example, axe-core did not run
