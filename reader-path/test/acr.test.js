@@ -347,3 +347,15 @@ test('Markdown punctuation in a file name is escaped', () => {
   const m = model({ '1.1.1': entry({ fail: ['x'] }) }, { url: u, finalUrl: u, root: { r: 'document', t: 'T', gaps: [['why', '1.1.1', 'g']] } });
   assert.ok(lines(proposeRows([m], catalog), '1.1.1').includes('\\[a\\]\\(b\\)\\_c.html: T: why'));
 });
+
+test('a run rule in review or na gets its own line, not the axe-core wording', () => {
+  const a = model({ '2.4.5': entry({ review: ['run-ways'] }), '3.2.6': entry({ na: ['run-help'] }), '1.2.1': entry({ na: ['run-media'] }) });
+  const b = model({ '2.4.5': entry({ review: ['run-ways'] }), '3.2.6': entry({ na: ['run-help'] }), '1.2.1': entry({ na: ['run-media'] }) }, { finalUrl: 'https://x.test/b' });
+  const rows = proposeRows([a, b], catalog);
+  assert.ok(lines(rows, '2.4.5').includes('Needs a person: a navigation on every page, no search found; is there a second way to reach each page?'));
+  assert.ok(!adh(rows, '2.4.5').notes.includes('axe-core could not decide'));
+  assert.ok(lines(rows, '3.2.6').includes('Needs a person: no help or documentation link found on any page; is the row not applicable?'));
+  assert.ok(!adh(rows, '3.2.6').notes.includes('axe-core rules found nothing'));
+  assert.ok(lines(rows, '1.2.1').includes('Needs a person: no audio or video element found on any page; is the row not applicable?'));
+  assert.equal(adh(rows, '1.2.1').level, 'not-evaluated');
+});
