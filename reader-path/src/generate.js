@@ -320,6 +320,9 @@ export async function generate(url, opts = {}) {
     notes.push(...domNotes);
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
     const { root, nearestKept } = buildTree(nodes, dom);
+    walk(root, (n) => {
+      if (n.lm === 'main' && !(n.c || []).length && !n.text) notes.push('Page content empty: main has no content after settle');
+    });
     const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
     addCheck(model.checks, '2.1.2', await tabWalk(page, cdp, nearestKept, root, notes, model), 'tab-walk');
