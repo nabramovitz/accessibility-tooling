@@ -53,3 +53,10 @@ test('a node with no DOM node and a missing child', () => {
   assert.equal(root.id, 'n1');
   assert.deepEqual(root.c.map((n) => [n.id, n.name]), [['a2', 'X']]);
 });
+
+test('an empty main landmark gets a run note; a main with content does not', async () => {
+  const empty = await generate(fixture('empty-main.html'));
+  assert.ok(empty.notes.includes('Page content empty: main has no content after settle'), empty.notes.join(' | '));
+  const full = await generate(fixture('site/a.html'));
+  assert.ok(!full.notes.some((x) => x.startsWith('Page content empty')), full.notes.join(' | '));
+});
