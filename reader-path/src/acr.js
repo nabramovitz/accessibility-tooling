@@ -87,7 +87,11 @@ function wcag(models, sc) {
   if (pass.length) lines.push(`Rules that passed: ${pass.join(', ')}, on ${passing.length} of ${models.length} page(s)`);
   const axeReview = review.filter((r) => !own(r));
   if (review.includes('tab-walk')) lines.push('Needs a person: the Tab walk did not read every Tab stop (see the run notes)');
-  for (const r of review) if (RUN_LINES[r]?.review) lines.push(RUN_LINES[r].review);
+  for (const r of review) {
+    if (!RUN_LINES[r]?.review) continue;
+    const detail = models.find((m) => m.runDetails?.[r])?.runDetails[r];
+    lines.push(detail ? `${RUN_LINES[r].review}: ${detail.join('; ')}` : RUN_LINES[r].review);
+  }
   if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
   const axeNa = na.filter((r) => !own(r));
   if (!pass.length && axeNa.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${axeNa.join(', ')}); is the row not applicable?`);

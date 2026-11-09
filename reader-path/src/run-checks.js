@@ -6,15 +6,12 @@ import { walk, bare } from './generate.js';
 import { addCheck } from './axe.js';
 
 const MEDIA_ROWS = ['1.2.1', '1.2.2', '1.2.3', '1.2.4', '1.2.5', '1.2.6', '1.2.7', '1.2.8', '1.2.9', '1.4.7'];
+const CONTROLS = new Set(['button', 'menuitem', 'switch', 'checkbox', 'radio', 'combobox', 'textbox', 'searchbox', 'tab', 'slider', 'spinbutton']);
 const HELP = /\b(help|docs|documentation|support)\b/i;
 
 const label = (m) => bare(m.finalUrl || m.url);
 const nodes = (m) => { const all = []; walk(m.root, (n, p) => all.push([n, p])); return all; };
-const inLandmark = (m, lm) => {
-  const out = [];
-  walk(m.root, function visit(n) { if (n.lm === lm) walk(n, (d) => { if (d !== n) out.push(d); }); });
-  return out;
-};
+const inLandmark = (n) => { const out = []; walk(n, (d) => { if (d !== n) out.push(d); }); return out; };
 // Nodes not inside main: the shell a user sees on every page.
 const shell = (m) => {
   const out = [];
@@ -37,23 +34,37 @@ export function runChecks(models) {
     result('2.4.2', 'fail', 'run-title', `Every page has the same title "${titles[0]}"; the title does not name the page`, 'Each page has a title that names it');
   } else result('2.4.2', 'pass', 'run-title');
 
-  // 3.2.3: the navigation landmark's items, in order, on every page that has one.
-  const navs = models.map((m) => inLandmark(m, 'navigation').map((n) => n.name || '').filter(Boolean).join(' | '));
-  const withNav = navs.map((s, i) => [s, i]).filter(([s]) => s);
-  if (withNav.length >= 2) {
-    const odd = withNav.filter(([s]) => s !== withNav[0][0]).map(([, i]) => label(models[i]));
-    if (odd.length) result('3.2.3', 'fail', 'run-navigation', `The navigation items or their order differ on ${odd.join(', ')} from ${label(models[withNav[0][1]])}`, 'The same navigation, in the same order, on every page');
+  // 3.2.3: each navigation landmark, by name, compared among the pages
+  // that have it: the items in order. A landmark on one page only, or a
+  // page without one, is not judged here.
+  const navsOf = (m) => {
+    const out = new Map();
+    walk(m.root, (n) => { if (n.lm === 'navigation') out.set(n.name || '', inLandmark(n).map((d) => d.name || '').filter(Boolean).join(' | ')); });
+    return out;
+  };
+  const navs = models.map(navsOf);
+  const counts = new Map();
+  for (const map of navs) for (const name of map.keys()) counts.set(name, (counts.get(name) || 0) + 1);
+  const shared = [...counts].filter(([, k]) => k >= 2).map(([name]) => name);
+  if (shared.length) {
+    const odd = [];
+    for (const name of shared) {
+      const first = navs.findIndex((map) => map.has(name));
+      navs.forEach((map, i) => { if (map.has(name) && map.get(name) !== navs[first].get(name)) odd.push(`"${name}" on ${label(models[i])} (first seen on ${label(models[first])})`); });
+    }
+    if (odd.length) result('3.2.3', 'fail', 'run-navigation', `The navigation items or their order differ: ${odd.join(', ')}`, 'The same navigation, in the same order, on every page');
     else result('3.2.3', 'pass', 'run-navigation');
   }
 
-  // 3.2.4: a component that appears once on a page (a toggle, a user
-  // menu) should carry the same name on every page. Components with
-  // several instances (navigation items, cards) are left out.
+  // 3.2.4: a control that appears once on a page (a toggle, a user menu)
+  // should carry the same name on every page. Controls with several
+  // instances (navigation items, cards) and content (headings, links) are
+  // left out.
   const names = new Map();
   for (const m of models) {
     const onPage = new Map();
     for (const n of shell(m)) {
-      if (!n.comp || !n.role || !n.name || n.lm) continue;
+      if (!n.comp || !CONTROLS.has(n.role) || !n.name || n.lm) continue;
       const key = `${n.comp} ${n.role}`;
       onPage.set(key, onPage.has(key) ? null : n.name);
     }
@@ -62,7 +73,8 @@ export function runChecks(models) {
       else if (names.get(key) !== null) (names.get(key) || names.set(key, new Set()).get(key)).add(name);
     }
   }
-  const differ = [...names].filter(([, set]) => set && set.size > 1).map(([key]) => key);
+  const differ = [...names].filter(([, set]) => set && set.size > 1).map(([key, set]) => `${key}: ${[...set].map((x) => `"${x}"`).join(', ')}`);
+  if (differ.length) (models[0].runDetails ||= {})['run-identification'] = differ;
   result('3.2.4', differ.length ? 'review' : 'pass', 'run-identification');
 
   // 3.2.6: a help link in the shell on every page, on some, or on none.
