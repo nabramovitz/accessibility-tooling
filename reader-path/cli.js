@@ -86,6 +86,8 @@ async function writeAcr(files, { base, out }) {
   const seen = new Set();
   files = files.filter((f) => !seen.has(resolve(f)) && seen.add(resolve(f)));
   const models = files.map(loadModel);
+  const { runChecks } = await import('./src/run-checks.js');
+  runChecks(models);
   const own = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   const axe = createRequire(import.meta.url)('axe-core/package.json');
   const d = new Date();

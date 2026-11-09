@@ -250,3 +250,16 @@ test('a chapter that is not a mapping stops the command', async () => {
   const h = file('chapters:\n  hardware: [a]\n');
   await fails([PASS, '--base', h, '--out', join(tmp(), 'r.yaml')], `reader-path: chapter is not a mapping: hardware in ${h}`);
 });
+
+test('two models get the run rows: the same title on both is a 2.4.2 gap', async () => {
+  const { report } = await acr([FAIL, PASS]);
+  const r = row(report, 'success_criteria_level_a', '2.4.2');
+  assert.equal(r.components[0].adherence.level, 'partially-supports');
+  assert.ok(r.components[0].adherence.notes.includes('Every page has the same title'));
+  assert.ok(r.components[0].adherence.notes.includes('run-title'));
+});
+
+test('one model gets no run rows', async () => {
+  const { report } = await acr([PASS]);
+  assert.ok(!row(report, 'success_criteria_level_a', '2.4.2').components[0].adherence.notes.includes('run-title'));
+});

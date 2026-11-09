@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { walk, bare } from './generate.js';
+import { RUN_LINES } from './run-checks.js';
+
+// The tool's own rules, beside axe-core's: the Tab walk and the run checks.
+const own = (r) => r === 'tab-walk' || r.startsWith('run-');
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;
@@ -81,15 +85,17 @@ function wcag(models, sc) {
   const missing = models.filter((m) => !['pass', 'review', 'na'].some((kind) => list(m, sc, kind).length));
   const lines = [];
   if (pass.length) lines.push(`Rules that passed: ${pass.join(', ')}, on ${passing.length} of ${models.length} page(s)`);
-  // tab-walk is the tool's own check of 2.1.2, not an axe-core rule.
-  const axeReview = review.filter((r) => r !== 'tab-walk');
+  const axeReview = review.filter((r) => !own(r));
   if (review.includes('tab-walk')) lines.push('Needs a person: the Tab walk did not read every Tab stop (see the run notes)');
+  for (const r of review) if (RUN_LINES[r]?.review) lines.push(RUN_LINES[r].review);
   if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
-  if (!pass.length && na.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${na.join(', ')}); is the row not applicable?`);
+  const axeNa = na.filter((r) => !own(r));
+  if (!pass.length && axeNa.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${axeNa.join(', ')}); is the row not applicable?`);
+  for (const r of na) if (RUN_LINES[r]?.na) lines.push(RUN_LINES[r].na);
   if (missing.length) lines.push(`Needs a person: no automated result on ${missing.length} of ${models.length} page(s)`);
   // A frame that refused axe-core is not checked: its page has no result
   // for a row that axe-core rules check.
-  const axeRules = [...pass, ...review, ...na].some((r) => r !== 'tab-walk');
+  const axeRules = [...pass, ...review, ...na].some((r) => !own(r));
   const framed = axeRules ? models.filter((m) => m.notes?.some?.((x) => String(x).startsWith('axe not added to frame'))) : [];
   if (framed.length) lines.push(`Needs a person: axe-core did not check a frame on ${framed.length} page(s)`);
   return { level: pass.length && !review.length && !missing.length && !framed.length ? 'supports' : 'not-evaluated', lines };
