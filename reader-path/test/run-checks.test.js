@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { runChecks } from '../src/run-checks.js';
 
 // A page: title, a navigation landmark with named links, a main, extras.
-const nav = (...names) => ({ role: 'navigation', lm: 'navigation', comp: 'app-side-nav', c: names.map((n) => ({ role: 'link', name: n, comp: 'app-nav-item' })) });
+const nav = (...names) => ({ role: 'navigation', lm: 'navigation', name: 'Main', comp: 'app-side-nav', c: names.map((n) => ({ role: 'link', name: n, comp: 'app-nav-item' })) });
 const page = (title, { items = ['Home', 'Apps'], main = [], extra = [] } = {}) => ({
   url: `https://x.test/${title.toLowerCase().replace(/\W+/g, '-')}`, finalUrl: `https://x.test/${title.toLowerCase().replace(/\W+/g, '-')}`, title,
   checks: {}, root: { role: 'RootWebArea', name: title, c: [nav(...items), { role: 'main', lm: 'main', c: main }, ...extra] },
@@ -90,4 +90,27 @@ test('no audio or video on any page is na on every 1.2.x row and 1.4.7; a video 
   const video = [page('Home', { main: [{ role: 'video', name: 'Intro' }] }), page('Apps')];
   runChecks(video);
   assert.deepEqual(kind(video[0], '1.2.1', 'review'), ['run-media']);
+});
+
+test('3.2.3 compares each navigation landmark by name among the pages that have it', () => {
+  const tabs = (...items) => ({ role: 'navigation', lm: 'navigation', name: 'Application', comp: 'app-page-side-nav', c: items.map((n) => ({ role: 'link', name: n })) });
+  const same = [page('Home'), page('App', { extra: [tabs('Summary', 'Routes')] }), page('App 2', { extra: [tabs('Summary', 'Routes')] })];
+  runChecks(same);
+  assert.deepEqual(kind(same[0], '3.2.3', 'pass'), ['run-navigation']);
+  const differ = [page('Home'), page('App', { extra: [tabs('Summary', 'Routes')] }), page('App 2', { extra: [tabs('Routes', 'Summary')] })];
+  runChecks(differ);
+  assert.deepEqual(kind(differ[0], '3.2.3', 'fail'), ['run-navigation']);
+  const g = gaps(differ[0]).find((x) => x[1] === '3.2.3')[0];
+  assert.ok(g.includes('"Application"') && g.includes('https://x.test/app-2'), g);
+  const blank = [page('Home'), page('Apps'), { ...page('Blank'), root: { role: 'RootWebArea', name: 'Blank' } }];
+  runChecks(blank);
+  assert.deepEqual(kind(blank[0], '3.2.3', 'pass'), ['run-navigation']);
+});
+
+test('the 3.2.4 review names the component and its names', () => {
+  const toggle = (name) => ({ role: 'button', name, comp: 'app-theme-toggle' });
+  const a = page('Home', { extra: [toggle('Toggle theme to dark mode')] });
+  const b = page('Apps', { extra: [toggle('Theme')] });
+  runChecks([a, b]);
+  assert.deepEqual(a.runDetails['run-identification'], ['app-theme-toggle button: "Toggle theme to dark mode", "Theme"']);
 });
