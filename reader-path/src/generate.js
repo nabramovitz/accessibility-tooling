@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { views } from './views.js';
+import { focusWatch } from './focus.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -224,7 +225,7 @@ const UNTOP = `(() => { const e = document.querySelector('[${START}]');
 // Presses Tab and gives `tab` (1-based) to the nearest kept node of each stop.
 // Returns the result for 2.1.2: fail for a stop gap; review when the walk
 // did not read every stop (an iframe, or MAX_TABS reached); else pass.
-async function tabWalk(page, cdp, nearestKept, root, notes, model) {
+async function tabWalk(page, cdp, nearestKept, root, notes, model, focus) {
   await cdp.send('Runtime.evaluate', { expression: TOP });
   const stop = (why, note) => {
     (root.gaps ||= []).push([why, '2.1.2', 'Tab moves focus to the next control']);
@@ -244,6 +245,7 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
       const { result: still } = await cdp.send('Runtime.evaluate', { expression: UNTOP, returnByValue: true });
       if (still.value) return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }
+    await focus?.after();
     const { result } = await cdp.send('Runtime.evaluate', { expression: ACTIVE, objectGroup: 'tab' });
     if (!result.objectId) return end();
     const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
@@ -267,6 +269,7 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model) {
     prev = id;
     const kept = nearestKept(id);
     if (kept && !kept.tab) kept.tab = ++n;
+    if (node.nodeName !== 'IFRAME') await focus?.at(kept ?? root);
   }
   // No repeat in MAX_TABS presses: a long page, not a trap, but the rest
   // of the page is not checked.
@@ -341,7 +344,8 @@ export async function ready(page, idleTime, opts = {}, notes = []) {
 
 // opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
-// views (false: the default view only; no narrow, zoom or spacing view).
+// views (false: the default view only; no narrow, zoom or spacing view,
+// and no focus measure in the Tab walk).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -370,7 +374,10 @@ export async function generate(url, opts = {}) {
     });
     const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
-    addCheck(model.checks, '2.1.2', await tabWalk(page, cdp, nearestKept, root, notes, model), 'tab-walk');
+    const focus = opts.views !== false ? focusWatch(page, cdp, model, root, notes) : undefined;
+    const walked = await tabWalk(page, cdp, nearestKept, root, notes, model, focus);
+    addCheck(model.checks, '2.1.2', walked, 'tab-walk');
+    await focus?.finish(walked);
     if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model);
 
     const title = await page.title();
