@@ -41,7 +41,7 @@ In this directory, with Bun:
 ```
 bun cli.js <url> [--out <dir>] [--storage-state <file>]
   [--ignore-https-errors] [--wait-for <selector>] [--idle <ms>]
-  [--settle <ms>]
+  [--settle <ms>] [--no-views]
 ```
 
 Or with Node.js: `node cli.js <url> ...`. Under Node.js the command
@@ -78,6 +78,7 @@ Windows path such as `C:\pages\page.html`.
   `Page still loading`. Streams (EventSource, WebSocket) do not count.
 - `--settle <ms>`: after that, wait this many milliseconds more. For
   content that comes by a timer, not by a request.
+- `--no-views`: read the page in the default view only (see "Views").
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -91,6 +92,30 @@ not run; the tree and the Tab order are still written. A `main`
 landmark with no content after the settle time gets the note
 `Page content empty`: an empty route, a page behind a gate, or a page
 that draws its content late (see `--wait-for` and `--settle`).
+
+## Views
+
+After the tree, the axe-core rules and the Tab walk, the page is
+measured in three more views, on the same load:
+
+- `narrow`: a window 320 px wide (1.4.10 Reflow).
+- `zoom`: a window 640 px wide, the layout of the default window
+  (1280 px) at 200 % zoom (1.4.4 Resize Text).
+- `spacing`: the WCAG text spacing (line height 1.5, paragraph spacing
+  2 em, letter spacing 0.12 em, word spacing 0.16 em) (1.4.12).
+
+In each view, text in a box that cuts it (`overflow: hidden` or `clip`)
+is a gap when it is not cut in the default view; text that is always
+cut (an ellipsis) is not a finding of these rows. In the narrow view,
+a document that scrolls sideways is a gap on the content that is wider
+than the window, unless that content is a table, a grid, preformatted
+text, an image, a canvas, an SVG or a video (then a person looks).
+
+A view with no finding is not a pass: text that overlaps other text is
+not checked, so the row is for a person. The model lists the views in
+`views`. The page is not loaded again for a view, so a page that picks
+its layout only at load is measured in its wide layout. Content inside
+a shadow root is not measured.
 
 ## Crawl: a run over a site
 
@@ -113,7 +138,7 @@ to the same site (the first, if they are equal). An empty first
 instance thus does not hide the pages below it. If the first two
 instances are both empty, name the pages with `--urls`.
 The page options (`--storage-state`, `--ignore-https-errors`,
-`--wait-for`, `--idle`, `--settle`) apply to every page, when the
+`--wait-for`, `--idle`, `--settle`, `--no-views`) apply to every page, when the
 crawl looks for links and when it reads the page. An element named by
 `--wait-for` must be on every page of the site.
 
@@ -155,8 +180,8 @@ checks do not support; when in doubt it writes `not-evaluated`.
 - `partially-supports`: a check failed on at least one page. The note
   names the page and the gap.
 With two or more models, the tool also runs its own checks over the
-whole run, beside the axe-core rules and the Tab walk (`tab-walk`,
-2.1.2): `run-title` (2.4.2: the same title on every page is a fail),
+whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
+2.1.2) and the views (`view-narrow`, `view-zoom`, `view-spacing`): `run-title` (2.4.2: the same title on every page is a fail),
 `run-navigation` (3.2.3: the navigation items and their order),
 `run-identification` (3.2.4: a component that appears once on a page
 with different names on different pages goes to review), `run-help`

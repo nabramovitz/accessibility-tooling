@@ -366,3 +366,10 @@ test('the 3.2.4 review line carries the run details', () => {
   const rows = proposeRows([a, b], catalog);
   assert.ok(lines(rows, '3.2.4').includes('Needs a person: a component that appears once on a page carries different names on different pages: app-x button: "A", "B"'));
 });
+
+test('a view with no finding: not-evaluated, with what the view did not check, also beside an axe pass', () => {
+  const rows = proposeRows([model({ '1.4.12': entry({ pass: ['avoid-inline-spacing'], review: ['view-spacing'] }) })], catalog);
+  assert.equal(adh(rows, '1.4.12').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.4.12').some((l) => /^Needs a person: with the WCAG text spacing no text is newly clipped; text that overlaps/.test(l)));
+  assert.ok(!adh(rows, '1.4.12').notes.includes('axe-core could not decide'));
+});

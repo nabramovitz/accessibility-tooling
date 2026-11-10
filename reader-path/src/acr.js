@@ -2,9 +2,13 @@ import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { walk, bare } from './generate.js';
 import { RUN_LINES } from './run-checks.js';
+import { VIEW_LINES } from './views.js';
 
-// The tool's own rules, beside axe-core's: the Tab walk and the run checks.
-const own = (r) => r === 'tab-walk' || r.startsWith('run-');
+const LINES = { ...RUN_LINES, ...VIEW_LINES };
+
+// The tool's own rules, beside axe-core's: the Tab walk, the run checks
+// and the views.
+const own = (r) => r === 'tab-walk' || r.startsWith('run-') || r.startsWith('view-');
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;
@@ -88,9 +92,9 @@ function wcag(models, sc) {
   const axeReview = review.filter((r) => !own(r));
   if (review.includes('tab-walk')) lines.push('Needs a person: the Tab walk did not read every Tab stop (see the run notes)');
   for (const r of review) {
-    if (!RUN_LINES[r]?.review) continue;
+    if (!LINES[r]?.review) continue;
     const detail = models.find((m) => m.runDetails?.[r])?.runDetails[r];
-    lines.push(detail ? `${RUN_LINES[r].review}: ${detail.join('; ')}` : RUN_LINES[r].review);
+    lines.push(detail ? `${LINES[r].review}: ${detail.join('; ')}` : LINES[r].review);
   }
   if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
   const axeNa = na.filter((r) => !own(r));

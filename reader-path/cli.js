@@ -41,7 +41,7 @@ if (!process.versions.bun && !token) {
 }
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
-  + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>]\n'
+  + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>] [--no-views]\n'
   + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [page options]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] --out <file.yaml>';
 
@@ -125,6 +125,7 @@ function pageOptions(values) {
     waitFor: values['wait-for'],
     idle,
     settle,
+    ...(values['no-views'] ? { views: false } : {}),
   };
 }
 
@@ -163,6 +164,7 @@ try {
       'wait-for': { type: 'string' },
       idle: { type: 'string' },
       settle: { type: 'string' },
+      'no-views': { type: 'boolean' },
       max: { type: 'string' },
       urls: { type: 'string' },
     },
