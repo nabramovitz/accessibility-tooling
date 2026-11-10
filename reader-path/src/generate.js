@@ -304,15 +304,17 @@ export function watchRequests(page) {
   let last = Date.now();
   page.on('request', (r) => {
     if (['eventsource', 'websocket'].includes(r.resourceType())) return;
+    // A new document in the main frame: a request that this cut off ends
+    // with no event, so forget the requests of the page that is gone. A
+    // change of the address inside one document (a single-page app's
+    // route) makes no such request and keeps its requests.
+    if (r.isNavigationRequest() && r.frame() === page.mainFrame()) open.clear();
     open.add(r);
     last = Date.now();
   });
   const done = (r) => { if (open.delete(r)) last = Date.now(); };
   page.on('requestfinished', done);
   page.on('requestfailed', done);
-  // A request that a navigation cut off ends with no event: forget the
-  // requests of the page that is gone.
-  page.on('framenavigated', (f) => { if (f === page.mainFrame()) open.clear(); });
   return () => (open.size ? 0 : Date.now() - last);
 }
 
