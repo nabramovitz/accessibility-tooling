@@ -3,12 +3,13 @@ import yaml from 'js-yaml';
 import { walk, bare } from './generate.js';
 import { RUN_LINES } from './run-checks.js';
 import { VIEW_LINES } from './views.js';
+import { FOCUS_LINES } from './focus.js';
 
-const LINES = { ...RUN_LINES, ...VIEW_LINES };
+const LINES = { ...RUN_LINES, ...VIEW_LINES, ...FOCUS_LINES };
 
-// The tool's own rules, beside axe-core's: the Tab walk, the run checks
-// and the views.
-const own = (r) => r === 'tab-walk' || r.startsWith('run-') || r.startsWith('view-');
+// The tool's own rules, beside axe-core's: the Tab walk, the run checks,
+// the views and the focus measures.
+const own = (r) => r === 'tab-walk' || /^(run|view|focus)-/.test(r);
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;

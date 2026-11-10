@@ -373,3 +373,12 @@ test('a view with no finding: not-evaluated, with what the view did not check, a
   assert.ok(lines(rows, '1.4.12').some((l) => /^Needs a person: with the WCAG text spacing no text is newly clipped; text that overlaps/.test(l)));
   assert.ok(!adh(rows, '1.4.12').notes.includes('axe-core could not decide'));
 });
+
+test('focus measures: a pass supports the row, a review names what a person looks at', () => {
+  const pass = proposeRows([model({ '2.4.7': entry({ pass: ['focus-visible'] }) })], catalog);
+  assert.equal(adh(pass, '2.4.7').level, 'supports');
+  const review = proposeRows([model({ '2.4.7': entry({ review: ['focus-visible'] }) })], catalog);
+  assert.equal(adh(review, '2.4.7').level, 'not-evaluated');
+  assert.ok(lines(review, '2.4.7').some((l) => /^Needs a person: the look with and without focus was not compared at every Tab stop/.test(l)));
+  assert.ok(!adh(review, '2.4.7').notes.includes('axe-core could not decide'));
+});

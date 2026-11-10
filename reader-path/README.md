@@ -78,7 +78,8 @@ Windows path such as `C:\pages\page.html`.
   `Page still loading`. Streams (EventSource, WebSocket) do not count.
 - `--settle <ms>`: after that, wait this many milliseconds more. For
   content that comes by a timer, not by a request.
-- `--no-views`: read the page in the default view only (see "Views").
+- `--no-views`: read the page in the default view only, with no focus
+  measures (see "Views" and "Focus measures").
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -116,6 +117,26 @@ not checked, so the row is for a person. The model lists the views in
 `views`. The page is not loaded again for a view, so a page that picks
 its layout only at load is measured in its wide layout. Content inside
 a shadow root is not measured.
+
+## Focus measures
+
+At each Tab stop of the Tab walk, with focus put there by the Tab key:
+
+- 2.4.7 Focus Visible: a shot of the control and 8 px around it with
+  focus, and one after focus has moved away. When no pixel differs, the
+  control has a gap. Animations stand still and the text caret is
+  hidden in both shots, so a text field whose only change is the caret
+  is for a person, not a gap.
+- 2.4.11 and 2.4.12 Focus Not Obscured: the centre and the four corners
+  of the focused control are tested for an element on top that is
+  fixed or sticky (a header, a footer bar). All points covered is a
+  2.4.11 gap; any point covered is a 2.4.12 gap.
+
+A stop that moved between the two shots (a scroll, a layout change),
+or that stayed beside the focus for three more Tab presses, is not
+compared; a run note names such stops and 2.4.7 goes to a person. The
+measures stop after 150 Tab stops, with a run note. No shot is written
+to disk. The rule ids are `focus-visible` and `focus-obscured`.
 
 ## Crawl: a run over a site
 
@@ -181,7 +202,8 @@ checks do not support; when in doubt it writes `not-evaluated`.
   names the page and the gap.
 With two or more models, the tool also runs its own checks over the
 whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
-2.1.2) and the views (`view-narrow`, `view-zoom`, `view-spacing`): `run-title` (2.4.2: the same title on every page is a fail),
+2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`) and the
+focus measures (`focus-visible`, `focus-obscured`): `run-title` (2.4.2: the same title on every page is a fail),
 `run-navigation` (3.2.3: the navigation items and their order),
 `run-identification` (3.2.4: a component that appears once on a page
 with different names on different pages goes to review), `run-help`
@@ -270,6 +292,6 @@ plain `bun test` also works, but stops a test after 5 seconds;
   does not move, or that goes round a loop without coming back to the
   start, is a 2.1.2 gap. A walk that stops at 500, or that passes an
   iframe whose Tab stops it does not read, puts 2.1.2 in review.
-- Gaps come from the axe-core rules only. A rule cannot judge whether a
-  name or a text is a good one.
+- Gaps come from the axe-core rules, the views and the focus measures.
+  A rule cannot judge whether a name or a text is a good one.
 - The results need a person to confirm them.
