@@ -40,7 +40,8 @@ In this directory, with Bun:
 
 ```
 bun cli.js <url> [--out <dir>] [--storage-state <file>]
-  [--ignore-https-errors] [--wait-for <selector>] [--settle <ms>]
+  [--ignore-https-errors] [--wait-for <selector>] [--idle <ms>]
+  [--settle <ms>]
 ```
 
 Or with Node.js: `node cli.js <url> ...`. Under Node.js the command
@@ -69,8 +70,14 @@ Windows path such as `C:\pages\page.html`.
 - `--wait-for <selector>`: after the load event, wait until an element
   that matches the CSS selector is on the page. For a single-page app
   that draws its content late.
-- `--settle <ms>`: after the load event (and `--wait-for`), wait this
-  many milliseconds more.
+- `--idle <ms>`: after the load event (and `--wait-for`), wait until
+  the page has had no request in flight for this many milliseconds.
+  The default is 500, so a page that gets its content by requests is
+  read after they end. `--idle 0` reads the page at the load event.
+  After 30 seconds the page is read as it is, with the note
+  `Page still loading`. Streams (EventSource, WebSocket) do not count.
+- `--settle <ms>`: after that, wait this many milliseconds more. For
+  content that comes by a timer, not by a request.
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -83,7 +90,7 @@ Run notes also say when axe-core could not be added to a frame or did
 not run; the tree and the Tab order are still written. A `main`
 landmark with no content after the settle time gets the note
 `Page content empty`: an empty route, a page behind a gate, or a page
-that needs a longer `--settle`.
+that draws its content late (see `--wait-for` and `--settle`).
 
 ## Crawl: a run over a site
 
@@ -106,7 +113,9 @@ to the same site (the first, if they are equal). An empty first
 instance thus does not hide the pages below it. If the first two
 instances are both empty, name the pages with `--urls`.
 The page options (`--storage-state`, `--ignore-https-errors`,
-`--wait-for`, `--settle`) apply to every page.
+`--wait-for`, `--idle`, `--settle`) apply to every page, when the
+crawl looks for links and when it reads the page. An element named by
+`--wait-for` must be on every page of the site.
 
 - `--out <dir>`: the run directory. The default is `reader-path-run`.
   Each page goes to `<dir>/pages/<shape>/` (`model.json` and
