@@ -41,7 +41,7 @@ if (!process.versions.bun && !token) {
 }
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
-  + ' [--wait-for <selector>] [--settle <ms>]\n'
+  + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>]\n'
   + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [page options]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] --out <file.yaml>';
 
@@ -115,10 +115,15 @@ function pageOptions(values) {
   if (settle !== undefined && !(Number.isInteger(settle) && settle >= 0)) {
     throw new Error('--settle takes a whole number of milliseconds');
   }
+  const idle = values.idle === undefined ? undefined : Number(values.idle);
+  if (idle !== undefined && !(Number.isInteger(idle) && idle >= 0)) {
+    throw new Error('--idle takes a whole number of milliseconds');
+  }
   return {
     storageState: values['storage-state'],
     ignoreHTTPSErrors: values['ignore-https-errors'],
     waitFor: values['wait-for'],
+    idle,
     settle,
   };
 }
@@ -156,6 +161,7 @@ try {
       'storage-state': { type: 'string' },
       'ignore-https-errors': { type: 'boolean' },
       'wait-for': { type: 'string' },
+      idle: { type: 'string' },
       settle: { type: 'string' },
       max: { type: 'string' },
       urls: { type: 'string' },

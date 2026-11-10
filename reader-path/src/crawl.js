@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
-import { generate, bare } from './generate.js';
+import { generate, bare, watchRequests, ready } from './generate.js';
 import { render } from './render.js';
 
 const ID = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)$/i;
@@ -44,11 +44,12 @@ export async function discover(start, opts = {}) {
   try {
     const context = await browser.newContext(pageOptions(opts));
     const page = await context.newPage();
+    const idleTime = watchRequests(page);
     while (queue.length && seen.size < max) {
       const url = queue.shift();
       try {
         await page.goto(url, { waitUntil: 'load' });
-        if (opts.settle) await page.waitForTimeout(opts.settle);
+        await ready(page, idleTime, opts);
       } catch (e) {
         skipped.push({ url, why: String(e.message).split('\n')[0] });
         continue;

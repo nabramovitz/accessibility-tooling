@@ -39,6 +39,32 @@ test('discover opens two instances of a shape and keeps the one with more links'
   assert.deepEqual(skipped, []);
 });
 
+test('discover waits for links that come by a request, and for --wait-for', async () => {
+  const { createServer } = await import('node:http');
+  const srv = createServer((req, res) => {
+    if (req.url === '/links') return void setTimeout(() => res.end('ok'), 400);
+    res.setHeader('content-type', 'text/html');
+    if (req.url === '/') {
+      return void res.end(`<title>Start</title><main id="m"></main><script>
+        fetch('/links').then(() => { document.getElementById('m').innerHTML = '<a href="/b">B</a>'; });
+        setTimeout(() => { document.getElementById('m').insertAdjacentHTML('beforeend', '<a id="late" href="/c">C</a>'); }, 1500);
+      </script>`);
+    }
+    res.end('<title>Page</title><main><h1 id="late">Page</h1></main>');
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const start = `http://localhost:${srv.address().port}/`;
+  const paths = (r) => r.urls.map((u) => new URL(u).pathname);
+  try {
+    assert.deepEqual(paths(await discover(start, { idle: 0 })), ['/']);
+    assert.deepEqual(paths(await discover(start)), ['/', '/b']);
+    assert.deepEqual(paths(await discover(start, { waitFor: '#late' })), ['/', '/b', '/c']);
+  } finally {
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+});
+
 test('discover stops at --max', async () => {
   const { urls } = await discover(SITE, { max: 2 });
   assert.equal(urls.length, 2);

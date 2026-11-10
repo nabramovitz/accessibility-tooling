@@ -295,8 +295,46 @@ export function pageUrl(arg) {
   return /^[a-z][a-z0-9+.-]+:/i.test(arg) ? arg : pathToFileURL(arg).href;
 }
 
-// opts: storageState, ignoreHTTPSErrors, waitFor (a selector), settle (ms
-// to wait after load).
+// How long a page has had no request in flight. Call before goto(); the
+// function it returns gives the idle time in ms (0 while a request is open).
+// A stream (EventSource, WebSocket) stays open for good and is not counted.
+export function watchRequests(page) {
+  const open = new Set();
+  let last = Date.now();
+  page.on('request', (r) => {
+    if (['eventsource', 'websocket'].includes(r.resourceType())) return;
+    open.add(r);
+    last = Date.now();
+  });
+  const done = (r) => { if (open.delete(r)) last = Date.now(); };
+  page.on('requestfinished', done);
+  page.on('requestfailed', done);
+  return () => (open.size ? 0 : Date.now() - last);
+}
+
+const IDLE = 500;
+const IDLE_MAX = 30000;
+
+// After the load event: the selector (waitFor), then no request in flight
+// for `idle` ms (0 turns this off; it gives up after idleMax with a note),
+// then the fixed wait (settle).
+export async function ready(page, idleTime, opts = {}, notes = []) {
+  if (opts.waitFor) await page.waitForSelector(opts.waitFor);
+  const idle = opts.idle ?? IDLE;
+  const max = opts.idleMax ?? IDLE_MAX;
+  const from = Date.now();
+  while (idle && idleTime() < idle) {
+    if (Date.now() - from >= max) {
+      notes.push(`Page still loading after ${Math.round(max / 1000)} s: a request is still in flight`);
+      break;
+    }
+    await page.waitForTimeout(50);
+  }
+  if (opts.settle) await page.waitForTimeout(opts.settle);
+}
+
+// opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
+// with no request in flight; default 500), settle (ms to wait after that).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -306,12 +344,12 @@ export async function generate(url, opts = {}) {
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
     const page = await context.newPage();
+    const idleTime = watchRequests(page);
     const response = await page.goto(url, { waitUntil: 'load' });
-    if (opts.waitFor) await page.waitForSelector(opts.waitFor);
-    if (opts.settle) await page.waitForTimeout(opts.settle);
+    const notes = [];
+    await ready(page, idleTime, opts, notes);
     // Without query and fragment: a redirect can carry a sign-in token.
     const finalUrl = bare(page.url());
-    const notes = [];
     if (finalUrl !== bare(url)) notes.push(`Page moved to ${finalUrl}`);
     const cdp = await context.newCDPSession(page);
 
