@@ -2,6 +2,7 @@ import './hold-children.js';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { views } from './views.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -338,6 +339,7 @@ export async function ready(page, idleTime, opts = {}, notes = []) {
 
 // opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
+// views (false: the default view only; no narrow, zoom or spacing view).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -367,6 +369,7 @@ export async function generate(url, opts = {}) {
     const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
     addCheck(model.checks, '2.1.2', await tabWalk(page, cdp, nearestKept, root, notes, model), 'tab-walk');
+    if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model);
 
     const title = await page.title();
     const version = browser.version();
