@@ -45,7 +45,7 @@ const STATE = `((ids) => {
     points++;
     const h = hit(x, y);
     const top = h && h !== e && !e.contains(h) ? stays(h) : null;
-    if (top) { covered++; by ||= top.tagName.toLowerCase() + (top.id ? '#' + top.id : ''); }
+    if (top) { covered++; by ||= top.tagName.toLowerCase() + (top.id ? '#' + top.id : '') + (top.classList[0] ? '.' + top.classList[0] : ''); }
   }
   out.now = { ...b, text, points, covered, by };
   return out;
