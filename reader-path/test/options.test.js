@@ -20,7 +20,7 @@ const CLI = fileURLToPath(new URL('../cli.js', import.meta.url));
 async function serve(make, handler) {
   const srv = make(handler);
   await new Promise((r) => srv.listen(0, r));
-  return { port: srv.address().port, close: () => srv.close() };
+  return { port: srv.address().port, close: () => { srv.closeAllConnections?.(); srv.close(); } };
 }
 const page = (body) => (req, res) => { res.setHeader('content-type', 'text/html'); res.end(body); };
 
@@ -41,12 +41,59 @@ test('a self-signed https page needs --ignore-https-errors', async () => {
 const late = (m) => flat(m).some((n) => n.h === 1 && n.name === 'Late heading');
 
 test('a page that renders late is read with --settle or --wait-for', async () => {
-  assert.equal(late(await generate(fixture('late.html'))), false);
+  assert.equal(late(await generate(fixture('late.html'), { idle: 0 })), false);
   assert.equal(late(await generate(fixture('late.html'), { settle: 800 })), true);
   assert.equal(late(await generate(fixture('late.html'), { waitFor: 'h1' })), true);
   const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'out');
   await run('node', [CLI, fixture('late.html'), '--wait-for', 'h1', '--settle', '50', '--out', out]);
   assert.equal(late(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8'))), true);
+});
+
+// A page that gets its content by three requests, one after the other,
+// 300 ms each; `/hang` never answers.
+const loading = (req, res) => {
+  if (req.url === '/data') return void setTimeout(() => res.end('{}'), 300);
+  if (req.url === '/hang') return;
+  res.setHeader('content-type', 'text/html');
+  res.end(`<title>Loads</title><main id="m"><p>Loading</p></main><script>
+    (async () => {
+      for (let i = 0; i < 3; i++) await fetch('/data');
+      document.getElementById('m').innerHTML = '<h1>Late heading</h1>';
+      if (location.search === '?hang') fetch('/hang');
+    })();
+  </script>`);
+};
+
+test('a page is read when no request has been in flight for --idle ms', async () => {
+  const s = await serve(createHttp, loading);
+  const url = `http://localhost:${s.port}/`;
+  try {
+    const m = await generate(url);
+    assert.equal(late(m), true, 'the default waits for the requests');
+    assert.deepEqual(m.notes.filter((n) => /still loading/.test(n)), []);
+    assert.equal(late(await generate(url, { idle: 0 })), false, '--idle 0 reads at the load event');
+    const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'out');
+    await run('node', [CLI, url, '--idle', '0', '--out', out]);
+    assert.equal(late(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8'))), false);
+  } finally {
+    s.close();
+  }
+});
+
+test('a request that never ends gives a note, and the page is still read', async () => {
+  const s = await serve(createHttp, loading);
+  try {
+    const m = await generate(`http://localhost:${s.port}/?hang`, { idleMax: 2000 });
+    assert.equal(late(m), true);
+    assert.ok(m.notes.includes('Page still loading after 2 s: a request is still in flight'), m.notes.join(' | '));
+  } finally {
+    s.close();
+  }
+});
+
+test('--idle takes a number of milliseconds', async () => {
+  await assert.rejects(run('node', [CLI, fixture('late.html'), '--idle', 'soon']),
+    (e) => e.code === 1 && /--idle/.test(e.stderr) && e.stderr.trim().split(/\r?\n/).length === 1);
 });
 
 test('--settle takes a number of milliseconds', async () => {
