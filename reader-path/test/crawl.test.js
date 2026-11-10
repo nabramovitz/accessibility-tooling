@@ -31,6 +31,14 @@ test('discover walks same-origin links breadth first, one URL per shape, skippin
   assert.deepEqual(skipped, []);
 });
 
+test('discover opens two instances of a shape and keeps the one with more links', async () => {
+  const { urls, skipped } = await discover(fixture('site2/index.html'), { max: 20 });
+  const rel = (u) => new URL(u).pathname.replace(/.*\/fixtures\/site2/, '');
+  // The first instance's list has no links; the item is found through the second.
+  assert.deepEqual(urls.map(rel), ['/index.html', '/e/111/home.html', '/e/222/list.html', '/e/222/o/333/item.html']);
+  assert.deepEqual(skipped, []);
+});
+
 test('discover stops at --max', async () => {
   const { urls } = await discover(SITE, { max: 2 });
   assert.equal(urls.length, 2);

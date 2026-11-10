@@ -27,12 +27,17 @@ const pageOptions = (opts) => ({
 });
 
 // Breadth first over same-site links from `start`; one URL per shape.
+// Up to two instances of a shape are opened and the links of both are
+// followed; the run keeps the one with more same-site links (a tie keeps
+// the first), so a first instance that is a dead end does not hide the
+// pages below its shape.
 export async function discover(start, opts = {}) {
   const max = opts.max ?? 100;
   const startUrl = new URL(start);
   const base = dirOf(start);
   const sameSite = (u) => u.protocol === startUrl.protocol && u.host === startUrl.host;
-  const seen = new Map([[shape(startUrl.pathname, base), bare(start)]]);
+  const seen = new Map([[shape(startUrl.pathname, base), [bare(start)]]]);
+  const linkCount = new Map();
   const queue = [bare(start)];
   const skipped = [];
   const browser = await chromium.launch();
@@ -55,21 +60,32 @@ export async function discover(start, opts = {}) {
       // A page that moves on by itself (meta refresh) destroys the first read.
       const links = () => page.$$eval('a[href]', (as) => as.map((a) => a.getAttribute('href')));
       const hrefs = await links().catch(async () => { await page.waitForLoadState('load').catch(() => {}); return links().catch(() => []); });
+      const found = new Set();
       for (const h of hrefs) {
         if (!h || h.startsWith('#')) continue;
         let u;
         try { u = new URL(h, url); } catch { continue; }
         if (!sameSite(u) || SIGN_IN.test(u.pathname)) continue;
+        const href = bare(u.href);
+        found.add(href);
         const key = shape(u.pathname, base);
-        if (seen.has(key) || seen.size >= max) continue;
-        seen.set(key, bare(u.href));
-        queue.push(bare(u.href));
+        const instances = seen.get(key);
+        if (!instances) {
+          if (seen.size >= max) continue;
+          seen.set(key, [href]);
+        } else if (instances.length < 2 && instances[0] !== href) {
+          instances.push(href);
+        } else continue;
+        queue.push(href);
       }
+      linkCount.set(url, found.size);
     }
   } finally {
     await browser.close();
   }
-  return { urls: [...seen.values()], skipped };
+  const links = (u) => linkCount.get(u) ?? 0;
+  const urls = [...seen.values()].map(([first, second]) => (second && links(second) > links(first) ? second : first));
+  return { urls, skipped };
 }
 
 // The run: discover (or take `opts.urls`), read every page, write the run
