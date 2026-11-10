@@ -65,6 +65,34 @@ test('discover waits for links that come by a request, and for --wait-for', asyn
   }
 });
 
+test('a request left in flight by one page does not keep the next page busy', async () => {
+  const { createServer } = await import('node:http');
+  const { chromium } = await import('playwright');
+  const { watchRequests } = await import('../src/generate.js');
+  const srv = createServer((req, res) => {
+    if (req.url === '/hang') return; // never answers
+    res.setHeader('content-type', 'text/html');
+    res.end(req.url === '/' ? '<title>1</title><script>fetch("/hang")</script>' : '<title>2</title>');
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const base = `http://localhost:${srv.address().port}`;
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const idleTime = watchRequests(page);
+    await page.goto(`${base}/`, { waitUntil: 'load' });
+    await page.waitForTimeout(200);
+    assert.equal(idleTime(), 0, 'the first page has a request in flight');
+    await page.goto(`${base}/b`, { waitUntil: 'load' });
+    await page.waitForTimeout(200);
+    assert.ok(idleTime() > 0, 'the second page is idle');
+  } finally {
+    await browser.close();
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+});
+
 test('discover stops at --max', async () => {
   const { urls } = await discover(SITE, { max: 2 });
   assert.equal(urls.length, 2);
