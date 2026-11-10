@@ -100,6 +100,11 @@ and a sign-in page in place of a page stops the crawl with a note.
 
 One page stands for each route shape: a path segment that is a UUID
 or all digits counts as `id`, so `/apps/<guid>/routes` is read once.
+To find the pages, the crawl opens up to two instances of a shape and
+follows the links of both; the run keeps the instance with more links
+to the same site (the first, if they are equal). An empty first
+instance thus does not hide the pages below it. If the first two
+instances are both empty, name the pages with `--urls`.
 The page options (`--storage-state`, `--ignore-https-errors`,
 `--wait-for`, `--settle`) apply to every page.
 
