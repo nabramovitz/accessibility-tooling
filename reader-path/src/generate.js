@@ -309,6 +309,9 @@ export function watchRequests(page) {
   const done = (r) => { if (open.delete(r)) last = Date.now(); };
   page.on('requestfinished', done);
   page.on('requestfailed', done);
+  // A request that a navigation cut off ends with no event: forget the
+  // requests of the page that is gone.
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) open.clear(); });
   return () => (open.size ? 0 : Date.now() - last);
 }
 
