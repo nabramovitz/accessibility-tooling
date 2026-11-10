@@ -93,6 +93,31 @@ test('a request left in flight by one page does not keep the next page busy', as
   }
 });
 
+test('a change of the address inside one document does not end the wait for its requests', async () => {
+  const { createServer } = await import('node:http');
+  const { chromium } = await import('playwright');
+  const { watchRequests } = await import('../src/generate.js');
+  const srv = createServer((req, res) => {
+    if (req.url === '/slow') return void setTimeout(() => res.end('ok'), 1500);
+    res.setHeader('content-type', 'text/html');
+    res.end('<title>1</title><script>fetch("/slow"); history.pushState({}, "", "/tab");</script>');
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const idleTime = watchRequests(page);
+    await page.goto(`http://localhost:${srv.address().port}/`, { waitUntil: 'load' });
+    await page.waitForTimeout(300);
+    assert.equal(new URL(page.url()).pathname, '/tab');
+    assert.equal(idleTime(), 0, 'the request is still in flight');
+  } finally {
+    await browser.close();
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+});
+
 test('discover stops at --max', async () => {
   const { urls } = await discover(SITE, { max: 2 });
   assert.equal(urls.length, 2);
