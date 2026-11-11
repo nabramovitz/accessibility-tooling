@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { views } from './views.js';
 import { focusWatch } from './focus.js';
+import { lists } from './lists.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -349,7 +350,7 @@ export async function ready(page, idleTime, opts = {}, notes = []) {
 // opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
 // views (false: the default view only; no narrow, zoom or spacing view,
-// and no focus measure in the Tab walk).
+// and no focus measure in the Tab walk; no lists for a person).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -389,6 +390,7 @@ export async function generate(url, opts = {}) {
     const walked = await tabWalk(page, cdp, nearestKept, root, notes, model, focus);
     addCheck(model.checks, '2.1.2', walked, 'tab-walk');
     await focus?.finish(walked);
+    if (opts.views !== false) await lists(cdp, model, notes);
     if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model, notes);
 
     const title = await page.title();
