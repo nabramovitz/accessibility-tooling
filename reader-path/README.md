@@ -106,13 +106,22 @@ command with a usage error.
 ## Views
 
 After the tree, the axe-core rules and the Tab walk, the page is
-measured in four more views, on the same load:
+measured in five more views, on the same load:
 
 - `narrow`: a window 320 px wide (1.4.10 Reflow).
 - `zoom`: a window 640 px wide, the layout of the default window
   (1280 px) at 200 % zoom (1.4.4 Resize Text).
 - `spacing`: the WCAG text spacing (line height 1.5, paragraph spacing
   2 em, letter spacing 0.12 em, word spacing 0.16 em) (1.4.12).
+- `dark`: the dark colour scheme asked (`prefers-color-scheme: dark`) at
+  the default window (1.4.3 and 1.4.6 contrast). Only the axe-core rules
+  `color-contrast` and `color-contrast-enhanced` run, and their result
+  is the check `view-dark` of both rows. A gap says "In dark mode:" and
+  then the colours and the ratio as axe-core gives them. A page whose
+  colours (text, background and border of the root, the body and the
+  first 200 elements) do not change in dark mode has no dark mode: a run
+  note says "The page has no dark mode" and there is no check. The
+  colour scheme is put back after the view.
 - `motion`: reduced motion asked (`prefers-reduced-motion: reduce`)
   (2.3.3). A run note counts the animations that run in the default
   view and those that still run, and names up to 10 of them. Nothing is
