@@ -186,6 +186,15 @@ crawl looks for links and when it reads the page. An element named by
   moved to another page of the run (a default tab), and the URLs
   skipped. The same care as for `--out` above: the models hold the
   signed-in content.
+
+  A page whose tree shows a progress bar, a status or alert that says
+  "Loading", or a busy element gets the run note `Page shows a loading
+  sign`: it was probably read before its content came, so its numbers
+  are wrong. `run.json` lists these pages under `loading`, and the
+  command prints how many. Pages where link discovery still had a
+  request open when its wait gave up are listed under
+  `discoverStillLoading`, with a printed line: links on them may have
+  been missed.
 - `--max <n>`: the most pages to read. The default is 100.
 - `--urls <file>`: one URL a line; the crawl reads these and finds no
   others.
