@@ -24,19 +24,6 @@ test('a focus loop that skips the start is a gap', async () => {
   assert.deepEqual(flat(m).filter((n) => n.tab).map((n) => n.name), ['A', 'B', 'C']);
 });
 
-// With the views, the focus measures run inside the Tab walk; the walk
-// must give the same result with and without them.
-for (const views of [false, true]) {
-  test(`more than 500 Tab stops is a note and review, not a gap (views: ${views})`, async () => {
-    const m = await generate(fixture('many.html'), { views });
-    assert.equal(m.root.gaps, undefined);
-    assert.ok(m.notes.includes('Tab walk stopped at 500 Tab stops; the rest not recorded'));
-    const stops = flat(m).filter((n) => n.tab);
-    assert.equal(stops.length, 500);
-    assert.equal(stops.find((n) => n.tab === 500).name, 'B500');
-  });
-}
-
 test('a page with no Tab stop', async () => {
   const m = await generate(fixture('no-focus.html'));
   assert.equal(flat(m).filter((n) => n.tab).length, 0);
@@ -74,10 +61,7 @@ test('the Tab walk is a check of 2.1.2', async () => {
     assert.ok(m.checks['2.1.2'].fail.includes('tab-walk'), f);
     assert.ok(!m.checks['2.1.2'].pass.includes('tab-walk'), f);
   }
-  for (const views of [false, true]) {
-    const many = await generate(fixture('many.html'), { views });
-    assert.deepEqual(many.checks['2.1.2'], { pass: [], fail: [], review: ['tab-walk'], na: [] }, `views: ${views}`);
-  }
+  // A walk that stops at 500 Tab stops: tab-many.test.js.
 });
 
 test('a Tab walk past an iframe it cannot read is review, not pass', async () => {
