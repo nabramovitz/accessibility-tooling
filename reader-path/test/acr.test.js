@@ -407,7 +407,7 @@ test('the 3.2.4 review line carries the run details', () => {
 test('a view left for a person: not-evaluated, with what is left, also beside an axe pass', () => {
   const rows = proposeRows([model({ '1.4.12': entry({ pass: ['avoid-inline-spacing'], review: ['view-spacing'] }) })], catalog);
   assert.equal(adh(rows, '1.4.12').level, 'not-evaluated');
-  assert.ok(lines(rows, '1.4.12').some((l) => /^Needs a person: with the WCAG text spacing some text overlaps other text a little \(see the run notes\)$/.test(l)));
+  assert.ok(lines(rows, '1.4.12').some((l) => /^Needs a person: with the WCAG text spacing some text overlaps other text a little or lies under a fixed or sticky box \(see the run notes\)$/.test(l)));
   assert.ok(!adh(rows, '1.4.12').notes.includes('axe-core could not decide'));
 });
 

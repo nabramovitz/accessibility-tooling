@@ -171,3 +171,10 @@ test('--no-views on the command line', async () => {
   const m = JSON.parse(readFileSync(join(out, 'model.json'), 'utf8'));
   assert.equal(m.views, undefined);
 });
+
+test('text under a sticky box is for a person, not a gap: it scrolls into view', async () => {
+  const m = await generate(fixture('views/overlap-sticky.html'));
+  assert.deepEqual(gaps(m, '1.4.4'), []);
+  assert.ok(m.checks['1.4.4'].review.includes('view-zoom'));
+  assert.ok(m.notes.some((n) => /^Text under a fixed or sticky box at 200 % zoom \(it can scroll into view\), for a person: /.test(n)), m.notes.join('\n'));
+});

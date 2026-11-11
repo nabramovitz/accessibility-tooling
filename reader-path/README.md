@@ -150,10 +150,14 @@ is at least a quarter of the smaller box ("Text overlaps other text
 (div.card)"); a box of a line reaches above the capitals and below the
 descenders, so a smaller overlap often does not touch a glyph. It is a
 run note instead ("Text overlaps a little ..."), and the row is for a
-person. A page with more than 10000 text boxes is not compared (a note).
+person. Text in a fixed or sticky box (a header, a bottom panel) over
+other text is not a gap either: the text under it can scroll into view.
+A run note names the pair ("Text under a fixed or sticky box ...") and
+the row is for a person. A page with more than 10000 text boxes is not
+compared (a note).
 
-A view with no finding, no content that may scroll sideways and no small
-overlap is a pass of its row. The model lists the views in `views`. The
+A view with no finding, no content that may scroll sideways, no small
+overlap and no text under a fixed or sticky box is a pass of its row. The model lists the views in `views`. The
 page is not loaded again for a view, so a page that picks its layout only
 at load is measured in its wide layout. Content inside a shadow root is
 not measured.
