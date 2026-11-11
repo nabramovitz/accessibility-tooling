@@ -121,7 +121,10 @@ measured in five more views, on the same load:
   colours (text, background and border of the root, the body and the
   first 200 elements) do not change in dark mode has no dark mode: a run
   note says "The page has no dark mode" and there is no check. The
-  colour scheme is put back after the view.
+  colour scheme is put back after the view. axe-core's
+  `color-contrast-enhanced` passes text under 4.5 : 1 (it leaves that
+  text to `color-contrast`), so the report makes a 1.4.3 contrast fail,
+  in this view or the default one, a 1.4.6 fail too.
 - `motion`: reduced motion asked (`prefers-reduced-motion: reduce`)
   (2.3.3). A run note counts the animations that run in the default
   view and those that still run, and names up to 10 of them. Nothing is
