@@ -154,6 +154,28 @@ measures stop after 150 Tab stops, with a run note. No shot is written
 to disk. The rule ids are `focus-visible`, `focus-obscured` and
 `focus-target`.
 
+## Lists for a person
+
+Three rows are for a person to decide, so the tool lists evidence and
+writes neither a pass nor a fail: each gets review. The lists are
+measured in the default layout, after the Tab walk and before the
+views; `--no-views` turns them off with the other measures. Each list
+is a run note with counts and the first 10 names.
+
+- 1.4.8 Visual Presentation (AAA), for each block of text: lines over
+  80 characters, line height under 1.5, justified text. The line
+  length is an estimate (the width of the box over the mean width of a
+  letter in its font), for blocks with more than 80 characters of
+  their own text. A line height of `normal` counts as 1.2. Line height
+  and justified text count only for text on two lines or more.
+- 1.4.5 Images of Text (AA) and 1.4.9 Images of Text (No Exception)
+  (AAA): raster images more than 3 times as wide as high (10 px high or
+  more), often banners with text, and elements with a CSS background
+  image and no text of their own.
+
+Content inside a shadow root is not measured. The rule ids are
+`list-text` (1.4.8) and `list-images` (1.4.5, 1.4.9).
+
 ## Crawl: a run over a site
 
 ```
@@ -225,8 +247,9 @@ checks do not support; when in doubt it writes `not-evaluated`.
 With two or more models, the tool also runs its own checks over the
 whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`,
-`view-motion`) and the focus measures (`focus-visible`,
-`focus-obscured`, `focus-target`): `run-title` (2.4.2: the same title on every page is a fail),
+`view-motion`), the focus measures (`focus-visible`,
+`focus-obscured`, `focus-target`) and the lists (`list-text`,
+`list-images`): `run-title` (2.4.2: the same title on every page is a fail),
 `run-navigation` (3.2.3: the navigation items and their order),
 `run-identification` (3.2.4: a component that appears once on a page
 with different names on different pages goes to review), `run-help`
