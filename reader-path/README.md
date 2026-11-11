@@ -94,6 +94,15 @@ landmark with no content after the settle time gets the note
 `Page content empty`: an empty route, a page behind a gate, or a page
 that draws its content late (see `--wait-for` and `--settle`).
 
+The model records `axeVersion`, the axe-core version that read the
+page. The report names the axe-core version of every model; a model
+written before this field existed is named with the installed version.
+
+Each command takes only its own options: the page command the ones
+above, `crawl` those and `--max`, `--urls` and `--jobs`, and `acr`
+`--out` and `--base`. An option from another command stops the
+command with a usage error.
+
 ## Views
 
 After the tree, the axe-core rules and the Tab walk, the page is
@@ -287,7 +296,11 @@ axe-core did not run, or did not check a frame.
   proposed again on every run, from the new evidence. When a person's
   row has a better level than the new evidence (in the order above),
   the command prints the row number and both levels, for example
-  `base row 1.4.3: supports; new evidence: not-evaluated`.
+  `base row 1.4.3: supports; new evidence: not-evaluated`. The line
+  is printed only when the new evidence has something to say: a
+  failing rule, a rule that needs review, a page with no result for
+  the row, or an unchecked frame. A row that no rule covers prints
+  nothing.
 
 Without `--base`, `title`, `product.name` and `author.email` are
 placeholders to fill in.
