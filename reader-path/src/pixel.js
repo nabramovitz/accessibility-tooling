@@ -4,7 +4,7 @@
 //   between the shot with focus and the shot without, against the area
 //   of a 2 px perimeter of the box.
 // - 1.4.11 Non-text Contrast: the edge of a field, or the glyph of an
-//   icon button, against the background, 3 : 1.
+//   icon button or icon link, against the background, 3 : 1.
 // Both are measures of a picture, so each has a margin of error: a gap
 // only when clearly under, else a person looks.
 

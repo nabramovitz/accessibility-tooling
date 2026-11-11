@@ -35,9 +35,9 @@ test('2.4.13: a 1 px or a faint ring is a gap, a 2 px black ring passes, a mid g
   assert.ok(note && note.includes('Middle grey') && !note.includes('Two px'), String(note));
 });
 
-test('1.4.11: a pale border or icon is a gap; a dark one passes; the check is never a pass', async () => {
+test('1.4.11: a pale border, icon or icon-only link is a gap; a dark one passes; the check is never a pass', async () => {
   const m = await generate(fixture('focus/contrast.html'));
-  assert.deepEqual(gapsOf(m, '1.4.11').sort(), ['Pale border', 'Pale icon']);
+  assert.deepEqual(gapsOf(m, '1.4.11').sort(), ['Pale border', 'Pale icon', 'Pale link icon']);
   assert.equal(m.levels['1.4.11'], 'AA');
   assert.ok(m.checks['1.4.11'].fail.includes('focus-contrast'));
   assert.deepEqual(m.checks['1.4.11'].pass, []);

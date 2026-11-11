@@ -19,7 +19,7 @@ export const FOCUS_LINES = {
   'focus-visible': { review: 'Needs a person: the look with and without focus was not compared at every Tab stop (see the run notes)' },
   'focus-obscured': { review: 'Needs a person: not every Tab stop was checked for content on top of it (see the run notes)' },
   'focus-appearance': { review: 'Needs a person: the size and contrast of the focus indicator are measured from a picture and some Tab stops are inside the margin of error, were not compared, or have an indicator beyond 8 px (see the run notes)' },
-  'focus-contrast': { review: 'Needs a person: only the edge of a field and the icon of a button at a Tab stop are measured from a picture; other graphics and states are not (see the run notes)' },
+  'focus-contrast': { review: 'Needs a person: only the edge of a field and the icon of a button or link at a Tab stop are measured from a picture; other graphics and states are not (see the run notes)' },
   'focus-target': { review: 'Needs a person: a Tab stop under 44 px is in a line of text, a browser control or a control with a label, or not every Tab stop was measured (see the run notes)' },
 };
 
@@ -67,7 +67,7 @@ const STATE = `((ids) => {
   const inline = cs.display === 'inline' && !!block && block.textContent.trim().length > e.textContent.trim().length;
   const native = ((e.tagName === 'INPUT' && /^(checkbox|radio|range|color|file)$/.test(e.type)) || e.tagName === 'SELECT') && cs.appearance !== 'none';
   const person = inline || native || !!(e.labels && e.labels.length);
-  const icon = (e.tagName === 'BUTTON' || e.getAttribute('role') === 'button') && !e.innerText.trim();
+  const icon = (e.tagName === 'BUTTON' || e.tagName === 'A' || /^(button|link)$/.test(e.getAttribute('role') || '')) && !e.innerText.trim();
   const kind = (e.tagName === 'INPUT' && text && !e.isContentEditable) || e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' ? 'input' : icon ? 'icon' : '';
   out.now = { ...b, text, kind, points, covered, by, person, scroll: scroll(e) };
   return out;
@@ -87,8 +87,8 @@ export function focusWatch(page, cdp, model, root, notes) {
   const uncompared = [];
   const small = []; // stops under 44 px for a person
   const look = []; // stops whose indicator is inside the margin of error
-  const edge = []; // fields and icon buttons inside the margin of error
-  let edges = 0; // fields and icon buttons whose edge was measured
+  const edge = []; // fields, icon buttons and icon links inside the margin of error
+  let edges = 0; // fields, icon buttons and icon links whose edge was measured
   const fails = { '2.4.7': 0, '2.4.11': 0, '2.4.12': 0, '2.5.5': 0, '2.4.13': 0, '1.4.11': 0 };
   const gap = (node, why, sc, goal, level) => {
     (node.gaps ||= []).push([why, sc, goal]);
@@ -113,7 +113,7 @@ export function focusWatch(page, cdp, model, root, notes) {
       const best = Math.max(px.edge ?? 0, px.glyph ?? 0) || null;
       const verdict = judgeBoundary(best);
       if (verdict === 'fail') {
-        gap(last.node, `The ${last.box.kind === 'input' ? 'edge of this field' : 'icon of this button'} is ${best.toFixed(1)} : 1 against what is around it; at least ${NEED} : 1 is needed.`, '1.4.11', 'The edge of a field and the icon of a button are at least 3 : 1', 'AA');
+        gap(last.node, `The ${last.box.kind === 'input' ? 'edge of this field' : 'icon of this control'} is ${best.toFixed(1)} : 1 against what is around it; at least ${NEED} : 1 is needed.`, '1.4.11', 'The edge of a field and the icon of a button or link are at least 3 : 1', 'AA');
         edges++;
       } else if (verdict === 'review') edge.push(name);
       else edges++;
@@ -195,7 +195,7 @@ export function focusWatch(page, cdp, model, root, notes) {
       addCheck(model.checks, '2.4.7', fails['2.4.7'] ? 'fail' : partial || uncompared.length ? 'review' : 'pass', 'focus-visible');
       for (const sc of ['2.4.11', '2.4.12']) addCheck(model.checks, sc, fails[sc] ? 'fail' : partial ? 'review' : 'pass', 'focus-obscured');
       addCheck(model.checks, '2.4.13', fails['2.4.13'] ? 'fail' : partial || uncompared.length || look.length ? 'review' : 'pass', 'focus-appearance');
-      // NOTE: never a pass: graphics other than the edge of a field and the icon of a button are not measured.
+      // NOTE: never a pass: graphics other than the edge of a field and the icon of a button or link are not measured.
       if (fails['1.4.11'] || edges || edge.length) addCheck(model.checks, '1.4.11', fails['1.4.11'] ? 'fail' : 'review', 'focus-contrast');
       addCheck(model.checks, '2.5.5', fails['2.5.5'] ? 'fail' : partial || small.length ? 'review' : 'pass', 'focus-target');
     },
