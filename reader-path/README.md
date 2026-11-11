@@ -147,9 +147,12 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   the same function (an exception of 2.5.5) is not looked for, so a gap
   can be false for that reason.
 
-A stop that moved between the two shots (a scroll, a layout change),
-or that stayed beside the focus for three more Tab presses, is not
-compared; a run note names such stops and 2.4.7 goes to a person. The
+A stop whose page or box scrolled between the two shots, or that
+stayed beside the focus for three more Tab presses, is not compared; a run note names such stops and 2.4.7 goes to a person.
+With no scroll, the second shot is of the same area of the screen, so
+a control that moves or appears only with focus (a skip link) is
+compared as any other. A layout change by other content at the same
+moment also counts as a change. The
 measures stop after 150 Tab stops, with a run note. No shot is written
 to disk. The rule ids are `focus-visible`, `focus-obscured` and
 `focus-target`.

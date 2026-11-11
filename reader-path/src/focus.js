@@ -24,14 +24,18 @@ export const FOCUS_LINES = {
 // (centre and corners) lie under a fixed or sticky element, and whether
 // a small box is for a person (WCAG exceptions to 2.5.5 the tool cannot
 // decide: a link in a line of text, the browser's own control, a label
-// that is a part of the target). `was`: the
-// boxes, now, of the earlier stops in `ids` (the numbers this gave them).
+// that is a part of the target), and `scroll`: the scroll positions of
+// the window and of every ancestor. `was`: the scroll positions, now, of
+// the earlier stops in `ids` (the numbers this gave them).
 const STATE = `((ids) => {
   const KEY = '__readerPathFocus';
   const box = (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+  const scroll = (e) => { const s = [scrollX, scrollY];
+    for (let p = e.parentElement || (e.getRootNode().host ?? null); p; p = p.parentElement || (p.getRootNode().host ?? null)) s.push(p.scrollLeft, p.scrollTop);
+    return s.join(','); };
   const out = { vw: innerWidth, vh: innerHeight };
   const els = (window[KEY] ||= []);
-  out.was = ids.map((i) => (els[i] && els[i].isConnected ? box(els[i]) : null));
+  out.was = ids.map((i) => (els[i] && els[i].isConnected ? scroll(els[i]) : null));
   let e = document.activeElement;
   while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
   if (!e || e === document.body || e.tagName === 'IFRAME') return out;
@@ -59,13 +63,12 @@ const STATE = `((ids) => {
   const inline = cs.display === 'inline' && !!block && block.textContent.trim().length > e.textContent.trim().length;
   const native = ((e.tagName === 'INPUT' && /^(checkbox|radio|range|color|file)$/.test(e.type)) || e.tagName === 'SELECT') && cs.appearance !== 'none';
   const person = inline || native || !!(e.labels && e.labels.length);
-  out.now = { ...b, text, points, covered, by, person };
+  out.now = { ...b, text, points, covered, by, person, scroll: scroll(e) };
   return out;
 })`;
 
 const CLEAR = `(() => { delete window.__readerPathFocus; })()`;
 
-const same = (a, b) => ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) < 0.5);
 const meet = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 // focus.after(): call after each Tab press. focus.at(node): call when the
@@ -89,7 +92,8 @@ export function focusWatch(page, cdp, model, root, notes) {
   return {
     // The second shot of a stop is taken once focus is off its
     // surroundings (the next stops can be right beside it) and only if
-    // the stop has not moved (a scroll, a layout change).
+    // nothing scrolled: then the clip is the same area of the screen. A
+    // box that changes with focus (a skip link) is compared as it is.
     async after() {
       if (capped && !pending.length) { state = null; return; }
       const { result } = await cdp.send('Runtime.evaluate', { expression: `${STATE}(${JSON.stringify(pending.map((p) => p.id))})`, returnByValue: true });
@@ -98,7 +102,7 @@ export function focusWatch(page, cdp, model, root, notes) {
       const wait = [];
       for (const [i, last] of pending.entries()) {
         const was = state.was[i];
-        if (!last.shot || !was || !same(was, last.box)) { uncompared.push(nameOf(last.node)); continue; }
+        if (!last.shot || was === null || was !== last.box.scroll) { uncompared.push(nameOf(last.node)); continue; }
         if (now && meet(now, last.clip)) {
           if (++last.age > MAX_WAIT) uncompared.push(nameOf(last.node)); else wait.push(last);
           continue;
