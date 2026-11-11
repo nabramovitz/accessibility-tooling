@@ -40,6 +40,7 @@ export async function discover(start, opts = {}) {
   const linkCount = new Map();
   const queue = [bare(start)];
   const skipped = [];
+  const stillLoading = [];
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext(pageOptions(opts));
@@ -49,7 +50,9 @@ export async function discover(start, opts = {}) {
       const url = queue.shift();
       try {
         await page.goto(url, { waitUntil: 'load' });
-        await ready(page, idleTime, opts);
+        const notes = [];
+        await ready(page, idleTime, opts, notes);
+        if (notes.length) stillLoading.push(url);
       } catch (e) {
         skipped.push({ url, why: String(e.message).split('\n')[0] });
         continue;
@@ -86,7 +89,7 @@ export async function discover(start, opts = {}) {
   }
   const links = (u) => linkCount.get(u) ?? 0;
   const urls = [...seen.values()].map(([first, second]) => (second && links(second) > links(first) ? second : first));
-  return { urls, skipped };
+  return { urls, skipped, stillLoading };
 }
 
 // Runs fn on each item, `jobs` at a time; the results keep the order of
@@ -118,7 +121,7 @@ export async function inPool(items, jobs, fn) {
 // `opts.jobs`: the pages read at the same time (default 1).
 export async function crawl(start, opts = {}) {
   const out = opts.out ?? 'reader-path-run';
-  const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [] } : await discover(start, opts);
+  const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [], stillLoading: [] } : await discover(start, opts);
   const base = dirOf(start ?? found.urls[0]);
   const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, opts));
   const urls = new Set(models.map((m) => m.url));
@@ -138,6 +141,8 @@ export async function crawl(start, opts = {}) {
     pages,
     dropped: dropped.map((m) => ({ url: m.url, finalUrl: m.finalUrl })),
     skipped: found.skipped,
+    loading: kept.filter((m) => m.notes.some((x) => x.startsWith('Page shows a loading sign'))).map((m) => m.url),
+    discoverStillLoading: found.stillLoading,
   };
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'run.json'), JSON.stringify(run, null, 2) + '\n');
