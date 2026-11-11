@@ -72,14 +72,24 @@ function gapLines(models, sc) {
 }
 
 // The proposal for one WCAG criterion over all pages: { level, lines }.
+const CONTRAST = ['color-contrast', 'view-dark'];
+
 function wcag(models, sc) {
   if (sc === '4.1.1') {
     return { level: 'supports', lines: [`WCAG 2.2 removed 4.1.1. The WCAG 2.1 errata and the WCAG 2.0 Understanding note say content using HTML or XML always satisfies it: ${ERRATA.join(' ')}`] };
   }
-  const failing = models.filter((m) => list(m, sc, 'fail').length);
+  // axe-core's color-contrast-enhanced passes text under 4.5 : 1 (it
+  // leaves that text to color-contrast), so a 1.4.3 contrast fail is a
+  // 1.4.6 fail too: text under 4.5 : 1 is under 7 : 1.
+  const low = (m) => sc === '1.4.6' && list(m, '1.4.3', 'fail').some((r) => CONTRAST.includes(r));
+  const failing = models.filter((m) => list(m, sc, 'fail').length || low(m));
   if (failing.length) {
-    const rules = `Failing rules: ${union(models, sc, 'fail').join(', ')} on ${failing.length} of ${models.length} page(s)`;
-    return { level: 'partially-supports', lines: [rules, ...gapLines(models, sc)] };
+    const ids = union(models, sc, 'fail');
+    const lowIds = [...new Set(models.flatMap((m) => (low(m) ? list(m, '1.4.3', 'fail').filter((r) => CONTRAST.includes(r)) : [])))];
+    const rules = `Failing rules: ${[...ids, ...lowIds.map((r) => `${r} (1.4.3)`)].join(', ')} on ${failing.length} of ${models.length} page(s)`;
+    const lowPages = models.filter(low).length;
+    const lowLine = lowPages ? [`Text under 4.5 : 1 on ${lowPages} page(s) is also under 7 : 1: see the 1.4.3 row`] : [];
+    return { level: 'partially-supports', lines: [rules, ...lowLine, ...gapLines(models, sc)] };
   }
   // supports needs a pass, and a pass or na on every page (all of it,
   // frames included). The tool never writes not-applicable: an axe-core
