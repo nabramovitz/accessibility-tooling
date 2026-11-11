@@ -85,7 +85,7 @@ function wcag(models, sc) {
   // rule with nothing to check does not show that the criterion does not
   // apply.
   const [pass, review, na] = ['pass', 'review', 'na'].map((kind) => union(models, sc, kind));
-  if (!pass.length && !review.length && !na.length) return { level: 'not-evaluated', lines: ['Needs a person: no automated check'] };
+  if (!pass.length && !review.length && !na.length) return { level: 'not-evaluated', lines: ['Needs a person: no automated check'], quiet: true };
   const passing = models.filter((m) => list(m, sc, 'pass').length);
   const missing = models.filter((m) => !['pass', 'review', 'na'].some((kind) => list(m, sc, kind).length));
   const lines = [];
@@ -124,7 +124,9 @@ function fpc(num, levelOf) {
 // levelOf(num), when given, is the level of a WCAG row for the chapter 3
 // rows (a row a person wrote); undefined means the tool's own proposal. A
 // chapter 3 row built with a person's level says so in its end line.
-export function proposeRows(models, catalog, levelOf) {
+// quiet, when given, gets the nums of rows whose evidence has nothing to say:
+// no automated check behind them.
+export function proposeRows(models, catalog, levelOf, quiet = new Set()) {
   if (!models.length) throw new Error('no models');
   const cache = new Map();
   const byCriterion = (sc) => {
@@ -139,6 +141,7 @@ export function proposeRows(models, catalog, levelOf) {
     out[id] = chapter.criteria.map((c) => {
       const num = String(c.id);
       const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level) : byCriterion(num);
+      if (isFpc ? FPC[num].rows.every((sc) => byCriterion(sc).quiet && levelOf?.(sc) === undefined) : byCriterion(num).quiet) quiet.add(num);
       const fromBase = isFpc && FPC[num].rows.some((sc) => levelOf?.(sc) !== undefined);
       const last = end(fromBase ? 'automated checks and the base file' : 'automated checks');
       return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, last].join('\n\n') } }] };
@@ -164,7 +167,8 @@ const toolOwned = (row) => TOOL_END.test(String(adherence(row)?.notes ?? ''));
 // is the number of A and AA rows still not-evaluated, automated the number
 // of WCAG rows the tool wrote as supports from rules (4.1.1 is not one).
 export function buildReport(models, base, catalog, { version, axe, date }) {
-  const own = proposeRows(models, catalog);
+  const quiet = new Set();
+  const own = proposeRows(models, catalog, undefined, quiet);
   const report = base && Object.keys(base).length ? { ...base } : {
     title: 'Accessibility Conformance Report (draft)',
     product: { name: 'PRODUCT NAME' },
@@ -184,7 +188,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   const person = new Map();
   for (const id of CHAPTERS) {
     const mine = new Map((report.chapters?.[id]?.criteria || []).filter((r) => !toolOwned(r)).map((r) => [String(r.num), r]));
-    const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => person.get(sc))[id] : own[id];
+    const proposed = id === FPC_ID ? proposeRows(models, catalog, (sc) => person.get(sc), quiet)[id] : own[id];
     // A person row in another chapter than the catalog's also counts.
     for (const [num, b] of mine) person.set(num, WORST.includes(level(b)) ? level(b) : 'not-evaluated');
     const rows = proposed.map((p) => {
@@ -196,7 +200,8 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
       mine.delete(p.num);
       if (!WORST.includes(level(b))) conflicts.push(`base row ${p.num}: unknown level ${level(b) ?? '(none)'}`);
       // WORST order: a higher index is a better level.
-      if (WORST.indexOf(level(b)) > WORST.indexOf(level(p))) {
+      // A row with no automated check behind it has nothing to say.
+      if (WORST.indexOf(level(b)) > WORST.indexOf(level(p)) && !quiet.has(p.num)) {
         conflicts.push(`base row ${p.num}: ${level(b)}; new evidence: ${level(p)}`);
       }
       return b;
