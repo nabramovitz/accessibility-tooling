@@ -74,8 +74,12 @@ const STATE = `((ids) => {
   const ow = parseFloat(cs.outlineWidth) || 0;
   const grow = cs.outlineStyle !== 'none' && ow ? (parseFloat(cs.outlineOffset) || 0) + ow : 0;
   const ring = { l: b.x - grow, t: b.y - grow, r: b.x + b.w + grow, b: b.y + b.h + grow };
-  let cut = ring.l < -0.5 ? 'the left edge of the window' : ring.t < -0.5 ? 'the top edge of the window'
-    : ring.r > innerWidth + 0.5 ? 'the right edge of the window' : ring.b > innerHeight + 0.5 ? 'the bottom edge of the window' : '';
+  // A window edge cuts the outline off only where the page cannot scroll
+  // further: past the bottom of a long page, a scroll brings it into view.
+  const doc = document.scrollingElement || document.documentElement;
+  const more = { l: scrollX > 0, t: scrollY > 0, r: scrollX + innerWidth < doc.scrollWidth - 1, b: scrollY + innerHeight < doc.scrollHeight - 1 };
+  let cut = ring.l < -0.5 && !more.l ? 'the left edge of the window' : ring.t < -0.5 && !more.t ? 'the top edge of the window'
+    : ring.r > innerWidth + 0.5 && !more.r ? 'the right edge of the window' : ring.b > innerHeight + 0.5 && !more.b ? 'the bottom edge of the window' : '';
   for (let p = e.parentElement; !cut && p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
     const ps = getComputedStyle(p);
     const cx = ps.overflowX !== 'visible'; const cy = ps.overflowY !== 'visible';
