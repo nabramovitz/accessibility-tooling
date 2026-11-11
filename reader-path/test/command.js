@@ -8,10 +8,11 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // The test command, as { file, args, options } for spawnSync: `bun test`
 // under Bun or when `bun --version` works, else `node --test`. Plain
 // `bun test` stops a test after 5 seconds; a browser run can take
-// longer, and a slow runner takes several times as long (2 minutes). For node, only the test/*.test.js files: the other files in
+// longer, and a slow runner takes several times as long (2 minutes).
+// --parallel runs the files in worker processes, as node --test does. For node, only the test/*.test.js files: the other files in
 // test/ are helpers. route is a route of findBun, or null for none.
 export function testCommand(route = process.versions.bun ? 'self' : findBun()) {
-  const bunArgs = ['test', '--timeout', '120000'];
+  const bunArgs = ['test', '--parallel', '--timeout', '120000'];
   if (route === 'self') return { file: process.execPath, args: bunArgs, options: {} };
   if (route) return bunCommand(route, bunArgs);
   const files = readdirSync(join(ROOT, 'test')).filter((f) => f.endsWith('.test.js')).sort();
