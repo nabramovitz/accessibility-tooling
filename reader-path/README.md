@@ -171,8 +171,12 @@ to disk. The rule ids are `focus-visible`, `focus-obscured` and
 Three rows are for a person to decide, so the tool lists evidence and
 writes neither a pass nor a fail: each gets review. The lists are
 measured in the default layout, after the Tab walk and before the
-views; `--no-views` turns them off with the other measures. Each list
-is a run note with counts and the first 10 names.
+views; `--no-views` turns them off with the other measures. Each
+measure is one run note that starts with its row, for example
+`1.4.8 line height under 1.5: 4 text blocks: p.cell ×3 (line height
+1.2), p#one (line height 1.3)`, or ends in `none`. The elements are grouped by name, the
+largest group first (up to 10 groups), each with its measured value:
+characters a line, line height, or image size.
 
 - 1.4.8 Visual Presentation (AAA), for each block of text: lines over
   80 characters, line height under 1.5, justified text. The line
@@ -182,8 +186,8 @@ is a run note with counts and the first 10 names.
   and justified text count only for text on two lines or more.
 - 1.4.5 Images of Text (AA) and 1.4.9 Images of Text (No Exception)
   (AAA): raster images more than 3 times as wide as high (10 px high or
-  more), often banners with text, and elements with a CSS background
-  image and no text of their own.
+  more), often banners with text, and elements with a CSS background image and no
+  text of their own.
 
 Content inside a shadow root is not measured. The rule ids are
 `list-text` (1.4.8) and `list-images` (1.4.5, 1.4.9).
