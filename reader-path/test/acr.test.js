@@ -184,6 +184,12 @@ test('a file: page is named by its file name only', () => {
   assert.ok(!adh(rows, '1.1.1').notes.includes('someone'));
 });
 
+test('an unplaced gap without a goal never says undefined', () => {
+  const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, { root: { r: 'document', t: 'T', gaps: [['not placed: a > b', '2.4.4']] } });
+  const rows = proposeRows([m], catalog);
+  assert.doesNotMatch(adh(rows, '2.4.4').notes, /undefined/);
+});
+
 test('an unplaced gap keeps no selector', () => {
   const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, {
     root: { r: 'document', t: 'T', gaps: [['not placed: a[aria-label="A - token=abc"] > b - Fix this', '2.4.4', 'Links must have names']] },
