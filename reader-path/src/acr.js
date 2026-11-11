@@ -177,7 +177,10 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
   report.catalog = '2.5-edition-wcag-2.2-508-en';
   report.report_date = date;
   if (report.evaluation_methods_used == null || String(report.evaluation_methods_used).startsWith(METHODS)) {
-    report.evaluation_methods_used = `${METHODS}${version} and axe-core ${axe} in ${models[0].browser}, `
+    // The version each model ran with; an old model has none, so the
+    // installed version stands in.
+    const axes = [...new Set(models.map((m) => m.axeVersion ?? axe))];
+    report.evaluation_methods_used = `${METHODS}${version} and axe-core ${axes.join(' and ')} in ${models[0].browser}, `
       + `on ${models.length} page(s). A person confirms every row.`;
   }
   const chapters = {};
