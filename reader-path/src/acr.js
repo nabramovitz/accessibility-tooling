@@ -61,14 +61,37 @@ function plain([why, , goal]) {
 // A node title comes from the page; notes are read as Markdown.
 const md = (s) => String(s).replace(/[\\`*_[\]()<>|#]/g, '\\$&').replace(/^[-+]/, '\\$&');
 
+// A cause that repeats across pages is one line. The key is the role, the
+// name and the gap text (the text holds the measure, and the rule's goal
+// ties it to one rule). A control whose name changes from page to page
+// (a clock in a label) has a different key on each page, so it stays a
+// per-page line. NOTE: names are not normalised; that is a simplification.
 function gapLines(models, sc) {
-  const out = [];
-  for (const m of models) {
+  const rows = [];
+  models.forEach((m, i) => {
     walk(m.root, (node) => {
-      for (const gap of node.gaps || []) if (gap[1] === sc) out.push(`${label(m)}: ${md(node.t || node.role)}: ${plain(gap)}`);
+      for (const gap of node.gaps || []) {
+        if (gap[1] !== sc) continue;
+        const text = `${md(node.t || node.role)}: ${plain(gap)}`;
+        rows.push({ page: i, line: `${label(m)}: ${text}`, key: [node.role, node.t, gap[0], gap[2]].join('\u0000'), text });
+      }
     });
+  });
+  const pages = new Map();
+  for (const r of rows) {
+    if (!pages.has(r.key)) pages.set(r.key, new Set());
+    pages.get(r.key).add(r.page);
   }
-  return out.length > MAX_GAP_LINES ? [...out.slice(0, MAX_GAP_LINES), `and ${out.length - MAX_GAP_LINES} more`] : out;
+  const needed = Math.max(2, Math.ceil(models.length / 2));
+  const shared = new Map([...pages].filter(([, p]) => p.size >= needed));
+  const grouped = [];
+  for (const r of rows) {
+    if (shared.has(r.key) && !grouped.some((g) => g.key === r.key)) grouped.push({ key: r.key, n: shared.get(r.key).size, text: r.text });
+  }
+  grouped.sort((x, y) => y.n - x.n);
+  const out = rows.filter((r) => !shared.has(r.key)).map((r) => r.line);
+  const rest = out.length > MAX_GAP_LINES ? [...out.slice(0, MAX_GAP_LINES), `and ${out.length - MAX_GAP_LINES} more`] : out;
+  return [...grouped.map((g) => `On ${g.n} of ${models.length} pages: ${g.text}`), ...rest];
 }
 
 // The proposal for one WCAG criterion over all pages: { level, lines }.

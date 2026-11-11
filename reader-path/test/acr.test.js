@@ -429,3 +429,77 @@ test('lists for a person: review only, with the line that says what to look at',
   assert.ok(lines(rows, '1.4.8').some((l) => /^Needs a person: look at the text blocks named in the run notes/.test(l)));
   assert.ok(lines(rows, '1.4.5').some((l) => /^Needs a person: look at the images named in the run notes/.test(l)));
 });
+
+// Three pages: a shared control on all of them, one shared on two, one on a single page.
+const sharedRun = () => {
+  const gap = (t) => [t, '2.5.5', 'g'];
+  const page = (name, nodes) => model({ '2.5.5': entry({ fail: ['target-size'] }) }, {
+    finalUrl: `https://x.test/${name}`, root: { role: 'document', t: name, c: nodes },
+  });
+  const shell = { role: 'button', t: 'Menu', gaps: [gap('small')] };
+  return [
+    page('a', [shell, { role: 'button', t: 'Edit', gaps: [gap('tiny')] }]),
+    page('b', [shell, { role: 'button', t: 'Edit', gaps: [gap('tiny')] }, { role: 'link', t: 'Only b', gaps: [gap('small')] }]),
+    page('c', [shell]),
+  ];
+};
+
+test('a gap on at least half of the pages is one line, before the per-page lines', () => {
+  const l = lines(proposeRows(sharedRun(), catalog), '2.5.5');
+  assert.deepEqual(l.slice(0, 3), ['Failing rules: target-size on 3 of 3 page(s)', 'On 3 of 3 pages: Menu: small', 'On 2 of 3 pages: Edit: tiny']);
+  assert.equal(l.filter((x) => x.includes('Menu') || x.includes('Edit')).length, 2);
+});
+
+test('a gap on fewer than half of the pages stays a per-page line', () => {
+  const l = lines(proposeRows(sharedRun(), catalog), '2.5.5');
+  assert.ok(l.includes('https://x.test/b: Only b: small'));
+  assert.equal(l.length, 5);
+});
+
+test('the same control with a different gap text is a separate line', () => {
+  const [a, b, c] = sharedRun();
+  c.root.c[0] = { role: 'button', t: 'Menu', gaps: [['bigger', '2.5.5', 'g']] };
+  const l = lines(proposeRows([a, b, c], catalog), '2.5.5');
+  assert.ok(l.includes('On 2 of 3 pages: Menu: small'));
+  assert.ok(l.includes('https://x.test/c: Menu: bigger'));
+});
+
+test('a control whose name changes on every page is not grouped', () => {
+  const pages = ['a', 'b', 'c'].map((n, i) => model({ '2.5.5': entry({ fail: ['target-size'] }) }, {
+    finalUrl: `https://x.test/${n}`, root: { role: 'document', t: n, c: [{ role: 'button', t: `updated 10:39:5${i} PM`, gaps: [['small', '2.5.5', 'g']] }] },
+  }));
+  const l = lines(proposeRows(pages, catalog), '2.5.5');
+  assert.ok(!l.some((x) => x.startsWith('On ')));
+  assert.equal(l.filter((x) => x.includes('updated')).length, 3);
+});
+
+test('a control twice on one page counts that page once', () => {
+  const [a, b, c] = sharedRun();
+  a.root.c.push({ role: 'button', t: 'Menu', gaps: [['small', '2.5.5', 'g']] });
+  assert.ok(lines(proposeRows([a, b, c], catalog), '2.5.5').includes('On 3 of 3 pages: Menu: small'));
+});
+
+test('a single page is not grouped', () => {
+  const l = lines(proposeRows([sharedRun()[0]], catalog), '2.5.5');
+  assert.ok(!l.some((x) => x.startsWith('On ')));
+  assert.ok(l.includes('https://x.test/a: Menu: small'));
+});
+
+test('two pages: a gap on one page only is not grouped', () => {
+  const l = lines(proposeRows(sharedRun().slice(1, 3), catalog), '2.5.5');
+  assert.ok(l.includes('https://x.test/b: Only b: small'));
+});
+
+test('grouped lines are ordered by page count, most first, and the 20-line cap is for the rest', () => {
+  const pages = ['a', 'b'].map((n) => model({ '2.5.5': entry({ fail: ['target-size'] }) }, {
+    finalUrl: `https://x.test/${n}`,
+    root: { role: 'document', t: n, c: [
+      { role: 'button', t: 'Both', gaps: [['x', '2.5.5', 'g']] },
+      ...Array.from({ length: 23 }, (_, i) => ({ role: 'button', t: `${n}${i}`, gaps: [['y', '2.5.5', 'g']] })),
+    ] },
+  }));
+  const l = lines(proposeRows(pages, catalog), '2.5.5');
+  assert.equal(l[1], 'On 2 of 2 pages: Both: x');
+  assert.equal(l.filter((x) => x.startsWith('https://')).length, 20);
+  assert.ok(l.includes('and 26 more'));
+});
