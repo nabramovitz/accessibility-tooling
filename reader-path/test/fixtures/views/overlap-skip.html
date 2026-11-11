@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Overlap skip</title>
+<style>
+body{font:20px/1.15 sans-serif;margin:0}
+p{margin:0}
+.v,.h,.o,.n,.cap{position:absolute;left:10px}
+.v{top:60px}
+.h,.o,.n{top:calc(60px + 1.6em)}
+.h{visibility:hidden}.o{opacity:0}.n{display:none}
+.cap{top:100px}
+.box{position:absolute;top:200px;left:10px;width:300px;height:40px;overflow:auto}
+.box p{line-height:20px;height:20px}
+@media (max-width:700px){.h,.o,.n{top:calc(60px + 0.5em)}.cap{top:162px}}
+</style></head>
+<body onload="document.querySelector('.box').scrollTop=40"><main>
+<p class="v">Visible text</p><p class="h">Hidden text</p><p class="o">Transparent text</p><p class="n">Absent text</p>
+<p class="cap">Caption</p>
+<div class="box"><p>One scrolled away</p><p>Two scrolled away</p><p>Three</p><p>Four</p><p>Five</p></div>
+</main></body></html>
