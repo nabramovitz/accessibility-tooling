@@ -53,7 +53,7 @@ const union = (models, sc, kind) => [...new Set(models.flatMap((m) => list(m, sc
 // url with a query or an attribute value from the page, so the text is not
 // used: the goal (rule help text) is written instead.
 function plain([why, , goal]) {
-  const w = why.startsWith('not placed') ? `not placed - ${goal}` : why;
+  const w = why.startsWith('not placed') ? `not placed - ${goal ?? 'no rule text'}` : why;
   return w.split(/\r?\n/).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean).join('; ').replace(/:; /g, ': ');
 }
 
