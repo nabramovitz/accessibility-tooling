@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { testCommand } from './command.js';
 
-test('the test command is bun test, else node --test with the test files only', () => {
-  assert.deepEqual(testCommand('self'), { file: process.execPath, args: ['test', '--timeout', '120000'], options: {} });
+test('the test command is bun test with the files in parallel, else node --test with the test files only', () => {
+  assert.deepEqual(testCommand('self'), { file: process.execPath, args: ['test', '--parallel', '--timeout', '120000'], options: {} });
   const bun = testCommand('bun');
-  assert.deepEqual([bun.file, bun.args], ['bun', ['test', '--timeout', '120000']]);
+  assert.deepEqual([bun.file, bun.args], ['bun', ['test', '--parallel', '--timeout', '120000']]);
   const { file, args: [flag, ...files] } = testCommand(null);
   assert.equal(file, process.execPath);
   assert.equal(flag, '--test');

@@ -293,9 +293,10 @@ bun run test
 ```
 
 Or `npm test`. Both run `test/run.mjs`, which runs the tests with
-`bun test` when `bun --version` works, else with `node --test`. A
-plain `bun test` also works, but stops a test after 5 seconds;
-`bun run test` gives each test 30.
+`bun test` when `bun --version` works, else with `node --test`. Both
+run the test files in parallel. A plain `bun test` also works, but
+runs the files one after another and stops a test after 5 seconds;
+`bun run test` gives each test 2 minutes.
 
 ## Limits
 
