@@ -451,3 +451,22 @@ test('lists for a person: review only, with the line that says what to look at',
   assert.ok(lines(rows, '1.4.8').some((l) => /^Needs a person: look at the text blocks named in the run notes/.test(l)));
   assert.ok(lines(rows, '1.4.5').some((l) => /^Needs a person: look at the images named in the run notes/.test(l)));
 });
+
+test('a 1.4.3 contrast fail is a 1.4.6 fail: axe passes 1.4.6 for text under 4.5 : 1', () => {
+  const m = model({
+    '1.4.3': entry({ fail: ['color-contrast'] }),
+    '1.4.6': entry({ pass: ['color-contrast-enhanced'] }),
+  });
+  const rows = proposeRows([m], catalog);
+  assert.equal(adh(rows, '1.4.6').level, 'partially-supports');
+  assert.ok(lines(rows, '1.4.6').some((l) => /^Failing rules: color-contrast \(1\.4\.3\) on 1 of 1 page/.test(l)));
+  assert.ok(lines(rows, '1.4.6').some((l) => /under 4\.5 : 1 .*see the 1\.4\.3 row/.test(l)));
+});
+
+test('a 1.4.3 fail of another rule leaves 1.4.6 alone', () => {
+  const m = model({
+    '1.4.3': entry({ fail: ['view-zoom'] }),
+    '1.4.6': entry({ pass: ['color-contrast-enhanced'] }),
+  });
+  assert.equal(adh(proposeRows([m], catalog), '1.4.6').level, 'supports');
+});
