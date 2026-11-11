@@ -97,13 +97,18 @@ that draws its content late (see `--wait-for` and `--settle`).
 ## Views
 
 After the tree, the axe-core rules and the Tab walk, the page is
-measured in three more views, on the same load:
+measured in four more views, on the same load:
 
 - `narrow`: a window 320 px wide (1.4.10 Reflow).
 - `zoom`: a window 640 px wide, the layout of the default window
   (1280 px) at 200 % zoom (1.4.4 Resize Text).
 - `spacing`: the WCAG text spacing (line height 1.5, paragraph spacing
   2 em, letter spacing 0.12 em, word spacing 0.16 em) (1.4.12).
+- `motion`: reduced motion asked (`prefers-reduced-motion: reduce`)
+  (2.3.3). A run note counts the animations that run in the default
+  view and those that still run, and names up to 10 of them. Nothing is
+  pressed, so animation from an interaction is not checked: the row is
+  always for a person.
 
 In each view, text in a box that cuts it (`overflow: hidden` or `clip`)
 is a gap when it is not cut in the default view; text that is always
@@ -131,12 +136,20 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   of the focused control are tested for an element on top that is
   fixed or sticky (a header, a footer bar). All points covered is a
   2.4.11 gap; any point covered is a 2.4.12 gap.
+- 2.5.5 Target Size (Enhanced): a control narrower or lower than 44 px
+  is a gap. A small link in a line of text, the browser's own control
+  (a checkbox, radio, range, colour, file input or select that is not
+  restyled) and a control with a label (the label can be a part of the
+  target) are for a person; a run note names them. A larger control for
+  the same function (an exception of 2.5.5) is not looked for, so a gap
+  can be false for that reason.
 
 A stop that moved between the two shots (a scroll, a layout change),
 or that stayed beside the focus for three more Tab presses, is not
 compared; a run note names such stops and 2.4.7 goes to a person. The
 measures stop after 150 Tab stops, with a run note. No shot is written
-to disk. The rule ids are `focus-visible` and `focus-obscured`.
+to disk. The rule ids are `focus-visible`, `focus-obscured` and
+`focus-target`.
 
 ## Crawl: a run over a site
 
@@ -202,8 +215,9 @@ checks do not support; when in doubt it writes `not-evaluated`.
   names the page and the gap.
 With two or more models, the tool also runs its own checks over the
 whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
-2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`) and the
-focus measures (`focus-visible`, `focus-obscured`): `run-title` (2.4.2: the same title on every page is a fail),
+2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`,
+`view-motion`) and the focus measures (`focus-visible`,
+`focus-obscured`, `focus-target`): `run-title` (2.4.2: the same title on every page is a fail),
 `run-navigation` (3.2.3: the navigation items and their order),
 `run-identification` (3.2.4: a component that appears once on a page
 with different names on different pages goes to review), `run-help`

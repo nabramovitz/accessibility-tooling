@@ -3,22 +3,28 @@
 // - 2.4.7: a shot of the stop's box with focus and one after focus has
 //   moved on. The same bytes mean that no pixel changed.
 // - 2.4.11 / 2.4.12: is something fixed or sticky on top of the box.
+// - 2.5.5: is the box 44 x 44 px or more.
 import { addCheck } from './axe.js';
 
 const MAX_STOPS = 150;
 const PAD = 8;
 // Tab presses to wait for focus to leave the surroundings of a stop.
 const MAX_WAIT = 3;
+const TARGET = 44;
 
 // The person's lines for the report.
 export const FOCUS_LINES = {
   'focus-visible': { review: 'Needs a person: the look with and without focus was not compared at every Tab stop (see the run notes)' },
   'focus-obscured': { review: 'Needs a person: not every Tab stop was checked for content on top of it (see the run notes)' },
+  'focus-target': { review: 'Needs a person: a Tab stop under 44 px is in a line of text, a browser control or a control with a label, or not every Tab stop was measured (see the run notes)' },
 };
 
 // Runs in the page. `now`: the focused element's box, whether it takes
 // text (its caret is hidden in a shot), and how many of five points
-// (centre and corners) lie under a fixed or sticky element. `was`: the
+// (centre and corners) lie under a fixed or sticky element, and whether
+// a small box is for a person (WCAG exceptions to 2.5.5 the tool cannot
+// decide: a link in a line of text, the browser's own control, a label
+// that is a part of the target). `was`: the
 // boxes, now, of the earlier stops in `ids` (the numbers this gave them).
 const STATE = `((ids) => {
   const KEY = '__readerPathFocus';
@@ -47,7 +53,13 @@ const STATE = `((ids) => {
     const top = h && h !== e && !e.contains(h) ? stays(h) : null;
     if (top) { covered++; by ||= top.tagName.toLowerCase() + (top.id ? '#' + top.id : '') + (top.classList[0] ? '.' + top.classList[0] : ''); }
   }
-  out.now = { ...b, text, points, covered, by };
+  const cs = getComputedStyle(e);
+  let block = e.parentElement;
+  while (block && getComputedStyle(block).display.startsWith('inline')) block = block.parentElement;
+  const inline = cs.display === 'inline' && !!block && block.textContent.trim().length > e.textContent.trim().length;
+  const native = ((e.tagName === 'INPUT' && /^(checkbox|radio|range|color|file)$/.test(e.type)) || e.tagName === 'SELECT') && cs.appearance !== 'none';
+  const person = inline || native || !!(e.labels && e.labels.length);
+  out.now = { ...b, text, points, covered, by, person };
   return out;
 })`;
 
@@ -64,7 +76,8 @@ export function focusWatch(page, cdp, model, root, notes) {
   let stops = 0;
   let capped = false;
   const uncompared = [];
-  const fails = { '2.4.7': 0, '2.4.11': 0, '2.4.12': 0 };
+  const small = []; // stops under 44 px for a person
+  const fails = { '2.4.7': 0, '2.4.11': 0, '2.4.12': 0, '2.5.5': 0 };
   const gap = (node, why, sc, goal, level) => {
     (node.gaps ||= []).push([why, sc, goal]);
     (model.levels ||= {})[sc] = level;
@@ -112,6 +125,12 @@ export function focusWatch(page, cdp, model, root, notes) {
       if (now.covered) {
         gap(node, `With focus, a part of this control is under other content (${now.by}).`, '2.4.12', 'No part of a control with focus is hidden', 'AAA');
       }
+      const [w, h] = [Math.round(now.w), Math.round(now.h)];
+      if (!w || !h) small.push(nameOf(node));
+      else if (w < TARGET || h < TARGET) {
+        if (now.person) small.push(nameOf(node));
+        else gap(node, `This control is ${w} × ${h} px; a target is at least ${TARGET} × ${TARGET} px.`, '2.5.5', 'A target is at least 44 by 44 px', 'AAA');
+      }
       const x = Math.max(0, now.x - PAD);
       const y = Math.max(0, now.y - PAD);
       const clip = { x, y, width: Math.min(state.vw, now.x + now.w + PAD) - x, height: Math.min(state.vh, now.y + now.h + PAD) - y };
@@ -127,10 +146,12 @@ export function focusWatch(page, cdp, model, root, notes) {
       pending = [];
       await cdp.send('Runtime.evaluate', { expression: CLEAR });
       if (uncompared.length) notes.push(`Focus not compared at ${uncompared.length} Tab stop(s): ${uncompared.slice(0, 10).join(', ')}${uncompared.length > 10 ? ', ...' : ''}`);
+      if (small.length) notes.push(`Target size for a person at ${small.length} Tab stop(s): ${small.slice(0, 10).join(', ')}${small.length > 10 ? ', ...' : ''}`);
       if (!stops) return;
       const partial = capped || walk !== 'pass';
       addCheck(model.checks, '2.4.7', fails['2.4.7'] ? 'fail' : partial || uncompared.length ? 'review' : 'pass', 'focus-visible');
       for (const sc of ['2.4.11', '2.4.12']) addCheck(model.checks, sc, fails[sc] ? 'fail' : partial ? 'review' : 'pass', 'focus-obscured');
+      addCheck(model.checks, '2.5.5', fails['2.5.5'] ? 'fail' : partial || small.length ? 'review' : 'pass', 'focus-target');
     },
   };
 }

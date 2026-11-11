@@ -378,7 +378,7 @@ export async function generate(url, opts = {}) {
     const walked = await tabWalk(page, cdp, nearestKept, root, notes, model, focus);
     addCheck(model.checks, '2.1.2', walked, 'tab-walk');
     await focus?.finish(walked);
-    if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model);
+    if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model, notes);
 
     const title = await page.title();
     const version = browser.version();

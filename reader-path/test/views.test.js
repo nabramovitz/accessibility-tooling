@@ -12,6 +12,7 @@ test('a page that reflows: the three views are in the model, in review, with no 
     { name: 'narrow', width: 320, height: 256 },
     { name: 'zoom', width: 640, height: 360 },
     { name: 'spacing', width: 1280, height: 720 },
+    { name: 'motion', width: 1280, height: 720 },
   ]);
   assert.ok(m.checks['1.4.10'].review.includes('view-narrow'));
   assert.ok(m.checks['1.4.4'].review.includes('view-zoom'));
@@ -46,6 +47,13 @@ test('text clipped only in a view is a gap of that view', async () => {
   assert.equal(gaps(m, '1.4.10').length, 1);
   assert.match(gaps(m, '1.4.10')[0][1], /clipped/);
   assert.deepEqual(gaps(m, '1.4.4'), []);
+});
+
+test('reduced motion: the animations that still run are named, and 2.3.3 is for a person', async () => {
+  const m = await generate(fixture('views/motion.html'));
+  assert.ok(m.notes.includes('Animations running: 2 in the default view, 1 with reduced motion asked (div#busy.spin)'), m.notes.join('\n'));
+  assert.deepEqual(m.checks['2.3.3'].review, ['view-motion']);
+  assert.deepEqual(gaps(m, '2.3.3'), []);
 });
 
 test('views: false reads the page in the default view only', async () => {

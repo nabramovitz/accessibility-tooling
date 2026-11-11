@@ -1,6 +1,7 @@
 // The page under more than one condition: a narrow window (1.4.10), the
-// layout of 200 % zoom (1.4.4) and the WCAG text spacing (1.4.12). Each
-// view is measured by a script in the page; no screenshot is taken. The
+// layout of 200 % zoom (1.4.4), the WCAG text spacing (1.4.12) and
+// reduced motion (2.3.3). Each view is measured by a script in the page;
+// no screenshot is taken. The
 // views run last in generate(): they change the layout, and the page is
 // not read again after them.
 import { addCheck } from './axe.js';
@@ -25,7 +26,16 @@ export const VIEW_LINES = {
   'view-narrow': { review: `Needs a person: in a window 320 px wide, content in a table, a grid, preformatted text or an image may scroll sideways; ${REST}` },
   'view-zoom': { review: `Needs a person: at 200 % zoom no text is newly clipped; ${REST}` },
   'view-spacing': { review: `Needs a person: with the WCAG text spacing no text is newly clipped; ${REST}` },
+  'view-motion': { review: 'Needs a person: animation from an interaction is not checked (nothing is pressed); the run notes count the animations that still run with reduced motion asked' },
 };
+
+// Runs in the page: the elements with an animation that runs now.
+const RUNNING = `(() => document.getAnimations().filter((a) => a.playState === 'running').map((a) => {
+  const t = a.effect && a.effect.target;
+  if (!t) return 'an animation';
+  return t.tagName.toLowerCase() + (t.id ? '#' + t.id : '') + (t.classList[0] ? '.' + t.classList[0] : '') + (a.effect.pseudoElement || '');
+}))()`;
+const MAX_MOVING = 10;
 
 // Runs in the page. With `base` it records the text boxes that are clipped
 // in the default view. Otherwise it marks (attribute MARK) the boxes that
@@ -79,7 +89,9 @@ async function take(cdp, nearestKept, i) {
   return nearestKept(node.backendNodeId);
 }
 
-export async function views(page, cdp, idleTime, opts, nearestKept, root, model) {
+const running = async (cdp) => (await cdp.send('Runtime.evaluate', { expression: RUNNING, returnByValue: true })).result.value || [];
+
+export async function views(page, cdp, idleTime, opts, nearestKept, root, model, notes) {
   const start = page.viewportSize();
   // After a change: the requests it caused, then two frames for the layout.
   const laid = async () => {
@@ -114,4 +126,18 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model)
   }
   await cdp.send('Runtime.evaluate', { expression: CLEAR });
   await page.setViewportSize(start);
+
+  // Reduced motion: never a pass or a fail here, as nothing is pressed;
+  // the counts are the evidence for a person.
+  await laid();
+  const before = await running(cdp);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await laid();
+  const still = await running(cdp);
+  await page.emulateMedia({ reducedMotion: null });
+  const names = [...new Set(still)];
+  const named = names.length ? ` (${names.slice(0, MAX_MOVING).join(', ')}${names.length > MAX_MOVING ? ', ...' : ''})` : '';
+  notes.push(`Animations running: ${before.length} in the default view, ${still.length} with reduced motion asked${named}`);
+  addCheck(model.checks, '2.3.3', 'review', 'view-motion');
+  model.views.push({ name: 'motion', ...start });
 }
