@@ -154,6 +154,19 @@ async function writePage(url, values) {
   console.log(`wrote ${join(out, 'index.html')} and ${join(out, 'model.json')}`);
 }
 
+// The options each command takes; --out is for all three.
+const PAGE_OPTIONS = ['out', 'storage-state', 'ignore-https-errors', 'wait-for', 'idle', 'settle', 'no-views'];
+const TAKES = {
+  'the page command': PAGE_OPTIONS,
+  crawl: [...PAGE_OPTIONS, 'max', 'urls', 'jobs'],
+  acr: ['out', 'base'],
+};
+function onlyOptions(values, command) {
+  for (const name of Object.keys(values)) {
+    if (!TAKES[command].includes(name)) throw usage(`--${name} does not apply to ${command}\n${USAGE}`);
+  }
+}
+
 try {
   const { values, positionals } = parseArgs({
     args: passed === undefined ? argv : JSON.parse(passed),
@@ -174,12 +187,15 @@ try {
   });
   if (positionals[0] === 'crawl') {
     if (positionals.length > 2 || (positionals.length === 1 && !values.urls)) throw usage(USAGE);
+    onlyOptions(values, 'crawl');
     await writeRun(positionals[1], values);
   } else if (positionals[0] === 'acr') {
     if (positionals.length < 2 || !values.out) throw usage(USAGE);
+    onlyOptions(values, 'acr');
     await writeAcr(positionals.slice(1), values);
   } else {
     if (positionals.length !== 1) throw usage(USAGE);
+    onlyOptions(values, 'the page command');
     await writePage(positionals[0], values);
   }
 } catch (e) {
