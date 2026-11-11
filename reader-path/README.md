@@ -103,6 +103,24 @@ above, `crawl` those and `--max`, `--urls` and `--jobs`, and `acr`
 `--out` and `--base`. An option from another command stops the
 command with a usage error.
 
+## Viewer
+
+`viewer/index.html` is the review page with no model in it. Open it
+in a browser (from a file or from a web server), choose a `model.json`
+that reader-path wrote, or drop it on the box. The page shows the
+model the same way the generated `index.html` does. Nothing is
+uploaded: the file is read in the browser and the page makes no
+requests. To refresh, run reader-path again and choose the new file.
+
+Until a file is chosen the page says "No model loaded". A file that
+is not a reader path model gets a plain message, and the page stays
+open for another file.
+
+`viewer/index.html` is built from `review/template.html`, the same
+template as the generated page. After a change to the template, run
+`node src/render.js` and commit the new file; a test fails when the
+two differ.
+
 ## Views
 
 After the tree, the axe-core rules and the Tab walk, the page is
