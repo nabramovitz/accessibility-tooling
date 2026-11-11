@@ -25,7 +25,7 @@ const VIEWS = [
 ];
 
 // The person's line for a view that is not a pass or a fail: what is left.
-const LITTLE = 'some text overlaps other text a little (see the run notes)';
+const LITTLE = 'some text overlaps other text a little or lies under a fixed or sticky box (see the run notes)';
 export const VIEW_LINES = {
   'view-narrow': { review: `Needs a person: in a window 320 px wide, content in a table, a grid, preformatted text or an image may scroll sideways, or ${LITTLE}` },
   'view-zoom': { review: `Needs a person: at 200 % zoom ${LITTLE}` },
@@ -46,8 +46,9 @@ const MAX_MOVING = 10;
 // line (Range client rects of each text node), cut to the boxes that
 // scroll or clip them, so text scrolled out of its box is not there; text
 // that is not shown is left out. Returns the pairs of boxes that overlap,
-// from different elements: [element, element, share of the smaller box],
-// or null with more than MAX boxes. Boxes of one text node, and of text in
+// from different elements: [element, element, share of the smaller box,
+// pinned], or null with more than MAX boxes. pinned: one of the two is in
+// a fixed or sticky box, so the text under it can scroll into view. Boxes of one text node, and of text in
 // one element, are lines of the same text and are not compared.
 const OVERLAPS = `
   const MAX = 10000;
@@ -70,6 +71,17 @@ const OVERLAPS = `
     };
     return of;
   })();
+  const pinnedOf = (() => {
+    const memo = new Map();
+    const of = (e) => {
+      if (!e || e === document.body || e === document.documentElement) return false;
+      if (memo.has(e)) return memo.get(e);
+      const v = /^(fixed|sticky)$/.test(getComputedStyle(e).position) || of(e.parentElement);
+      memo.set(e, v);
+      return v;
+    };
+    return of;
+  })();
   const boxes = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
@@ -83,7 +95,7 @@ const OVERLAPS = `
       let l = q.left, r = q.right, t = q.top, b = q.bottom;
       for (const c of clips) { l = Math.max(l, c.l); r = Math.min(r, c.r); t = Math.max(t, c.t); b = Math.min(b, c.b); }
       if (r - l < 2 || b - t < 2) continue;
-      boxes.push({ n, el, l, r, t, b, area: (r - l) * (b - t) });
+      boxes.push({ n, el, l, r, t, b, area: (r - l) * (b - t), pin: pinnedOf(el) });
     }
   }
   if (boxes.length > MAX) return null;
@@ -100,12 +112,13 @@ const OVERLAPS = `
       const [a, b2] = first ? [x.el, y.el] : [y.el, x.el];
       const share = (w >= 2 && h >= 2) ? (w * h) / Math.min(x.area, y.area) : 0;
       const old = pairs.get(a) || new Map();
-      old.set(b2, Math.max(old.get(b2) || 0, share));
+      const was = old.get(b2) || [0, false];
+      old.set(b2, [Math.max(was[0], share), was[1] || x.pin || y.pin]);
       pairs.set(a, old);
     }
   }
   const out = [];
-  for (const [a, m] of pairs) for (const [b2, share] of m) out.push([a, b2, share]);
+  for (const [a, m] of pairs) for (const [b2, [share, pin]] of m) out.push([a, b2, share, pin]);
   return out;
 `;
 
@@ -146,9 +159,11 @@ const MEASURE = `((mark, base, scroll, clear) => {
   const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
   const found = clipped.filter((e) => !before.has(e)).map((e) => [e, own(e) ? 'clipped' : 'cut']);
   const small = [];
-  for (const [a, b, share] of overlaps || []) {
+  const pinned = [];
+  for (const [a, b, share, pin] of overlaps || []) {
     if (share <= 0 || (seen.get(a) && seen.get(a).has(b))) continue;
-    if (share >= clear) found.push([a, 'overlap', describe(b)]);
+    if (pin) pinned.push(describe(a) + ' and ' + describe(b));
+    else if (share >= clear) found.push([a, 'overlap', describe(b)]);
     else small.push(describe(a) + ' and ' + describe(b));
   }
   const doc = document.scrollingElement;
@@ -163,7 +178,7 @@ const MEASURE = `((mark, base, scroll, clear) => {
     }
   }
   found.forEach(([e], i) => e.setAttribute(mark, String(i)));
-  return { found: found.map(([, kind, what]) => [kind, what || '']), small, capped: !overlaps };
+  return { found: found.map(([, kind, what]) => [kind, what || '']), small, pinned, capped: !overlaps };
 })`;
 
 const CLEAR = `(() => { delete window.__readerPathClipped; delete window.__readerPathOverlap; })()`;
@@ -249,7 +264,7 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
     if (view.size) await page.setViewportSize(view.size);
     const style = view.css ? await page.addStyleTag({ content: view.css }) : null;
     await laid();
-    const { found = [], small = [], capped } = await call(cdp, [MARK, false, !!view.scroll, CLEAR_SHARE]);
+    const { found = [], small = [], pinned = [], capped } = await call(cdp, [MARK, false, !!view.scroll, CLEAR_SHARE]);
     const kinds = found.map(([k]) => k);
     const id = `view-${view.name}`;
     let named = 0;
@@ -270,8 +285,9 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
     if (fails) (model.levels ||= {})[view.sc] = 'AA';
     // A pass needs that nothing was left for a person: no content that may
     // scroll sideways (exempt), no small overlap, text compared.
-    const left = kinds.includes('exempt') || small.length || capped;
+    const left = kinds.includes('exempt') || small.length || pinned.length || capped;
     if (small.length) notes.push(`Text overlaps a little ${view.at}, not in the default view: ${small.slice(0, MAX_NAMED).join('; ')}${small.length > MAX_NAMED ? '; ...' : ''}`);
+    if (pinned.length) notes.push(`Text under a fixed or sticky box ${view.at} (it can scroll into view), for a person: ${pinned.slice(0, MAX_NAMED).join('; ')}${pinned.length > MAX_NAMED ? '; ...' : ''}`);
     if (capped) notes.push(`Overlap not checked ${view.at}: more than 10000 text boxes`);
     addCheck(model.checks, view.sc, fails ? 'fail' : left ? 'review' : 'pass', id);
     model.views.push({ name: view.name, ...size });
