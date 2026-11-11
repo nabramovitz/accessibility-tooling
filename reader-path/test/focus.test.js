@@ -56,6 +56,14 @@ test('every Tab stop 44 px or more: 2.5.5 passes', async () => {
   assert.deepEqual(m.checks['2.5.5'].pass, ['focus-target']);
 });
 
+test('a skip link shown only with focus is compared; a stop moved by a scroll is not', async () => {
+  const m = await generate(fixture('focus/skip.html'));
+  assert.deepEqual(gapsOf(m, '2.4.7'), []);
+  const note = m.notes.find((n) => n.startsWith('Focus not compared'));
+  assert.ok(note && note.includes('Scroll A'), String(note));
+  assert.ok(!note.includes('Skip to content'), note);
+});
+
 test('views: false takes no focus measure', async () => {
   const m = await generate(fixture('focus/visible.html'), { views: false });
   assert.equal(m.checks['2.4.7'], undefined);
