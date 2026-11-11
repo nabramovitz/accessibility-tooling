@@ -40,7 +40,7 @@ const MEASURE = `(() => {
     if (e.tagName === 'IMG') {
       const src = e.currentSrc || e.src || '';
       const raster = src && !/^data:image\\/svg|\\.svg([?#]|$)/i.test(src);
-      if (raster && box.height >= 10 && box.width > ${WIDE} * box.height) out.images.push([name(e), Math.round(box.width) + ' × ' + Math.round(box.height) + ' px']);
+      if (raster && box.height > 0 && box.width > ${WIDE} * box.height) out.images.push([name(e), Math.round(box.width) + ' × ' + Math.round(box.height) + ' px']);
     } else if (!text && /url\\(/.test(cs.backgroundImage) && box.width > 0 && box.height > 0) {
       out.backgrounds.push([name(e)]);
     }
