@@ -112,7 +112,10 @@ measured in four more views, on the same load:
 
 In each view, text in a box that cuts it (`overflow: hidden` or `clip`)
 is a gap when it is not cut in the default view; text that is always
-cut (an ellipsis) is not a finding of these rows. In the narrow view,
+cut (an ellipsis) is not a finding of these rows. The gap says "Text is
+clipped" when the box holds the text itself, and "This box cuts off its
+content" when the text is in its children (a container, such as a page
+area with `overflow: hidden`). In the narrow view,
 a document that scrolls sideways is a gap on the content that is wider
 than the window, unless that content is a table, a grid, preformatted
 text, an image, a canvas, an SVG or a video (then a person looks).
