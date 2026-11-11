@@ -416,6 +416,23 @@ test('a view that passed beside an axe pass: supports', () => {
   assert.equal(adh(rows, '1.4.12').level, 'supports');
 });
 
+test('a dark-mode fail beside an axe pass: partially-supports', () => {
+  const m = model({ '1.4.3': entry({ pass: ['color-contrast'], fail: ['view-dark'] }) }, {
+    root: { r: 'document', t: 'Home', c: [{ r: 'paragraph', t: 'Dim', gaps: [['In dark mode: Element has insufficient color contrast of 1.8', '1.4.3', 'Elements must meet minimum color contrast ratio thresholds']] }] },
+  });
+  const rows = proposeRows([m], catalog);
+  assert.equal(adh(rows, '1.4.3').level, 'partially-supports');
+  assert.ok(lines(rows, '1.4.3').some((l) => /^Failing rules: view-dark on 1 of 1 page/.test(l)));
+  assert.ok(lines(rows, '1.4.3').some((l) => /In dark mode: Element has insufficient color contrast of 1\.8/.test(l)));
+});
+
+test('a dark-mode review: not-evaluated, with a line for a person', () => {
+  const rows = proposeRows([model({ '1.4.3': entry({ pass: ['color-contrast', 'view-dark'], review: ['view-dark'] }) })], catalog);
+  assert.equal(adh(rows, '1.4.3').level, 'not-evaluated');
+  assert.ok(lines(rows, '1.4.3').some((l) => /^Needs a person: in dark mode axe-core could not decide the contrast of some text/.test(l)));
+  assert.ok(!adh(rows, '1.4.3').notes.includes('axe-core could not decide (view-dark)'));
+});
+
 test('focus measures: a pass supports the row, a review names what a person looks at', () => {
   const pass = proposeRows([model({ '2.4.7': entry({ pass: ['focus-visible'] }) })], catalog);
   assert.equal(adh(pass, '2.4.7').level, 'supports');

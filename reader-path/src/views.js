@@ -1,11 +1,11 @@
 // The page under more than one condition: a narrow window (1.4.10), the
-// layout of 200 % zoom (1.4.4), the WCAG text spacing (1.4.12) and
-// reduced motion (2.3.3). Each view is measured by a script in the page;
+// layout of 200 % zoom (1.4.4), the WCAG text spacing (1.4.12), the dark
+// colour scheme (1.4.3, 1.4.6) and reduced motion (2.3.3). Each view is measured by a script in the page;
 // no screenshot is taken. The
 // views run last in generate(): they change the layout, and the page is
 // not read again after them.
-import { addCheck } from './axe.js';
-import { ready } from './generate.js';
+import { addCheck, axeToChecks, axeToGaps } from './axe.js';
+import { ready, placeTarget } from './generate.js';
 
 const MARK = 'data-reader-path-view';
 const MAX_NAMED = 20;
@@ -30,6 +30,7 @@ export const VIEW_LINES = {
   'view-narrow': { review: `Needs a person: in a window 320 px wide, content in a table, a grid, preformatted text or an image may scroll sideways, or ${LITTLE}` },
   'view-zoom': { review: `Needs a person: at 200 % zoom ${LITTLE}` },
   'view-spacing': { review: `Needs a person: with the WCAG text spacing ${LITTLE}` },
+  'view-dark': { review: 'Needs a person: in dark mode axe-core could not decide the contrast of some text (see the run notes)' },
   'view-motion': { review: 'Needs a person: animation from an interaction is not checked (nothing is pressed); the run notes count the animations that still run with reduced motion asked' },
 };
 
@@ -183,6 +184,55 @@ async function take(cdp, nearestKept, i) {
   return nearestKept(node.backendNodeId);
 }
 
+// Runs in the page: the colours of the root, the body and the first 200
+// elements, to see whether the page answers the dark colour scheme.
+const COLOURS = `(() => [document.documentElement, document.body, ...[...document.body.querySelectorAll('*')].slice(0, 200)]
+  .map((e) => { const c = getComputedStyle(e); return c.color + '|' + c.backgroundColor + '|' + c.borderTopColor; }).join(';'))()`;
+const DARK_RULES = { type: 'rule', values: ['color-contrast', 'color-contrast-enhanced'] };
+const DARK_ROWS = ['1.4.3', '1.4.6'];
+
+// The dark view: the colours of the default scheme and of the dark one. A
+// page whose colours do not change has no dark mode (a note, no check).
+// Otherwise only the two contrast rules run, and their results are the
+// checks `view-dark` of the rows 1.4.3 and 1.4.6. A fail is the gap of the
+// node, with the colours and the ratio as axe-core gives them.
+async function dark(page, cdp, nearestKept, root, model, notes, laid) {
+  const light = (await cdp.send('Runtime.evaluate', { expression: COLOURS, returnByValue: true })).result.value;
+  await page.emulateMedia({ colorScheme: 'dark' });
+  try {
+    await laid();
+    const changed = (await cdp.send('Runtime.evaluate', { expression: COLOURS, returnByValue: true })).result.value !== light;
+    if (!changed) {
+      notes.push('The page has no dark mode');
+      return;
+    }
+    let results;
+    try {
+      results = await page.evaluate((runOnly) => axe.run(document, { runOnly }), DARK_RULES);
+    } catch (e) {
+      const why = String(e.message).split(/\r?\n/)[0].replace(/^(?:page\.)?evaluate: (?:\w*Error: )?/, '');
+      notes.push(`axe-core did not run in dark mode: ${why}`);
+      for (const sc of DARK_ROWS) addCheck(model.checks, sc, 'review', 'view-dark');
+      return;
+    }
+    for (const [sc, lists] of Object.entries(axeToChecks(results))) {
+      for (const list of ['pass', 'fail', 'review']) if (lists[list].length) addCheck(model.checks, sc, list, 'view-dark');
+    }
+    for (const g of axeToGaps(results)) {
+      let node = await placeTarget(cdp, nearestKept, g.target);
+      let why = `In dark mode: ${g.why}`;
+      if (!node) {
+        node = root;
+        why = `In dark mode: not placed: ${g.target.map((t) => [].concat(t).join(' ')).join(' > ')} - ${g.why}`;
+      }
+      (node.gaps ||= []).push([why, g.sc, g.goal]);
+      (model.levels ||= {})[g.sc] = g.level;
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: null });
+  }
+}
+
 const running = async (cdp) => (await cdp.send('Runtime.evaluate', { expression: RUNNING, returnByValue: true })).result.value || [];
 
 export async function views(page, cdp, idleTime, opts, nearestKept, root, model, notes) {
@@ -229,6 +279,10 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
   }
   await cdp.send('Runtime.evaluate', { expression: CLEAR });
   await page.setViewportSize(start);
+
+  await laid();
+  await dark(page, cdp, nearestKept, root, model, notes, laid);
+  model.views.push({ name: 'dark', ...start });
 
   // Reduced motion: never a pass or a fail here, as nothing is pressed;
   // the counts are the evidence for a person.

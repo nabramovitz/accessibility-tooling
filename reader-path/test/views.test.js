@@ -12,6 +12,7 @@ test('a page that reflows: the views are in the model, and the three rows pass, 
     { name: 'narrow', width: 320, height: 256 },
     { name: 'zoom', width: 640, height: 360 },
     { name: 'spacing', width: 1280, height: 720 },
+    { name: 'dark', width: 1280, height: 720 },
     { name: 'motion', width: 1280, height: 720 },
   ]);
   assert.ok(m.checks['1.4.10'].pass.includes('view-narrow'));
@@ -104,6 +105,51 @@ test('hidden text and text scrolled out of its box do not overlap', async () => 
   for (const sc of VIEW_ROWS) assert.deepEqual(gaps(m, sc), [], sc);
   assert.ok(m.checks['1.4.4'].pass.includes('view-zoom'));
   assert.ok(!m.notes.some((n) => /overlaps a little/.test(n)));
+});
+
+test('low contrast only in dark mode: a gap that says so, on both contrast rows', async () => {
+  const m = await generate(fixture('views/dark-low.html'));
+  assert.ok(m.checks['1.4.3'].fail.includes('view-dark'));
+  assert.ok(m.checks['1.4.6'].fail.includes('view-dark'));
+  // The default view passes: the page in light colours is fine.
+  assert.ok(m.checks['1.4.3'].pass.includes('color-contrast'));
+  assert.ok(!m.checks['1.4.3'].fail.includes('color-contrast'));
+  // axe-core reports the enhanced rule only for text that passes the
+  // 4.5 to 1 minimum, so the two rows name different text.
+  const dark = (sc) => gaps(m, sc).filter((g) => /^In dark mode: /.test(g[1]));
+  assert.ok(dark('1.4.3').length >= 1);
+  assert.match(dark('1.4.3')[0][1], /contrast of \d\.\d+ \(foreground color: #555555, background color: #222222/);
+  assert.equal(dark('1.4.6').length, 1);
+  assert.match(dark('1.4.6')[0][1], /contrast of 5\.\d+ \(foreground color: #999999, background color: #222222/);
+  assert.ok(!m.notes.includes('The page has no dark mode'));
+});
+
+test('good colours in dark mode: both rows pass, no gap', async () => {
+  const m = await generate(fixture('views/dark-good.html'));
+  assert.ok(m.checks['1.4.3'].pass.includes('view-dark'));
+  assert.ok(m.checks['1.4.6'].pass.includes('view-dark'));
+  assert.deepEqual(gaps(m, '1.4.3'), []);
+  assert.deepEqual(gaps(m, '1.4.6'), []);
+});
+
+test('a page with no dark styles: a run note and no check', async () => {
+  const m = await generate(fixture('views/dark-none.html'));
+  assert.ok(m.notes.includes('The page has no dark mode'));
+  for (const sc of ['1.4.3', '1.4.6']) {
+    for (const list of ['pass', 'fail', 'review']) assert.ok(!(m.checks[sc]?.[list] || []).includes('view-dark'), `${sc} ${list}`);
+  }
+  assert.ok(m.views.some((v) => v.name === 'dark'));
+});
+
+test('the dark view comes after spacing and before motion', async () => {
+  const m = await generate(fixture('views/dark-low.html'));
+  assert.deepEqual(m.views.map((v) => v.name), ['narrow', 'zoom', 'spacing', 'dark', 'motion']);
+});
+
+test('views: false has no dark view', async () => {
+  const m = await generate(fixture('views/dark-low.html'), { views: false });
+  assert.equal(m.views, undefined);
+  assert.ok(!m.checks['1.4.3']?.fail.includes('view-dark'));
 });
 
 test('views: false reads the page in the default view only', async () => {

@@ -148,6 +148,27 @@ export async function addAxe(frames, notes) {
   }
 }
 
+// The nearest kept node of an axe-core target (one selector, or a path
+// through shadow roots), or undefined when it cannot be placed.
+export async function placeTarget(cdp, nearestKept, target) {
+  if (target.length !== 1) return undefined;
+  try {
+    const path = [].concat(target[0]);
+    const { result } = await cdp.send('Runtime.evaluate', {
+      expression: `(() => { const p = ${JSON.stringify(path)};
+        let e = document.querySelector(p[0]);
+        for (const s of p.slice(1)) e = e && e.shadowRoot && e.shadowRoot.querySelector(s);
+        return e; })()`,
+      objectGroup: 'axe',
+    });
+    if (!result.objectId) return undefined;
+    const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
+    return nearestKept(node.backendNodeId);
+  } catch {
+    return undefined;
+  }
+}
+
 // Runs axe-core and puts gaps (node.gaps) and contrast (node.contrast) on the
 // nearest kept node. A target that cannot be placed is a gap on the root.
 // When axe-core does not run, a note says why and the model has no gaps.
@@ -170,24 +191,7 @@ async function axePass(page, cdp, nearestKept, root, model, notes) {
     for (const [list, ids] of Object.entries(lists)) ids.forEach((id) => addCheck(model.checks, sc, list, id));
   }
 
-  const place = async (target) => {
-    if (target.length !== 1) return undefined;
-    try {
-      const path = [].concat(target[0]);
-      const { result } = await cdp.send('Runtime.evaluate', {
-        expression: `(() => { const p = ${JSON.stringify(path)};
-          let e = document.querySelector(p[0]);
-          for (const s of p.slice(1)) e = e && e.shadowRoot && e.shadowRoot.querySelector(s);
-          return e; })()`,
-        objectGroup: 'axe',
-      });
-      if (!result.objectId) return undefined;
-      const { node } = await cdp.send('DOM.describeNode', { objectId: result.objectId });
-      return nearestKept(node.backendNodeId);
-    } catch {
-      return undefined;
-    }
-  };
+  const place = (target) => placeTarget(cdp, nearestKept, target);
 
   for (const g of axeToGaps(results)) {
     let node = await place(g.target);
