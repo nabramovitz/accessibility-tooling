@@ -75,13 +75,19 @@ h1{font-size:17px;margin:0 0 2px} .meta{margin:0 0 6px;overflow-wrap:anywhere} .
 .lnk{font:inherit;color:var(--acc);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
 button:focus-visible,summary:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* The viewer: choose or drop a model file. */
+.load{margin:8px 0;padding:10px 12px;border:2px dashed var(--bd);border-radius:10px;max-width:110ch} .load.over{border-color:var(--acc);background:var(--sel)}
+.load h2{font-size:14px;margin:0 0 4px} .load p{margin:4px 0} #file{font:inherit;color:var(--fg)}
+#loadmsg{font-weight:600} #loadmsg.bad{color:var(--err)}
+input:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
 summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
 </style>
 </head>
 <body>
 <header>
   <h1>Reader path model: {{TITLE}}</h1>
-  <p class="mut meta">{{URL}} · generated {{GENERATED}}</p>
+  <p class="mut meta">{{META}}</p>
+  {{LOAD}}
   <section class="sub" aria-labelledby="how"><h2 id="how">How to read this page</h2>
     <p>A box is one part of the page as the browser gives it to assistive technology. It shows what a screen reader gets there: the role, the accessible name, the description and the state. Select a box to see its content on the right.</p>
     <p>Each path button shows the same boxes in a different view. Structure shows the boxes inside each other. Reading order, Tab order and Headings number the boxes and join them with arrows. Landmarks marks the page regions. Messages shows the message boxes. Gaps shows the boxes that have a gap at the chosen level. Actions and results (what a control does) and the events in Messages are filled by a later version; a view with nothing in this model says "none in this model".</p>
@@ -104,12 +110,18 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
   <section id="det" tabindex="0" aria-label="Content of the selected box"></section>
 </main>
 <div id="say" class="sr" role="status"></div>
-<script type="application/json" id="model">{{MODEL}}</script>
+{{MODELBLOCK}}
 <script>
-// ---- The model. Read from the JSON block in this page. ----
+// ---- The model. Read from the JSON block in this page, or in the viewer from a file the person chooses. ----
 // t title on the map · comp component (custom element tag, else the role) · role/name/desc/state = what the browser gives now · tab = Tab position
 // h heading level · lm landmark · box message box · gaps: [why, source, goal, row]. source = a WCAG 2.2 success criterion, or 'rule' (our rule: comparable information).
-const MODEL = JSON.parse(document.getElementById('model').textContent);
+const $ = s => document.querySelector(s);
+function boot(MODEL){
+$('#modes').querySelectorAll('button').forEach(b => b.remove()); $('#goal').querySelectorAll('button').forEach(b => b.remove()); $('#levels').querySelectorAll('button').forEach(b => b.remove());
+$('#notes').hidden = true; $('#notes ul').textContent = ''; $('#svg').querySelectorAll(':scope > :not(defs)').forEach(x => x.remove());
+$('#map').querySelectorAll(':scope > [data-id]').forEach(x => x.remove());
+$('h1').textContent = 'Reader path model: ' + (MODEL.title || MODEL.url || 'untitled page'); document.title = $('h1').textContent;
+$('.meta').textContent = (MODEL.url || '') + ' · generated ' + (MODEL.generated || '');
 const M = MODEL.root;
 const LV = {...(MODEL.levels || {}), rule:'rule'};
 // A leaf has no children: drop the empty list the generator writes.
@@ -117,7 +129,7 @@ const LV = {...(MODEL.levels || {}), rule:'rule'};
 
 
 // ---- Drawing. Sketch code. ----
-const $ = s => document.querySelector(s), map = $('#map'), det = $('#det'), svg = $('#svg');
+const map = $('#map'), det = $('#det'), svg = $('#svg');
 const byId = {}, order = [], parent = {}, parts = {}; // parts: id -> { d, pick, gc, bdg }
 (function walk(n, p, d){ byId[n.id] = n; n.depth = d; parent[n.id] = p; order.push(n); (n.c||[]).forEach(c => walk(c, n, d+1)); })(M, null, 0);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -154,14 +166,14 @@ function el(n){
 map.append(el(M));
 const shut = (d, b) => { d.classList.toggle('closed', b); const t = d.querySelector('.tg'); t.textContent = b ? '▸' : '▾'; t.setAttribute('aria-expanded', !b); };
 const dom = id => parts[id].d;
-map.addEventListener('click', e => {
+map.onclick = e => {
   const box = e.target.closest('[data-id]'); if (!box) return;
   if (e.target.closest('.tg')) shut(box, !box.classList.contains('closed'));
   else if (e.target.closest('.pick')) { sel = box.dataset.id; $('#say').textContent = 'Content shown for ' + byId[sel].t; }
   else return;
   e.stopPropagation(); paint();
-});
-det.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } });
+};
+det.onclick = e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } };
 function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
 let depth = 3;
 function setLevel(k){ depth = k; order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
@@ -241,8 +253,48 @@ Object.entries(PATHS).forEach(([k, p]) => btn('#modes', p.l, () => { mode = k; }
 btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
 btn('#goal', 'Only the chosen level', () => { only = !only; }, {only:1});
 [['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k), {k}));
-let resized; addEventListener('resize', () => { clearTimeout(resized); resized = setTimeout(paint, 100); }); setLevel(3);
+let resized; onresize = () => { clearTimeout(resized); resized = setTimeout(paint, 100); }; setLevel(3);
 if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
+}
+
+// ---- Start. The generated page has its model in the page; the viewer has none and waits for a file. ----
+const block = document.getElementById('model');
+if (block) boot(JSON.parse(block.textContent));
+else {
+  const SHOW = ['#sum', '#modes', '#goal', '#levels', 'main'], msg = $('#loadmsg'), zone = $('.load'), say = (t, bad) => { msg.textContent = t; msg.classList.toggle('bad', !!bad); };
+  const hide = b => SHOW.forEach(q => { $(q).hidden = b; });
+  // A model has a root box, and every box has an id, a title and a component; lists are lists.
+  const problem = m => {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return 'it is not a JSON object';
+    if (!m.root || typeof m.root !== 'object') return 'it has no root box';
+    const stack = [m.root];
+    while (stack.length) {
+      const n = stack.pop();
+      if (!n || typeof n !== 'object' || ['id', 't', 'comp'].some(k => typeof n[k] !== 'string')) return 'a box has no id, title or component';
+      if (n.c !== undefined && !Array.isArray(n.c)) return 'a box has a child list that is not a list';
+      if (n.gaps !== undefined && !(Array.isArray(n.gaps) && n.gaps.every(Array.isArray))) return 'a box has a gap list that is not a list';
+      stack.push(...(n.c || []));
+    }
+    return '';
+  };
+  const take = file => {
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onerror = () => { hide(true); say(file.name + ' could not be read.', 1); };
+    fr.onload = () => {
+      let m, why;
+      try { m = JSON.parse(fr.result); why = problem(m); } catch (e) { why = 'it is not JSON'; }
+      if (!why) { try { boot(m); hide(false); say('Loaded ' + file.name + '.'); return; } catch (e) { why = 'its content could not be shown'; } }
+      hide(true); say(file.name + ' is not a reader path model: ' + why + '. Choose the model.json that reader-path wrote.', 1);
+    };
+    fr.readAsText(file);
+  };
+  $('#file').onchange = e => { take(e.target.files[0]); };
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add('over'); };
+  zone.ondragleave = () => zone.classList.remove('over');
+  zone.ondrop = e => { e.preventDefault(); zone.classList.remove('over'); take(e.dataTransfer.files[0]); };
+  hide(true);
+}
 </script>
 </body>
 </html>
