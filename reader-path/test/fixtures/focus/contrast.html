@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Non-text contrast</title>
+<style>body{font:16px sans-serif;margin:30px;background:#fff} div{margin:24px 0}
+input{width:160px;height:30px;box-sizing:border-box;background:#fff;outline:none;padding:0 4px}
+input:focus,button:focus{outline:2px solid #000}
+#dark{border:1px solid #595959} #pale{border:1px solid #ccc} #mid{border:1px solid #a0a0a0}
+button{width:36px;height:36px;padding:0;border:0;background:#fff}
+svg{width:20px;height:20px}</style></head>
+<body><main><h1>Non-text contrast</h1>
+<div><input id="dark" type="text" aria-label="Dark border"></div>
+<div><input id="pale" type="text" aria-label="Pale border"></div>
+<div><input id="mid" type="text" aria-label="Middle border"></div>
+<div><button aria-label="Dark icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#000"/></svg></button></div>
+<div><button aria-label="Pale icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#ddd"/></svg></button></div>
+</main></body></html>
