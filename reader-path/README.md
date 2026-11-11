@@ -157,7 +157,7 @@ to disk. The rule ids are `focus-visible`, `focus-obscured` and
 ## Crawl: a run over a site
 
 ```
-bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [page options]
+bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--jobs <n>] [page options]
 ```
 
 This finds the pages of a site from `<url>` by their links, breadth
@@ -189,6 +189,12 @@ crawl looks for links and when it reads the page. An element named by
 - `--max <n>`: the most pages to read. The default is 100.
 - `--urls <file>`: one URL a line; the crawl reads these and finds no
   others.
+- `--jobs <n>`: read this many pages at the same time, each in its own
+  browser. The default is 1. The pages in `run.json` keep the order in
+  which they were found. More jobs put more load on the computer and
+  on the site, so a page can seem done while it still loads: look in
+  the models for a "Loading" status before you use the numbers. When a
+  page fails, no new page starts.
 
 Then `bun cli.js acr <dir>/pages/*/model.json --out <file.yaml>`
 writes the report for the run.
