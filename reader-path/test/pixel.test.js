@@ -53,3 +53,13 @@ test('views: false takes no pixel measure', async () => {
   assert.equal(m.checks['2.4.13'], undefined);
   assert.equal(m.checks['1.4.11'], undefined);
 });
+
+test('2.4.13: a focus ring cut off by the window edge or a clipping box is a gap that names the cause', async () => {
+  const m = await generate(fixture('focus/cut.html'));
+  assert.deepEqual(gapsOf(m, '2.4.13').sort(), ['Clipped button', 'Edge link']);
+  const why = (name) => flat(m).find((n) => n.name === name).gaps.find((g) => g[1] === '2.4.13')[0];
+  assert.match(why('Edge link'), /^The focus outline is cut off by the left edge of the window: \d+ of \d+ px² show\. Draw it inside the control \(a negative outline-offset\)\.$/);
+  assert.match(why('Clipped button'), /^The focus outline is cut off by section\.box \(overflow\): \d+ of \d+ px² show\. Draw it inside the control \(a negative outline-offset\)\.$/);
+  const note = m.notes.find((n) => n.startsWith('Focus appearance for a person')) || '';
+  assert.ok(!note.includes('inset'), note);
+});

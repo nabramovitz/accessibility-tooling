@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Focus ring cut off</title>
+<style>body{font:16px sans-serif;margin:0;background:#fff} main{margin:0 0 0 260px;padding:20px}
+nav{position:absolute;left:0;top:80px;width:200px}
+a,button{display:block;width:200px;height:40px;margin:0 0 12px;color:#000;background:#fff;border:0;padding:0 12px;box-sizing:border-box;text-align:left;font:inherit}
+a:focus-visible,button:focus-visible{outline:2px solid #000;outline-offset:2px}
+.inset:focus-visible{outline-offset:-2px}
+.box{overflow:hidden;border:1px solid #888;width:300px;margin:30px 0}
+.box button{width:300px}</style></head>
+<body><nav aria-label="Side"><a href="#e" aria-label="Edge link">Edge</a><a href="#i" class="inset" aria-label="Edge link inset">Inset</a></nav>
+<main><h1>Focus ring cut off</h1>
+<section class="box"><button aria-label="Clipped button">Clipped</button></section>
+<section class="box"><button class="inset" aria-label="Clipped button inset">Inset</button></section>
+</main></body></html>

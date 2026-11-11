@@ -69,7 +69,23 @@ const STATE = `((ids) => {
   const person = inline || native || !!(e.labels && e.labels.length);
   const icon = (e.tagName === 'BUTTON' || e.tagName === 'A' || /^(button|link)$/.test(e.getAttribute('role') || '')) && !e.innerText.trim();
   const kind = (e.tagName === 'INPUT' && text && !e.isContentEditable) || e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' ? 'input' : icon ? 'icon' : '';
-  out.now = { ...b, text, kind, points, covered, by, person, scroll: scroll(e) };
+  // Where the outline should be drawn, and what cuts it off: an edge of
+  // the window, or an ancestor that scrolls or clips its content.
+  const ow = parseFloat(cs.outlineWidth) || 0;
+  const grow = cs.outlineStyle !== 'none' && ow ? (parseFloat(cs.outlineOffset) || 0) + ow : 0;
+  const ring = { l: b.x - grow, t: b.y - grow, r: b.x + b.w + grow, b: b.y + b.h + grow };
+  let cut = ring.l < -0.5 ? 'the left edge of the window' : ring.t < -0.5 ? 'the top edge of the window'
+    : ring.r > innerWidth + 0.5 ? 'the right edge of the window' : ring.b > innerHeight + 0.5 ? 'the bottom edge of the window' : '';
+  for (let p = e.parentElement; !cut && p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const ps = getComputedStyle(p);
+    const cx = ps.overflowX !== 'visible'; const cy = ps.overflowY !== 'visible';
+    if (!cx && !cy) continue;
+    const r = p.getBoundingClientRect(); const l = r.left + p.clientLeft; const t = r.top + p.clientTop;
+    if ((cx && (ring.l < l - 0.5 || ring.r > l + p.clientWidth + 0.5)) || (cy && (ring.t < t - 0.5 || ring.b > t + p.clientHeight + 0.5))) {
+      cut = p.tagName.toLowerCase() + (p.id ? '#' + p.id : '') + (p.classList[0] ? '.' + p.classList[0] : '') + ' (overflow)';
+    }
+  }
+  out.now = { ...b, text, kind, points, covered, by, person, cut, scroll: scroll(e) };
   return out;
 })`;
 
@@ -100,12 +116,16 @@ export function focusWatch(page, cdp, model, root, notes) {
   const pixels = async (last, focused, unfocused) => {
     const name = nameOf(last.node);
     const geom = { clip: last.clip, box: { x: last.box.x, y: last.box.y, w: last.box.w, h: last.box.h }, kind: last.box.kind };
+    const cutGap = (px) => gap(last.node, `The focus outline is cut off by ${last.box.cut}: ${Math.round(px.strong / (px.scale * px.scale))} of ${Math.round(px.perimeter / (px.scale * px.scale))} px² show. Draw it inside the control (a negative outline-offset).`, '2.4.13', 'A focus indicator is at least a 2 px perimeter, at 3 : 1 against the unfocused look', 'AAA');
     const px = await measurePixels(page, focused, unfocused, geom);
     if (!px) { look.push(name); if (last.box.kind) edge.push(name); return; }
     if (focused) {
       const verdict = judgeAppearance(px);
       const sq = px.scale * px.scale;
-      if (verdict === 'fail') {
+      // A ring that something cuts off is short for a known reason: a gap
+      // that names the cause, not a stop for a person.
+      if (verdict !== 'pass' && last.box.cut) cutGap(px);
+      else if (verdict === 'fail') {
         gap(last.node, `With focus, the visible change is ${Math.round(px.strong / sq)} px² at ${NEED} : 1 or more; a 2 px perimeter of the control is ${Math.round(px.perimeter / sq)} px².`, '2.4.13', 'A focus indicator is at least a 2 px perimeter, at 3 : 1 against the unfocused look', 'AAA');
       } else if (verdict === 'review') look.push(name);
     } else look.push(name);
