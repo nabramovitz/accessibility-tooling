@@ -16,7 +16,7 @@ import { mkdtempSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { discover } from '../src/crawl.js';
+import { discover, inPool } from '../src/crawl.js';
 import { fixture } from './helpers.js';
 
 const run = promisify(execFile);
@@ -149,6 +149,50 @@ test('--urls takes the list from a file and skips discovery', async () => {
   await run('node', [CLI, 'crawl', '--urls', list, '--out', out, '--settle', '300']);
   const runJson = JSON.parse(readFileSync(join(out, 'run.json'), 'utf8'));
   assert.deepEqual(runJson.pages.map((p) => p.shape), ['a.html', 'hidden.html']);
+});
+
+test('inPool runs at most n at a time and keeps the order of the items', async () => {
+  let now = 0;
+  let most = 0;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = await inPool([30, 10, 20, 5, 15], 2, async (ms) => {
+    most = Math.max(most, ++now);
+    await wait(ms);
+    now--;
+    return ms * 2;
+  });
+  assert.deepEqual(out, [60, 20, 40, 10, 30]);
+  assert.equal(most, 2);
+});
+
+test('inPool starts no new item after a failure, waits for the running ones, and throws', async () => {
+  const started = [];
+  let ended = 0;
+  await assert.rejects(inPool([1, 2, 3, 4], 2, async (x) => {
+    started.push(x);
+    await new Promise((r) => setTimeout(r, x === 1 ? 5 : 30));
+    if (x === 1) throw new Error('page 1 failed');
+    ended++;
+  }), /page 1 failed/);
+  assert.deepEqual(started, [1, 2]);
+  assert.equal(ended, 1);
+});
+
+test('--jobs reads pages at the same time and keeps the order of the list', async () => {
+  const out = tmp();
+  const list = join(out, 'urls.txt');
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(list, `${fixture('site/a.html')}
+${fixture('site/hidden.html')}
+${fixture('site/index.html')}
+`);
+  await run('node', [CLI, 'crawl', '--urls', list, '--out', out, '--no-views', '--jobs', '2']);
+  const runJson = JSON.parse(readFileSync(join(out, 'run.json'), 'utf8'));
+  assert.deepEqual(runJson.pages.map((p) => p.shape), ['a.html', 'hidden.html', 'index.html']);
+});
+
+test('--jobs takes a whole number above 0', async () => {
+  await assert.rejects(run('node', [CLI, 'crawl', SITE, '--jobs', '0']), (e) => /--jobs takes a whole number/.test(e.stderr));
 });
 
 test('crawl needs a url or --urls', async () => {

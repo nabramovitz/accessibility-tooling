@@ -89,14 +89,38 @@ export async function discover(start, opts = {}) {
   return { urls, skipped };
 }
 
+// Runs fn on each item, `jobs` at a time; the results keep the order of
+// the items. After a failure no new item starts; the running ones end,
+// then the first error is thrown.
+export async function inPool(items, jobs, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const i = next++;
+      try {
+        out[i] = await fn(items[i]);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  const ends = await Promise.allSettled(Array.from({ length: Math.min(jobs, items.length) }, worker));
+  const bad = ends.find((r) => r.status === 'rejected');
+  if (bad) throw bad.reason;
+  return out;
+}
+
 // The run: discover (or take `opts.urls`), read every page, write the run
 // folder. A page that moved to another page of the run is dropped.
+// `opts.jobs`: the pages read at the same time (default 1).
 export async function crawl(start, opts = {}) {
   const out = opts.out ?? 'reader-path-run';
   const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [] } : await discover(start, opts);
   const base = dirOf(start ?? found.urls[0]);
-  const models = [];
-  for (const url of found.urls) models.push(await generate(url, opts));
+  const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, opts));
   const urls = new Set(models.map((m) => m.url));
   const dropped = models.filter((m) => m.finalUrl !== m.url && urls.has(m.finalUrl));
   const kept = models.filter((m) => !dropped.includes(m));
