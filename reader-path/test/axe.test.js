@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generate, addAxe } from '../src/generate.js';
@@ -40,6 +41,11 @@ test('gaps are placed on their nodes', async () => {
   const btn = all.find((n) => n.role === 'button' && n.gaps?.some((g) => g[1] === '4.1.2'));
   assert.ok(btn);
   assert.equal(m.levels['1.1.1'], 'A');
+});
+
+test('the model names the axe-core version that ran', async () => {
+  const m = await generate(fixture('gaps.html'));
+  assert.equal(m.axeVersion, createRequire(import.meta.url)('axe-core/package.json').version);
 });
 
 test('contrast values are on text nodes', async () => {

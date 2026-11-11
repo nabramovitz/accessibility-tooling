@@ -184,6 +184,17 @@ test('a file: page is named by its file name only', () => {
   assert.ok(!adh(rows, '1.1.1').notes.includes('someone'));
 });
 
+test('the report names the axe-core version the models ran with', () => {
+  const text = (ms) => buildReport(ms, null, catalog, OPTS).report.evaluation_methods_used;
+  assert.match(text([model({}, { axeVersion: '4.9.1' })]), /and axe-core 4\.9\.1 in/);
+  assert.match(text([model({}, { axeVersion: '4.9.1' }), model({}, { axeVersion: '4.9.1' })]), /and axe-core 4\.9\.1 in/);
+  assert.match(text([model({}, { axeVersion: '4.9.1' }), model({}, { axeVersion: '4.10.2' })]), /and axe-core 4\.9\.1 and 4\.10\.2 in/);
+});
+
+test('a model without an axe-core version falls back to the installed one', () => {
+  assert.match(buildReport([model({})], null, catalog, OPTS).report.evaluation_methods_used, /and axe-core 4 in/);
+});
+
 test('an unplaced gap without a goal never says undefined', () => {
   const m = model({ '2.4.4': entry({ fail: ['link-name'] }) }, { root: { r: 'document', t: 'T', gaps: [['not placed: a > b', '2.4.4']] } });
   const rows = proposeRows([m], catalog);

@@ -161,6 +161,8 @@ async function axePass(page, cdp, nearestKept, root, model, notes) {
     return;
   }
 
+  // The version that ran, for the report.
+  if (results.testEngine?.version) model.axeVersion = results.testEngine.version;
   for (const [sc, lists] of Object.entries(axeToChecks(results))) {
     for (const [list, ids] of Object.entries(lists)) ids.forEach((id) => addCheck(model.checks, sc, list, id));
   }
