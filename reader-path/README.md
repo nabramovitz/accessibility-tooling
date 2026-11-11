@@ -155,6 +155,31 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   target) are for a person; a run note names them. A larger control for
   the same function (an exception of 2.5.5) is not looked for, so a gap
   can be false for that reason.
+- 2.4.13 Focus Appearance (AAA): the same two shots are decoded by a
+  canvas in the page, with no image library. The pixels that change by
+  3 : 1 or more between the shot with focus and the one without are
+  counted, and their area is compared with the area of a 2 px
+  perimeter of the control. Both numbers are measures of a picture, so
+  there is a margin of error: a gap only when clearly under, that is
+  when even the pixels at 2.5 : 1 cover less than three quarters of
+  the perimeter. Between that and the full area, or for a text field
+  whose only change is the caret, the stop is for a person; a run note
+  names it. 2.5 : 1 allows for anti-aliasing, a box on a fractional
+  pixel and colour management, which lighten an edge by about that
+  much; three quarters allows for the same blur at the ends of a ring.
+  Only the 8 px around the control is seen: an indicator further out
+  is not counted.
+- 1.4.11 Non-text Contrast (AA): the shot without focus of a field (a
+  text input, textarea or select) and of an icon button (a button with
+  no text). The edge of a field is compared with the background 6 to
+  7 px outside it; the best line from 3 px outside to 3 px inside the
+  edge counts, so a border, a fill or a shadow all serve. An icon
+  button also counts its strongest pixel against its own fill. Under
+  2.5 : 1 is a gap (the same margin as above); 2.5 to 3 is for a
+  person. A background that is not one colour (an image) or a side at
+  the edge of the shot is not read. The row is never a pass: other
+  graphics (a chart, a state, an icon that is not a Tab stop) are not
+  measured, and only Tab stops are looked at.
 
 A stop whose page or box scrolled between the two shots, or that
 stayed beside the focus for three more Tab presses, is not compared; a run note names such stops and 2.4.7 goes to a person.
@@ -163,8 +188,8 @@ a control that moves or appears only with focus (a skip link) is
 compared as any other. A layout change by other content at the same
 moment also counts as a change. The
 measures stop after 150 Tab stops, with a run note. No shot is written
-to disk. The rule ids are `focus-visible`, `focus-obscured` and
-`focus-target`.
+to disk. The rule ids are `focus-visible`, `focus-obscured`,
+`focus-target`, `focus-appearance` and `focus-contrast`.
 
 ## Lists for a person
 
@@ -273,7 +298,8 @@ With two or more models, the tool also runs its own checks over the
 whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`,
 `view-motion`), the focus measures (`focus-visible`,
-`focus-obscured`, `focus-target`) and the lists (`list-text`,
+`focus-obscured`, `focus-target`, `focus-appearance`,
+`focus-contrast`) and the lists (`list-text`,
 `list-images`): `run-title` (2.4.2: the same title on every page is a fail),
 `run-navigation` (3.2.3: the navigation items and their order),
 `run-identification` (3.2.4: a component that appears once on a page
