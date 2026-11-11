@@ -338,7 +338,11 @@ checks do not support; when in doubt it writes `not-evaluated`.
   review on any page. 4.1.1 is always `supports`; the note links the
   W3C texts that say why.
 - `partially-supports`: a check failed on at least one page. The note
-  names the page and the gap.
+  names the page and the gap. A gap (the same role, name and text)
+  on at least half of the pages, and on two or more, is one line,
+  `On 48 of 48 pages: Collapse sidebar: ...`, before the per-page
+  lines; its per-page lines are left out. A control whose name changes
+  from page to page stays a per-page line.
 With two or more models, the tool also runs its own checks over the
 whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`,
