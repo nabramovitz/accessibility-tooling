@@ -6,7 +6,7 @@ import { fixture, flat } from './helpers.js';
 const gaps = (m, sc) => flat(m).flatMap((n) => (n.gaps || []).filter((g) => g[1] === sc).map((g) => [n.t || n.name || n.role, g[0]]));
 const VIEW_ROWS = ['1.4.10', '1.4.4', '1.4.12'];
 
-test('a page that reflows: the three views are in the model, in review, with no gap', async () => {
+test('a page that reflows: the views are in the model, and the three rows pass, with no gap', async () => {
   const m = await generate(fixture('views/fluid.html'));
   assert.deepEqual(m.views, [
     { name: 'narrow', width: 320, height: 256 },
@@ -14,9 +14,9 @@ test('a page that reflows: the three views are in the model, in review, with no 
     { name: 'spacing', width: 1280, height: 720 },
     { name: 'motion', width: 1280, height: 720 },
   ]);
-  assert.ok(m.checks['1.4.10'].review.includes('view-narrow'));
-  assert.ok(m.checks['1.4.4'].review.includes('view-zoom'));
-  assert.ok(m.checks['1.4.12'].review.includes('view-spacing'));
+  assert.ok(m.checks['1.4.10'].pass.includes('view-narrow'));
+  assert.ok(m.checks['1.4.4'].pass.includes('view-zoom'));
+  assert.ok(m.checks['1.4.12'].pass.includes('view-spacing'));
   // Text that is cut off in the default view too is not a finding of these rows.
   for (const sc of VIEW_ROWS) assert.deepEqual(gaps(m, sc), [], sc);
 });
@@ -61,6 +61,49 @@ test('a box that cuts off the text of its children: the gap names the box, not t
   const found = gaps(m, '1.4.10');
   assert.equal(found.length, 1);
   assert.match(found[0][1], /^This box cuts off its content in a window 320 px wide; it does not in the default view\.$/);
+});
+
+test('text that overlaps other text only when it wraps: a gap in the zoom and narrow views', async () => {
+  const m = await generate(fixture('views/overlap-zoom.html'));
+  for (const sc of ['1.4.4', '1.4.10', '1.4.12']) {
+    const found = gaps(m, sc);
+    assert.equal(found.length, 1, sc);
+    assert.match(found[0][1], /^Text overlaps other text \(div\.card\) (at 200 % zoom|in a window 320 px wide|with the WCAG text spacing); it does not in the default view\.$/);
+  }
+  assert.ok(m.checks['1.4.4'].fail.includes('view-zoom'));
+  assert.ok(m.checks['1.4.10'].fail.includes('view-narrow'));
+  assert.equal(m.levels['1.4.4'], 'AA');
+  // The wider letters and words wrap the text at the text spacing too.
+  assert.ok(m.checks['1.4.12'].fail.includes('view-spacing'));
+});
+
+test('a small overlap is a run note and review, not a gap', async () => {
+  const m = await generate(fixture('views/overlap-small.html'));
+  assert.deepEqual(gaps(m, '1.4.4'), []);
+  assert.ok(m.checks['1.4.4'].review.includes('view-zoom'));
+  assert.ok(!m.checks['1.4.4'].pass.includes('view-zoom'));
+  assert.deepEqual(m.checks['1.4.4'].fail, []);
+  assert.ok(m.notes.some((n) => /^Text overlaps a little at 200 % zoom, not in the default view: p\.a and p\.b$/.test(n)), m.notes.join('\n'));
+});
+
+test('a clear overlap by a larger shift is a gap', async () => {
+  const m = await generate(fixture('views/overlap-clear.html'));
+  assert.equal(gaps(m, '1.4.4').length, 1);
+  assert.ok(m.checks['1.4.4'].fail.includes('view-zoom'));
+});
+
+test('text that overlaps in the default view too is not a finding', async () => {
+  const m = await generate(fixture('views/overlap-always.html'));
+  for (const sc of VIEW_ROWS) assert.deepEqual(gaps(m, sc), [], sc);
+  assert.ok(m.checks['1.4.4'].pass.includes('view-zoom'));
+  assert.ok(!m.notes.some((n) => /overlaps a little/.test(n)));
+});
+
+test('hidden text and text scrolled out of its box do not overlap', async () => {
+  const m = await generate(fixture('views/overlap-skip.html'));
+  for (const sc of VIEW_ROWS) assert.deepEqual(gaps(m, sc), [], sc);
+  assert.ok(m.checks['1.4.4'].pass.includes('view-zoom'));
+  assert.ok(!m.notes.some((n) => /overlaps a little/.test(n)));
 });
 
 test('views: false reads the page in the default view only', async () => {

@@ -349,7 +349,7 @@ export async function ready(page, idleTime, opts = {}, notes = []) {
 
 // opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
-// views (false: the default view only; no narrow, zoom or spacing view,
+// views (false: the default view only; no narrow, zoom, spacing or dark view,
 // and no focus measure in the Tab walk; no lists for a person).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();

@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Overlap small</title>
+<style>
+body{font:20px/1.15 sans-serif;margin:0}
+.a,.b{position:absolute;left:10px;margin:0}
+.a{top:60px}
+.b{top:calc(60px + 1.6em)}
+@media (max-width:700px){.b{top:calc(60px + 1em)}}
+</style></head>
+<body><main><p class="a">Upper line of text</p><p class="b">Lower line of text</p></main></body></html>

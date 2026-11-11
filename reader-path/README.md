@@ -129,11 +129,22 @@ a document that scrolls sideways is a gap on the content that is wider
 than the window, unless that content is a table, a grid, preformatted
 text, an image, a canvas, an SVG or a video (then a person looks).
 
-A view with no finding is not a pass: text that overlaps other text is
-not checked, so the row is for a person. The model lists the views in
-`views`. The page is not loaded again for a view, so a page that picks
-its layout only at load is measured in its wide layout. Content inside
-a shadow root is not measured.
+In each view, text that overlaps other text is also a gap when it does
+not overlap in the default view. The boxes are the lines of each text
+node (as the browser lays them out), cut to the boxes that scroll or clip
+them. Hidden text, text scrolled out of its box, lines of the same text,
+and text in the same element are left out. The overlap is a gap when it
+is at least a quarter of the smaller box ("Text overlaps other text
+(div.card)"); a box of a line reaches above the capitals and below the
+descenders, so a smaller overlap often does not touch a glyph. It is a
+run note instead ("Text overlaps a little ..."), and the row is for a
+person. A page with more than 10000 text boxes is not compared (a note).
+
+A view with no finding, no content that may scroll sideways and no small
+overlap is a pass of its row. The model lists the views in `views`. The
+page is not loaded again for a view, so a page that picks its layout only
+at load is measured in its wide layout. Content inside a shadow root is
+not measured.
 
 ## Focus measures
 

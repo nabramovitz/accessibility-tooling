@@ -9,6 +9,10 @@ import { ready } from './generate.js';
 
 const MARK = 'data-reader-path-view';
 const MAX_NAMED = 20;
+// Text that overlaps other text by this share of the smaller box or more
+// is a gap. The box of a line is the font's ascent to descent: below a
+// quarter the glyphs often do not touch, so a person looks.
+const CLEAR_SHARE = 0.25;
 const VIEW_IDLE_MAX = 5000;
 
 const SPACING = `* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
@@ -20,12 +24,12 @@ const VIEWS = [
   { name: 'spacing', sc: '1.4.12', css: SPACING, at: 'with the WCAG text spacing' },
 ];
 
-// The person's line for a view with no finding: what the view did not check.
-const REST = 'text that overlaps other text is not checked';
+// The person's line for a view that is not a pass or a fail: what is left.
+const LITTLE = 'some text overlaps other text a little (see the run notes)';
 export const VIEW_LINES = {
-  'view-narrow': { review: `Needs a person: in a window 320 px wide, content in a table, a grid, preformatted text or an image may scroll sideways; ${REST}` },
-  'view-zoom': { review: `Needs a person: at 200 % zoom no text is newly clipped; ${REST}` },
-  'view-spacing': { review: `Needs a person: with the WCAG text spacing no text is newly clipped; ${REST}` },
+  'view-narrow': { review: `Needs a person: in a window 320 px wide, content in a table, a grid, preformatted text or an image may scroll sideways, or ${LITTLE}` },
+  'view-zoom': { review: `Needs a person: at 200 % zoom ${LITTLE}` },
+  'view-spacing': { review: `Needs a person: with the WCAG text spacing ${LITTLE}` },
   'view-motion': { review: 'Needs a person: animation from an interaction is not checked (nothing is pressed); the run notes count the animations that still run with reduced motion asked' },
 };
 
@@ -37,15 +41,89 @@ const RUNNING = `(() => document.getAnimations().filter((a) => a.playState === '
 }))()`;
 const MAX_MOVING = 10;
 
+// Runs in the page, inside MEASURE. The boxes of the text on the page, by
+// line (Range client rects of each text node), cut to the boxes that
+// scroll or clip them, so text scrolled out of its box is not there; text
+// that is not shown is left out. Returns the pairs of boxes that overlap,
+// from different elements: [element, element, share of the smaller box],
+// or null with more than MAX boxes. Boxes of one text node, and of text in
+// one element, are lines of the same text and are not compared.
+const OVERLAPS = `
+  const MAX = 10000;
+  const clipsOf = (() => {
+    const memo = new Map();
+    const of = (e) => {
+      if (!e || e === document.body || e === document.documentElement) return [];
+      if (memo.has(e)) return memo.get(e);
+      const cs = getComputedStyle(e);
+      const own = [];
+      if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+        const r = e.getBoundingClientRect();
+        const l = r.left + e.clientLeft, t = r.top + e.clientTop;
+        own.push({ l: cs.overflowX !== 'visible' ? l : -Infinity, r: cs.overflowX !== 'visible' ? l + e.clientWidth : Infinity,
+          t: cs.overflowY !== 'visible' ? t : -Infinity, b: cs.overflowY !== 'visible' ? t + e.clientHeight : Infinity });
+      }
+      const all = own.concat(of(e.parentElement));
+      memo.set(e, all);
+      return all;
+    };
+    return of;
+  })();
+  const boxes = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement;
+    if (!el || !n.textContent.trim() || el.closest('script, style, noscript, template')) continue;
+    if (el.checkVisibility && !el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+    const clips = clipsOf(el);
+    range.selectNodeContents(n);
+    for (const q of range.getClientRects()) {
+      let l = q.left, r = q.right, t = q.top, b = q.bottom;
+      for (const c of clips) { l = Math.max(l, c.l); r = Math.min(r, c.r); t = Math.max(t, c.t); b = Math.min(b, c.b); }
+      if (r - l < 2 || b - t < 2) continue;
+      boxes.push({ n, el, l, r, t, b, area: (r - l) * (b - t) });
+    }
+  }
+  if (boxes.length > MAX) return null;
+  boxes.sort((x, y) => x.t - y.t);
+  const pairs = new Map();
+  for (let i = 0; i < boxes.length; i++) {
+    const x = boxes[i];
+    for (let j = i + 1; j < boxes.length && boxes[j].t < x.b; j++) {
+      const y = boxes[j];
+      if (y.n === x.n || y.el === x.el) continue;
+      const w = Math.min(x.r, y.r) - Math.max(x.l, y.l), h = Math.min(x.b, y.b) - Math.max(x.t, y.t);
+      if (w <= 0.5 || h <= 0.5) continue;
+      const first = x.el.compareDocumentPosition(y.el) & Node.DOCUMENT_POSITION_FOLLOWING;
+      const [a, b2] = first ? [x.el, y.el] : [y.el, x.el];
+      const share = (w >= 2 && h >= 2) ? (w * h) / Math.min(x.area, y.area) : 0;
+      const old = pairs.get(a) || new Map();
+      old.set(b2, Math.max(old.get(b2) || 0, share));
+      pairs.set(a, old);
+    }
+  }
+  const out = [];
+  for (const [a, m] of pairs) for (const [b2, share] of m) out.push([a, b2, share]);
+  return out;
+`;
+
 // Runs in the page. With `base` it records the text boxes that are clipped
-// in the default view. Otherwise it marks (attribute MARK) the boxes that
-// are clipped now and were not then, and, with `scroll`, the outermost
-// elements that stick out of a document that scrolls sideways. Returns
-// the kinds of the marked elements, in the order of their marks: a box
-// with text of its own is 'clipped'; a box whose text is all in its
-// children (a container) is 'cut'.
-const MEASURE = `((mark, base, scroll) => {
+// and the pairs of text that overlap in the default view. Otherwise it
+// marks (attribute MARK) the boxes that are clipped now and were not then,
+// the text that overlaps other text now and did not then, and, with
+// `scroll`, the outermost elements that stick out of a document that
+// scrolls sideways. Returns { found, small, capped }. found: [kind, what]
+// of the marked elements, in the order of their marks: a box with text of
+// its own is 'clipped'; a box whose text is all in its children (a
+// container) is 'cut'; text over other text is 'overlap', with the other
+// element named. small: the pairs that overlap by under CLEAR_SHARE of the
+// smaller box, for a person. capped: there was too much text to compare.
+const MEASURE = `((mark, base, scroll, clear) => {
   const KEY = '__readerPathClipped';
+  const KEY2 = '__readerPathOverlap';
+  const describe = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.classList[0] ? '.' + e.classList[0] : '');
+  const overlaps = (() => {${OVERLAPS}})();
   const EXEMPT = 'table, [role=table], [role=grid], [role=treegrid], pre, img, canvas, svg, video';
   const shown = (e, cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && e.getClientRects().length;
   const cut = (v) => v === 'hidden' || v === 'clip';
@@ -55,10 +133,23 @@ const MEASURE = `((mark, base, scroll) => {
     if (!shown(e, cs) || !e.textContent.trim()) continue;
     if ((cut(cs.overflowX) && e.scrollWidth > e.clientWidth + 1) || (cut(cs.overflowY) && e.scrollHeight > e.clientHeight + 1)) clipped.push(e);
   }
-  if (base) { window[KEY] = new WeakSet(clipped); return []; }
+  if (base) {
+    window[KEY] = new WeakSet(clipped);
+    const seen = new WeakMap();
+    for (const [a, b] of overlaps || []) seen.set(a, (seen.get(a) || new Set()).add(b));
+    window[KEY2] = seen;
+    return {};
+  }
   const before = window[KEY] || new WeakSet();
+  const seen = window[KEY2] || new WeakMap();
   const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
   const found = clipped.filter((e) => !before.has(e)).map((e) => [e, own(e) ? 'clipped' : 'cut']);
+  const small = [];
+  for (const [a, b, share] of overlaps || []) {
+    if (share <= 0 || (seen.get(a) && seen.get(a).has(b))) continue;
+    if (share >= clear) found.push([a, 'overlap', describe(b)]);
+    else small.push(describe(a) + ' and ' + describe(b));
+  }
   const doc = document.scrollingElement;
   if (scroll && doc.scrollWidth > doc.clientWidth + 1) {
     const out = (e) => e.getBoundingClientRect().right + doc.scrollLeft > doc.clientWidth + 1;
@@ -71,14 +162,14 @@ const MEASURE = `((mark, base, scroll) => {
     }
   }
   found.forEach(([e], i) => e.setAttribute(mark, String(i)));
-  return found.map(([, kind]) => kind);
+  return { found: found.map(([, kind, what]) => [kind, what || '']), small, capped: !overlaps };
 })`;
 
-const CLEAR = `(() => { delete window.__readerPathClipped; })()`;
+const CLEAR = `(() => { delete window.__readerPathClipped; delete window.__readerPathOverlap; })()`;
 
 const call = async (cdp, args) => {
   const { result } = await cdp.send('Runtime.evaluate', { expression: `${MEASURE}(${args.map((a) => JSON.stringify(a)).join(', ')})`, returnByValue: true });
-  return result.value || [];
+  return result.value || {};
 };
 
 // The kept node of the element with mark i, and the mark removed.
@@ -101,30 +192,38 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
     await ready(page, idleTime, { idle: opts.idle, idleMax: VIEW_IDLE_MAX });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   };
-  await call(cdp, [MARK, true, false]);
+  await call(cdp, [MARK, true, false, CLEAR_SHARE]);
   model.views = [];
   for (const view of VIEWS) {
     const size = view.size ?? start;
     if (view.size) await page.setViewportSize(view.size);
     const style = view.css ? await page.addStyleTag({ content: view.css }) : null;
     await laid();
-    const kinds = await call(cdp, [MARK, false, !!view.scroll]);
+    const { found = [], small = [], capped } = await call(cdp, [MARK, false, !!view.scroll, CLEAR_SHARE]);
+    const kinds = found.map(([k]) => k);
     const id = `view-${view.name}`;
     let named = 0;
     for (let i = 0; i < kinds.length; i++) {
       const node = (await take(cdp, nearestKept, i)) ?? root;
       if (kinds[i] === 'exempt' || ++named > MAX_NAMED) continue;
+      const other = found[i][1];
       const [why, goal] = {
         wide: [`The page scrolls sideways ${view.at}: this content is wider than the window.`, 'Content fits a window 320 px wide without sideways scroll'],
         clipped: [`Text is clipped ${view.at}; it is not clipped in the default view.`, 'No text is lost'],
         cut: [`This box cuts off its content ${view.at}; it does not in the default view.`, 'No content is lost'],
+        overlap: [`Text overlaps other text (${other}) ${view.at}; it does not in the default view.`, 'No text is lost'],
       }[kinds[i]];
       (node.gaps ||= []).push([why, view.sc, goal]);
     }
     const fails = kinds.filter((k) => k !== 'exempt').length;
     if (fails > MAX_NAMED) (root.gaps ||= []).push([`and ${fails - MAX_NAMED} more ${view.at}`, view.sc, 'No text is lost']);
     if (fails) (model.levels ||= {})[view.sc] = 'AA';
-    addCheck(model.checks, view.sc, fails ? 'fail' : 'review', id);
+    // A pass needs that nothing was left for a person: no content that may
+    // scroll sideways (exempt), no small overlap, text compared.
+    const left = kinds.includes('exempt') || small.length || capped;
+    if (small.length) notes.push(`Text overlaps a little ${view.at}, not in the default view: ${small.slice(0, MAX_NAMED).join('; ')}${small.length > MAX_NAMED ? '; ...' : ''}`);
+    if (capped) notes.push(`Overlap not checked ${view.at}: more than 10000 text boxes`);
+    addCheck(model.checks, view.sc, fails ? 'fail' : left ? 'review' : 'pass', id);
     model.views.push({ name: view.name, ...size });
     if (style) await style.evaluate((e) => e.remove());
   }
