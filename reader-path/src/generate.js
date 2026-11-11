@@ -31,6 +31,8 @@ function stateOf(ax) {
   if (pressed === 'true' || pressed === 'mixed') s.push('pressed');
   if (prop(ax, 'disabled') === true) s.push('disabled');
   if (prop(ax, 'required') === true) s.push('required');
+  // Chromium gives busy as 1, not true.
+  if (prop(ax, 'busy')) s.push('busy');
   const invalid = prop(ax, 'invalid');
   if (invalid && invalid !== 'false') s.push('invalid');
   return s.join(', ');
@@ -374,6 +376,13 @@ export async function generate(url, opts = {}) {
     walk(root, (n) => {
       if (n.lm === 'main' && !(n.c || []).length && !n.text) notes.push('Page content empty: main has no content after settle');
     });
+    // The first sign that the page is still loading: a note only.
+    const sign = [];
+    walk(root, (n) => {
+      const said = `${n.name} ${n.text || ''}`;
+      if (n.role === 'progressbar' || (/^(status|alert)$/.test(n.role) && /\bloading\b/i.test(said)) || /\bbusy\b/.test(n.state || '')) sign.push(n);
+    });
+    if (sign.length) notes.push(`Page shows a loading sign: ${(sign[0].name || sign[0].text || sign[0].role).slice(0, 60)}`);
     const model = { checks: {} };
     await axePass(page, cdp, nearestKept, root, model, notes);
     const focus = opts.views !== false ? focusWatch(page, cdp, model, root, notes) : undefined;

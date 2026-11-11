@@ -141,6 +141,8 @@ async function writeRun(start, values) {
   const { out, run } = await crawl(start === undefined ? undefined : pageUrl(start), { ...pageOptions(values), out: values.out, max, urls, jobs });
   console.log(`wrote ${join(out, 'run.json')}: ${run.pages.length} page(s), ${run.dropped.length} dropped, ${run.skipped.length} skipped`);
   for (const s of run.skipped) console.log(`skipped ${s.url}: ${s.why}`);
+  if (run.loading.length) console.log(`${run.loading.length} page(s) show a loading sign: look at them before the numbers are used`);
+  if (run.discoverStillLoading.length) console.log(`${run.discoverStillLoading.length} page(s) were still loading when links were read: discovery may have missed links on them`);
 }
 
 async function writePage(url, values) {
