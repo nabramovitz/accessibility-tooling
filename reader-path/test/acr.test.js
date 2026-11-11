@@ -303,6 +303,26 @@ test('a person row that ranks better than the new evidence is a conflict line', 
   assert.deepEqual(conflicts, ['base row 1.4.3: supports; new evidence: not-evaluated']);
 });
 
+test('a person row better than "no automated check" is not a conflict line', () => {
+  const base = { title: 'T', chapters: { success_criteria_level_a: { criteria: [hand('1.1.1', 'supports')] } } };
+  assert.deepEqual(buildReport([model({})], base, catalog, OPTS).conflicts, []);
+});
+
+test('a person row better than a page with no result is a conflict line', () => {
+  const m = model({ '1.1.1': entry({ pass: ['image-alt'] }) });
+  const other = model({ '1.3.1': entry({ pass: ['label'] }) });
+  const base = { title: 'T', chapters: { success_criteria_level_a: { criteria: [hand('1.1.1', 'supports'), hand('1.3.1', 'supports')] } } };
+  const { conflicts } = buildReport([m, other], base, catalog, OPTS);
+  assert.deepEqual(conflicts, ['base row 1.1.1: supports; new evidence: not-evaluated', 'base row 1.3.1: supports; new evidence: not-evaluated']);
+});
+
+test('a person chapter 3 row with nothing checked behind it is not a conflict line', () => {
+  const base = { title: 'T', chapters: { functional_performance_criteria: { criteria: [
+    { num: '302.1', components: [{ name: 'none', adherence: { level: 'supports', notes: 'By hand.' } }] },
+  ] } } };
+  assert.deepEqual(buildReport([model({})], base, catalog, OPTS).conflicts, []);
+});
+
 test('an unknown base level is not-evaluated for chapter 3 and is printed', () => {
   const base = { title: 'T', chapters: {
     success_criteria_level_a: { criteria: [hand('1.4.1', 'partialy-supports')] },
