@@ -41,6 +41,21 @@ test('the focus measures stop after 150 Tab stops, with a note and review', asyn
   assert.deepEqual(m.checks['2.4.11'].review, ['focus-obscured']);
 });
 
+test('a Tab stop under 44 px is a 2.5.5 gap; a link in text and a labelled native box go to a person', async () => {
+  const m = await generate(fixture('focus/target.html'));
+  assert.deepEqual(gapsOf(m, '2.5.5'), ['Small']);
+  const small = flat(m).find((n) => n.name === 'Small');
+  assert.match(small.gaps.find((g) => g[1] === '2.5.5')[0], /20 × 20 px/);
+  assert.equal(m.levels['2.5.5'], 'AAA');
+  assert.ok(m.checks['2.5.5'].fail.includes('focus-target'));
+  assert.ok(m.notes.includes('Target size for a person at 2 Tab stop(s): Help, Agree'));
+});
+
+test('every Tab stop 44 px or more: 2.5.5 passes', async () => {
+  const m = await generate(fixture('focus/target-pass.html'));
+  assert.deepEqual(m.checks['2.5.5'].pass, ['focus-target']);
+});
+
 test('views: false takes no focus measure', async () => {
   const m = await generate(fixture('focus/visible.html'), { views: false });
   assert.equal(m.checks['2.4.7'], undefined);
