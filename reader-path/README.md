@@ -185,8 +185,8 @@ characters a line, line height, or image size.
   their own text. A line height of `normal` counts as 1.2. Line height
   and justified text count only for text on two lines or more.
 - 1.4.5 Images of Text (AA) and 1.4.9 Images of Text (No Exception)
-  (AAA): raster images more than 3 times as wide as high (10 px high or
-  more), often banners with text, and elements with a CSS background image and no
+  (AAA): raster images more than 3 times as wide as high, often
+  banners with text, and elements with a CSS background image and no
   text of their own.
 
 Content inside a shadow root is not measured. The rule ids are

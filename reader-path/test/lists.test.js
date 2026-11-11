@@ -35,9 +35,9 @@ test('justified text: counted and named', async () => {
   assert.equal(note(m, JUSTIFIED), `${JUSTIFIED}1 text block: p#just`);
 });
 
-test('a wide raster image, with its size; a square image and an svg are not', async () => {
+test('wide raster images, thin ones too, with their size; a square image and an svg are not', async () => {
   const m = await generate(fixture('lists/banner.html'));
-  assert.equal(note(m, WIDE), `${WIDE}1 image: img#banner (400 × 50 px)`);
+  assert.equal(note(m, WIDE), `${WIDE}2 images: img#banner (400 × 50 px), img#thin (400 × 4 px)`);
   assert.deepEqual(m.checks['1.4.5'].review, ['list-images']);
   assert.deepEqual(m.checks['1.4.9'].review, ['list-images']);
   assert.deepEqual(m.checks['1.4.5'].fail, []);
