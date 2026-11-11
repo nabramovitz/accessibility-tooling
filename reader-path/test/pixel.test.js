@@ -63,3 +63,9 @@ test('2.4.13: a focus ring cut off by the window edge or a clipping box is a gap
   const note = m.notes.find((n) => n.startsWith('Focus appearance for a person')) || '';
   assert.ok(!note.includes('inset'), note);
 });
+
+test('2.4.13: the window edge is not a cause when the page can scroll that way', async () => {
+  const m = await generate(fixture('focus/cut-scroll.html'));
+  const why = flat(m).find((n) => n.name === 'No ring low')?.gaps?.find((g) => g[1] === '2.4.13')?.[0] || '';
+  assert.ok(!/cut off by the bottom edge/.test(why), why);
+});

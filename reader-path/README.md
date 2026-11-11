@@ -214,8 +214,9 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   much; three quarters allows for the same blur at the ends of a ring.
   Only the 8 px around the control is seen: an indicator further out
   is not counted.
-  When the outline would reach past an edge of the window, or past an
-  ancestor that scrolls or clips its content, and the measure is not a
+  When the outline would reach past an edge of the window that the page
+  cannot scroll past, or past an ancestor that scrolls or clips its
+  content, and the measure is not a
   pass, the stop is a gap that names what cuts the outline off: "The
   focus outline is cut off by the left edge of the window: 1024 of
   1200 px² show. Draw it inside the control (a negative
