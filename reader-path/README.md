@@ -170,11 +170,11 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   Only the 8 px around the control is seen: an indicator further out
   is not counted.
 - 1.4.11 Non-text Contrast (AA): the shot without focus of a field (a
-  text input, textarea or select) and of an icon button (a button with
-  no text). The edge of a field is compared with the background 6 to
+  text input, textarea or select) and of an icon button or link (a
+  button or link with no text). The edge of a field is compared with the background 6 to
   7 px outside it; the best line from 3 px outside to 3 px inside the
   edge counts, so a border, a fill or a shadow all serve. An icon
-  button also counts its strongest pixel against its own fill. Under
+  button or link also counts its strongest pixel against its own fill. Under
   2.5 : 1 is a gap (the same margin as above); 2.5 to 3 is for a
   person. A background that is not one colour (an image) or a side at
   the edge of the shot is not read. The row is never a pass: other
