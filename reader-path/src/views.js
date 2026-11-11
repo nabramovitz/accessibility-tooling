@@ -41,7 +41,9 @@ const MAX_MOVING = 10;
 // in the default view. Otherwise it marks (attribute MARK) the boxes that
 // are clipped now and were not then, and, with `scroll`, the outermost
 // elements that stick out of a document that scrolls sideways. Returns
-// the kinds of the marked elements, in the order of their marks.
+// the kinds of the marked elements, in the order of their marks: a box
+// with text of its own is 'clipped'; a box whose text is all in its
+// children (a container) is 'cut'.
 const MEASURE = `((mark, base, scroll) => {
   const KEY = '__readerPathClipped';
   const EXEMPT = 'table, [role=table], [role=grid], [role=treegrid], pre, img, canvas, svg, video';
@@ -55,7 +57,8 @@ const MEASURE = `((mark, base, scroll) => {
   }
   if (base) { window[KEY] = new WeakSet(clipped); return []; }
   const before = window[KEY] || new WeakSet();
-  const found = clipped.filter((e) => !before.has(e)).map((e) => [e, 'clipped']);
+  const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+  const found = clipped.filter((e) => !before.has(e)).map((e) => [e, own(e) ? 'clipped' : 'cut']);
   const doc = document.scrollingElement;
   if (scroll && doc.scrollWidth > doc.clientWidth + 1) {
     const out = (e) => e.getBoundingClientRect().right + doc.scrollLeft > doc.clientWidth + 1;
@@ -111,10 +114,11 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
     for (let i = 0; i < kinds.length; i++) {
       const node = (await take(cdp, nearestKept, i)) ?? root;
       if (kinds[i] === 'exempt' || ++named > MAX_NAMED) continue;
-      const why = kinds[i] === 'wide'
-        ? `The page scrolls sideways ${view.at}: this content is wider than the window.`
-        : `Text is clipped ${view.at}; it is not clipped in the default view.`;
-      const goal = kinds[i] === 'wide' ? 'Content fits a window 320 px wide without sideways scroll' : 'No text is lost';
+      const [why, goal] = {
+        wide: [`The page scrolls sideways ${view.at}: this content is wider than the window.`, 'Content fits a window 320 px wide without sideways scroll'],
+        clipped: [`Text is clipped ${view.at}; it is not clipped in the default view.`, 'No text is lost'],
+        cut: [`This box cuts off its content ${view.at}; it does not in the default view.`, 'No content is lost'],
+      }[kinds[i]];
       (node.gaps ||= []).push([why, view.sc, goal]);
     }
     const fails = kinds.filter((k) => k !== 'exempt').length;
