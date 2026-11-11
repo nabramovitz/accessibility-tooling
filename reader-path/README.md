@@ -214,6 +214,12 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   much; three quarters allows for the same blur at the ends of a ring.
   Only the 8 px around the control is seen: an indicator further out
   is not counted.
+  When the outline would reach past an edge of the window, or past an
+  ancestor that scrolls or clips its content, and the measure is not a
+  pass, the stop is a gap that names what cuts the outline off: "The
+  focus outline is cut off by the left edge of the window: 1024 of
+  1200 px² show. Draw it inside the control (a negative
+  outline-offset)." The cause is known, so it is not left to a person.
 - 1.4.11 Non-text Contrast (AA): the shot without focus of a field (a
   text input, textarea or select) and of an icon button or link (a
   button or link with no text). The edge of a field is compared with the background 6 to
