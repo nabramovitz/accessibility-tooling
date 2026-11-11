@@ -382,3 +382,13 @@ test('focus measures: a pass supports the row, a review names what a person look
   assert.ok(lines(review, '2.4.7').some((l) => /^Needs a person: the look with and without focus was not compared at every Tab stop/.test(l)));
   assert.ok(!adh(review, '2.4.7').notes.includes('axe-core could not decide'));
 });
+
+test('lists for a person: review only, with the line that says what to look at', () => {
+  const rows = proposeRows([model({ '1.4.8': entry({ review: ['list-text'] }), '1.4.5': entry({ review: ['list-images'] }) })], catalog);
+  for (const sc of ['1.4.8', '1.4.5']) {
+    assert.equal(adh(rows, sc).level, 'not-evaluated', sc);
+    assert.ok(!adh(rows, sc).notes.includes('axe-core could not decide'), sc);
+  }
+  assert.ok(lines(rows, '1.4.8').some((l) => /^Needs a person: look at the text blocks named in the run notes/.test(l)));
+  assert.ok(lines(rows, '1.4.5').some((l) => /^Needs a person: look at the images named in the run notes/.test(l)));
+});
