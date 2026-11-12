@@ -547,6 +547,19 @@ Each carries a suggested name in `propose`, from the `title`, the
 visible text or the nearest heading. An icon that is `aria-hidden`, or
 inside a control with `aria-label`, is not read, so it is not proposed.
 
+#### Use of colour (1.4.1)
+
+axe-core's `link-in-text-block` covers links in text. The tool adds one
+check by style, not by picture: small boxes (24 px or less) among
+siblings of the same tag, size and shape, with a shared class, that
+differ only in colour and have no text and no name (status dots). It
+becomes the proposal `text-colour-only`, with the colours named
+(`green #2e7d32, red #c62828`) and a count of the boxes. It is never a
+fail by itself. A box with text, `aria-label`, `aria-labelledby`,
+`title` or `alt`, or beside text in the same parent, is not counted.
+The proposal sits on the nearest box the model keeps (a dot with no
+name is often not in it). The check runs with views on or off.
+
 ## Tests
 
 ```
