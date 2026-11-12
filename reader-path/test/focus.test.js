@@ -14,6 +14,15 @@ test('a control that looks the same with and without focus is a 2.4.7 gap', asyn
   assert.ok(m.notes.includes('Focus not compared at 1 Tab stop(s): Empty field'));
 });
 
+// A change no pixel of which reaches 1.5 : 1 (a background a shade
+// darker) is not one a person can be sure to see: not a pass.
+test('a focus change too faint to see goes to a person for 2.4.7', async () => {
+  const m = await generate(fixture('focus/faint.html'));
+  assert.deepEqual(gapsOf(m, '2.4.7'), []);
+  assert.deepEqual(m.checks['2.4.7'].review, ['focus-visible']);
+  assert.ok(m.notes.includes('Focus change too faint to see for a person at 1 Tab stop(s): Faint change'), m.notes.join('\n'));
+});
+
 test('every control with a visible change: 2.4.7 and 2.4.11 pass', async () => {
   const m = await generate(fixture('tab.html'));
   assert.deepEqual(m.checks['2.4.7'].pass, ['focus-visible']);

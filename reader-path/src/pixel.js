@@ -16,6 +16,9 @@ export const MARGIN = 2.5;
 // fractional pixel, and a ring is blurred at its ends, so 3/4 of the
 // area is not clearly under.
 export const AREA_MARGIN = 0.75;
+// 2.4.7: a focus change with no pixel at 1.5 : 1 or more (a background a
+// shade darker) is one a person may not see, so it is not a pass.
+export const VISIBLE = 1.5;
 
 export function chan(v) { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }
 export function lum(c) { return 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]); }
@@ -75,7 +78,7 @@ const PIXELS = `(async (f, u, g) => {
   const U = await load(u);
   const F = f ? await load(f) : null;
   const s = U.width / g.clip.width;
-  const out = { strong: 0, lenient: 0, perimeter: 0, edge: null, glyph: null, scale: s };
+  const out = { strong: 0, lenient: 0, visible: 0, perimeter: 0, edge: null, glyph: null, scale: s };
   const w = g.box.w; const h = g.box.h;
   out.perimeter = perimeterArea(w, h, g.box.radii) * s * s;
   if (F && F.width === U.width && F.height === U.height) {
@@ -85,6 +88,7 @@ const PIXELS = `(async (f, u, g) => {
       const r = ratio(a[i], a[i + 1], a[i + 2], b[i], b[i + 1], b[i + 2]);
       if (r >= ${NEED}) out.strong++;
       if (r >= ${MARGIN}) out.lenient++;
+      if (r >= ${VISIBLE}) out.visible++;
     }
   }
   const px = (x, y) => { const i = (y * U.width + x) * 4; return [U.data[i], U.data[i + 1], U.data[i + 2]]; };
