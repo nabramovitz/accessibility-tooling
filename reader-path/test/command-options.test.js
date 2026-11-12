@@ -15,14 +15,14 @@ const refused = (flag, command) => (e) => e.code === 1 && e.stderr.includes(`${f
 test('acr refuses the page and crawl options', async () => {
   const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'r.yaml');
   for (const args of [['--idle', '500'], ['--settle', '1'], ['--storage-state', 'x.json'], ['--ignore-https-errors'],
-    ['--wait-for', 'main'], ['--no-views'], ['--max', '3'], ['--urls', 'u.txt'], ['--jobs', '2']]) {
+    ['--wait-for', 'main'], ['--no-views'], ['--max', '3'], ['--urls', 'u.txt'], ['--add', 'a.txt'], ['--jobs', '2']]) {
     await assert.rejects(run('node', [CLI, 'acr', MODEL, ...args, '--out', out]), refused(args[0], 'acr'));
   }
   assert.ok(!existsSync(out));
 });
 
 test('the page command refuses the acr and crawl options', async () => {
-  for (const args of [['--base', 'b.yaml'], ['--max', '3'], ['--urls', 'u.txt'], ['--jobs', '2']]) {
+  for (const args of [['--base', 'b.yaml'], ['--max', '3'], ['--urls', 'u.txt'], ['--add', 'a.txt'], ['--jobs', '2']]) {
     await assert.rejects(run('node', [CLI, 'file:///nowhere.html', ...args]), refused(args[0], 'the page command'));
   }
 });
