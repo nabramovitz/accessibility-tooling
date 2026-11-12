@@ -4,6 +4,7 @@
 // root. With fewer than two models there is nothing to compare.
 import { walk, bare } from './generate.js';
 import { addCheck } from './axe.js';
+import { proposeLink, linkName, target } from './text-links.js';
 
 const MEDIA_ROWS = ['1.2.1', '1.2.2', '1.2.3', '1.2.4', '1.2.5', '1.2.6', '1.2.7', '1.2.8', '1.2.9', '1.4.7'];
 const CONTROLS = new Set(['button', 'menuitem', 'switch', 'checkbox', 'radio', 'combobox', 'textbox', 'searchbox', 'tab', 'slider', 'spinbutton']);
@@ -89,6 +90,30 @@ export function runChecks(models) {
   const hasNav = models.every((m) => nodes(m).some(([n]) => n.lm === 'navigation'));
   const hasSearch = models.every((m) => nodes(m).some(([n]) => n.lm === 'search' || n.role === 'searchbox'));
   result('2.4.5', hasNav && hasSearch ? 'pass' : 'review', 'run-ways');
+
+  // 2.4.4, 2.4.9: a link in the shell (outside main) that carries the same
+  // name on every page should go to the same place. A name used twice in
+  // one page's shell is left to the page check. A proposal on the first
+  // model, never a fail.
+  const byName = new Map(); // name -> { node, first, pages: Map(target -> page) }
+  const twice = new Set();
+  for (const m of models) {
+    const seen = new Set();
+    for (const n of shell(m)) {
+      const name = n.role === 'link' && n.href ? linkName(n.name) : '';
+      if (!name) continue;
+      if (seen.has(name)) twice.add(name);
+      seen.add(name);
+      const e = byName.get(name) || byName.set(name, { node: n, first: m, pages: new Map() }).get(name);
+      if (!e.pages.has(target(n.href))) e.pages.set(target(n.href), label(m));
+    }
+  }
+  for (const [name, e] of byName) {
+    if (twice.has(name) || e.pages.size < 2) continue;
+    const node = e.first === models[0] ? e.node : models[0].root;
+    const where = [...e.pages].map(([to, on]) => `${to} on ${on}`);
+    proposeLink(models[0], node, 'text-link-footer-differs', `The link "${e.node.name}" in the page shell goes to different places: ${where.join(', ')}`, 'The same link name goes to the same place on every page');
+  }
 
   // 1.2.x and 1.4.7: audio and video elements over the run.
   const media = models.reduce((k, m) => k + nodes(m).filter(([n]) => ['video', 'audio'].includes(n.role) || ['video', 'audio'].includes(n.comp)).length, 0);

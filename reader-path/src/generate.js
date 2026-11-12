@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { views } from './views.js';
 import { focusWatch } from './focus.js';
 import { lists } from './lists.js';
+import { textLinks } from './text-links.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -116,6 +117,7 @@ export function buildTree(nodes, dom) {
       const state = stateOf(n);
       if (state) node.state = state;
       if (role === 'heading') node.h = prop(n, 'level');
+      if (role === 'link' && prop(n, 'url')) node.href = prop(n, 'url');
       if (LANDMARKS.has(role)) node.lm = role;
       const box = boxOf(n, role);
       if (box) node.box = box;
@@ -396,6 +398,7 @@ export async function generate(url, opts = {}) {
     await focus?.finish(walked);
     if (opts.views !== false) await lists(cdp, model, notes);
     if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model, notes);
+    textLinks(model, root);
 
     const title = await page.title();
     const version = browser.version();

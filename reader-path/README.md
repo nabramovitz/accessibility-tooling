@@ -482,6 +482,29 @@ names who decided. A decision that no proposal matches any more is
 printed as stale, unless its page is not in this run. A base row a
 person wrote still wins.
 
+#### Link purpose (2.4.4, 2.4.9)
+
+After the views, a pass over the tree reads each link's name and target
+(`href` on the link node). It runs with or without views, on the same
+page and load, and proposes; it never fails a row. Each finding is
+proposed for 2.4.4 and again, under the same rule id plus `-alone`,
+for 2.4.9 (the name read without its context).
+
+- `text-link-same-name`: links with the same name go to different
+  pages. Names compare in lower case without ends of punctuation; two
+  spellings of one page (a fragment, a trailing slash) are one target.
+- `text-link-vague`: the name is "click here", "here", "more", "read
+  more", "learn more", "link" or "this link".
+- `text-link-url`: the name is only a URL. A URL can be the purpose, so
+  a person decides.
+- `text-link-footer-differs` (a run check): a link outside `main` with
+  the same name goes to different pages on different pages of the run.
+  The proposal sits on the first page.
+
+A link with no target is not compared. Links that share a name inside
+one card list are the usual false positive: the heading above each is
+the context 2.4.4 allows, so a person marks them Fine once.
+
 ## Tests
 
 ```
