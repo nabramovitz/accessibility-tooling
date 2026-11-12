@@ -111,6 +111,7 @@ export function focusWatch(page, cdp, model, root, notes) {
   const small = []; // stops under 44 px for a person
   const look = []; // stops whose indicator is inside the margin of error
   const edge = []; // fields, icon buttons and icon links inside the margin of error
+  const faint = []; // stops whose focus change has no pixel at VISIBLE or more
   let edges = 0; // fields, icon buttons and icon links whose edge was measured
   const fails = { '2.4.7': 0, '2.4.11': 0, '2.4.12': 0, '2.5.5': 0, '2.4.13': 0, '1.4.11': 0 };
   const gap = (node, why, sc, goal, level) => {
@@ -126,6 +127,7 @@ export function focusWatch(page, cdp, model, root, notes) {
     const cutGap = (px) => gap(last.node, `The focus outline is cut off by ${last.box.cut}: ${Math.round(px.strong / (px.scale * px.scale))} of ${Math.round(px.perimeter / (px.scale * px.scale))} px² show. Draw it inside the control (a negative outline-offset).`, '2.4.13', 'A focus indicator is at least a 2 px perimeter, at 3 : 1 against the unfocused look', 'AAA');
     const px = await measurePixels(page, focused, unfocused, geom);
     if (!px) { look.push(name); if (last.box.kind) edge.push(name); return; }
+    if (focused && !px.visible && !focused.equals(unfocused)) faint.push(name);
     if (focused) {
       const verdict = judgeAppearance(px);
       const sq = px.scale * px.scale;
@@ -215,11 +217,12 @@ export function focusWatch(page, cdp, model, root, notes) {
       if (uncompared.length) notes.push(`Focus not compared at ${uncompared.length} Tab stop(s): ${uncompared.slice(0, 10).join(', ')}${uncompared.length > 10 ? ', ...' : ''}`);
       if (small.length) notes.push(`Target size for a person at ${small.length} Tab stop(s): ${small.slice(0, 10).join(', ')}${small.length > 10 ? ', ...' : ''}`);
       const shown = (list) => `${list.length} Tab stop(s): ${list.slice(0, 10).join(', ')}${list.length > 10 ? ', ...' : ''}`;
+      if (faint.length) notes.push(`Focus change too faint to see for a person at ${shown(faint)}`);
       if (look.length) notes.push(`Focus appearance for a person at ${shown(look)}`);
       if (edge.length) notes.push(`Non-text contrast for a person at ${shown(edge)}`);
       if (!stops) return;
       const partial = capped || walk !== 'pass';
-      addCheck(model.checks, '2.4.7', fails['2.4.7'] ? 'fail' : partial || uncompared.length ? 'review' : 'pass', 'focus-visible');
+      addCheck(model.checks, '2.4.7', fails['2.4.7'] ? 'fail' : partial || uncompared.length || faint.length ? 'review' : 'pass', 'focus-visible');
       for (const sc of ['2.4.11', '2.4.12']) addCheck(model.checks, sc, fails[sc] ? 'fail' : partial ? 'review' : 'pass', 'focus-obscured');
       addCheck(model.checks, '2.4.13', fails['2.4.13'] ? 'fail' : partial || uncompared.length || look.length ? 'review' : 'pass', 'focus-appearance');
       // NOTE: never a pass: graphics other than the edge of a field and the icon of a button or link are not measured.
