@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, request } from 'playwright';
-import { generate, bare, watchRequests, ready } from './generate.js';
+import { generate, bare, watchRequests, ready, guardWrites } from './generate.js';
 import { render } from './render.js';
 
 const ID = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)$/i;
@@ -44,6 +44,7 @@ export async function discover(start, opts = {}) {
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext(pageOptions(opts));
+    if (opts.act) await guardWrites(context, () => {});
     const page = await context.newPage();
     const idleTime = watchRequests(page);
     while (queue.length && seen.size < max) {
@@ -163,6 +164,7 @@ export async function crawl(start, opts = {}) {
   const build = opts.versionUrl ? { build: { before, after: await readBuild(opts.versionUrl, opts) } } : {};
   const run = {
     start: start ?? null,
+    act: !!opts.act,
     ...build,
     generated: new Date().toISOString(),
     browser: models[0]?.browser ?? null,

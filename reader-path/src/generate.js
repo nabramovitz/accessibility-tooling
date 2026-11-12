@@ -351,7 +351,22 @@ export async function ready(page, idleTime, opts = {}, notes = []) {
   if (opts.settle) await page.waitForTimeout(opts.settle);
 }
 
-// opts: storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
+// With the write guard on, a request with any method but GET, HEAD or
+// OPTIONS is aborted before it leaves the browser, and `onBlock` gets
+// "METHOD path" (no query or fragment: they can hold tokens). The guard
+// is on the context, so a window opened by the page is guarded too.
+// WebSocket opens are not routed and still go.
+const READ_ONLY = new Set(['GET', 'HEAD', 'OPTIONS']);
+export async function guardWrites(context, onBlock) {
+  await context.route('**/*', (route) => {
+    const req = route.request();
+    if (READ_ONLY.has(req.method())) return route.fallback();
+    onBlock(`${req.method()} ${new URL(bare(req.url())).pathname}`);
+    return route.abort();
+  });
+}
+
+// opts: act (the write guard is on), storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
 // views (false: the default view only; no narrow, zoom, spacing or dark view,
 // and no focus measure in the Tab walk; no lists for a person).
@@ -363,10 +378,11 @@ export async function generate(url, opts = {}) {
       ...(opts.ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {}),
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
+    const notes = [];
+    if (opts.act) await guardWrites(context, (w) => notes.push(`write blocked: ${w}`));
     const page = await context.newPage();
     const idleTime = watchRequests(page);
     const response = await page.goto(url, { waitUntil: 'load' });
-    const notes = [];
     await ready(page, idleTime, opts, notes);
     // Without query and fragment: a redirect can carry a sign-in token.
     const finalUrl = bare(page.url());

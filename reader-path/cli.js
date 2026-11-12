@@ -41,7 +41,7 @@ if (!process.versions.bun && !token) {
 }
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
-  + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>] [--no-views]\n'
+  + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>] [--no-views] [--act]\n'
   + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [--version-url <url>] [page options]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] [--decisions <file>] --out <file.yaml>';
 
@@ -133,6 +133,7 @@ function pageOptions(values) {
     waitFor: values['wait-for'],
     idle,
     settle,
+    ...(values.act ? { act: true } : {}),
     ...(values['no-views'] ? { views: false } : {}),
   };
 }
@@ -170,7 +171,7 @@ async function writePage(url, values) {
 }
 
 // The options each command takes; --out is for all three.
-const PAGE_OPTIONS = ['out', 'storage-state', 'ignore-https-errors', 'wait-for', 'idle', 'settle', 'no-views'];
+const PAGE_OPTIONS = ['out', 'storage-state', 'ignore-https-errors', 'wait-for', 'idle', 'settle', 'no-views', 'act'];
 const TAKES = {
   'the page command': PAGE_OPTIONS,
   crawl: [...PAGE_OPTIONS, 'max', 'urls', 'add', 'jobs', 'version-url'],
@@ -196,6 +197,7 @@ try {
       idle: { type: 'string' },
       settle: { type: 'string' },
       'no-views': { type: 'boolean' },
+      act: { type: 'boolean' },
       max: { type: 'string' },
       urls: { type: 'string' },
       add: { type: 'string' },

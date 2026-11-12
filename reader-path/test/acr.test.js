@@ -608,3 +608,8 @@ test('a model without a shape takes only the decisions for every page', () => {
   const { report } = buildReport([m], null, catalog, { ...OPTS, decisions: [D('k1', 'defect', 'apps')] });
   assert.equal(at(report, A, '2.4.4').level, 'not-evaluated');
 });
+
+test('a walk rule is the tool\'s own, not axe-core\'s', () => {
+  const rows = proposeRows([model({ '2.4.3': entry({ review: ['walk-focus-order'], na: ['walk-dialog'] }) })], catalog);
+  assert.ok(!adh(rows, '2.4.3').notes.includes('axe-core'));
+});
