@@ -99,7 +99,7 @@ page. The report names the axe-core version of every model; a model
 written before this field existed is named with the installed version.
 
 Each command takes only its own options: the page command the ones
-above, `crawl` those and `--max`, `--urls` and `--jobs`, and `acr`
+above, `crawl` those and `--max`, `--urls`, `--add` and `--jobs`, and `acr`
 `--out` and `--base`. An option from another command stops the
 command with a usage error.
 
@@ -275,14 +275,14 @@ Content inside a shadow root is not measured. The rule ids are
 ## Crawl: a run over a site
 
 ```
-bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--jobs <n>] [page options]
+bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [page options]
 ```
 
 This finds the pages of a site from `<url>` by their links, breadth
 first, and reads each one as above. It follows links only (`a[href]`
 on the same site): it never presses a button or sends a form, so a
 page reached only that way (a stepper, a dialog) is not in the run
-unless `--urls` names it. Paths with `login` or `logout` are skipped,
+unless `--urls` or `--add` names it. Paths with `login` or `logout` are skipped,
 and a sign-in page in place of a page stops the crawl with a note.
 
 One page stands for each route shape: a path segment that is a UUID
@@ -316,6 +316,11 @@ crawl looks for links and when it reads the page. An element named by
 - `--max <n>`: the most pages to read. The default is 100.
 - `--urls <file>`: one URL a line; the crawl reads these and finds no
   others.
+- `--add <file>`: one URL a line; the crawl finds pages as usual and
+  reads these as well. Use it for pages no link reaches: a page a
+  button opens, or a tab that shows only on some items (an app that
+  uses the autoscaler). A listed page stands for its shape, in place
+  of the page the crawl found for it. Its links are not followed.
 - `--jobs <n>`: read this many pages at the same time, each in its own
   browser. The default is 1. The pages in `run.json` keep the order in
   which they were found. More jobs put more load on the computer and

@@ -118,11 +118,20 @@ export async function inPool(items, jobs, fn) {
 
 // The run: discover (or take `opts.urls`), read every page, write the run
 // folder. A page that moved to another page of the run is dropped.
-// `opts.jobs`: the pages read at the same time (default 1).
+// `opts.add`: pages read as well, for those no link reaches (a page opened
+// by a button, a tab shown on one app only); each stands for its shape in
+// place of a found page. `opts.jobs`: the pages read at the same time
+// (default 1).
 export async function crawl(start, opts = {}) {
   const out = opts.out ?? 'reader-path-run';
   const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [], stillLoading: [] } : await discover(start, opts);
   const base = dirOf(start ?? found.urls[0]);
+  if (opts.add) {
+    const shapeOf = (u) => shape(new URL(u).pathname, base);
+    const added = opts.add.map(bare);
+    const taken = new Set(added.map(shapeOf));
+    found.urls = [...found.urls.filter((u) => !taken.has(shapeOf(u))), ...added];
+  }
   const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, opts));
   const urls = new Set(models.map((m) => m.url));
   const dropped = models.filter((m) => m.finalUrl !== m.url && urls.has(m.finalUrl));

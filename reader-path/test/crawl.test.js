@@ -151,6 +151,17 @@ test('--urls takes the list from a file and skips discovery', async () => {
   assert.deepEqual(runJson.pages.map((p) => p.shape), ['a.html', 'hidden.html']);
 });
 
+test('--add reads the listed pages as well as the found ones; a listed page stands for its shape', async () => {
+  const out = tmp();
+  const list = join(out, 'add.txt');
+  const { writeFileSync } = await import('node:fs');
+  // added.html has no link to it; b/67890 is the second c.html, which discovery does not keep.
+  writeFileSync(list, `${fixture('site/added.html')}\n${fixture('site/b/67890/c.html')}\n`);
+  await run('node', [CLI, 'crawl', SITE, '--add', list, '--out', out, '--no-views']);
+  const runJson = JSON.parse(readFileSync(join(out, 'run.json'), 'utf8'));
+  assert.deepEqual(runJson.pages.map((p) => path(p.url)), ['/index.html', '/a.html', '/hidden.html', '/added.html', '/b/67890/c.html']);
+});
+
 test('inPool runs at most n at a time and keeps the order of the items', async () => {
   let now = 0;
   let most = 0;
