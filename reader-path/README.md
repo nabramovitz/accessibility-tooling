@@ -112,6 +112,9 @@ model the same way the generated `index.html` does. Nothing is
 uploaded: the file is read in the browser and the page makes no
 requests. To refresh, run reader-path again and choose the new file.
 
+The viewer is published at
+https://nabramovitz.github.io/accessibility-tooling/ from `main`.
+
 Until a file is chosen the page says "No model loaded". A file that
 is not a reader path model gets a plain message, and the page stays
 open for another file.

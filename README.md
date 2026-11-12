@@ -1,8 +1,10 @@
 # Accessibility tooling
 
-Ideas and sketches for tooling that helps to make web applications
-accessible.
+Tooling that helps to make web applications accessible.
 
-- [Reader path model: Stratos home page](https://nabramovitz.github.io/accessibility-tooling/mocks/reader-path-model/)
-  — a sketch, made by hand, of a model of the paths that a person who
-  uses a screen reader takes through one page.
+- [reader-path](reader-path/) — opens a web page in headless Chromium
+  and writes a model of what a screen reader user gets from it, with
+  the gaps it finds and the checks it ran.
+- [Viewer](https://nabramovitz.github.io/accessibility-tooling/) —
+  open a `model.json` from reader-path in the browser. Nothing is
+  uploaded.
