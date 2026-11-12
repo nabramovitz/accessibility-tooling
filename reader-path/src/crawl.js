@@ -3,7 +3,7 @@
 // never presses a button or sends a form.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, request } from 'playwright';
 import { generate, bare, watchRequests, ready } from './generate.js';
 import { render } from './render.js';
 
@@ -116,14 +116,29 @@ export async function inPool(items, jobs, fn) {
   return out;
 }
 
+// The site's build, from a URL that names it (Stratos: /pp/v1/version):
+// a shared site can be redeployed while a run reads it. JSON if it parses.
+async function readBuild(url, opts) {
+  const ctx = await request.newContext(opts.ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {});
+  try {
+    const text = await (await ctx.get(url)).text();
+    try { return JSON.parse(text); } catch { return text; }
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0] };
+  } finally {
+    await ctx.dispose();
+  }
+}
+
 // The run: discover (or take `opts.urls`), read every page, write the run
 // folder. A page that moved to another page of the run is dropped.
 // `opts.add`: pages read as well, for those no link reaches (a page opened
 // by a button, a tab shown on one app only); each stands for its shape in
 // place of a found page. `opts.jobs`: the pages read at the same time
-// (default 1).
+// (default 1). `opts.versionUrl`: the build is read before and after.
 export async function crawl(start, opts = {}) {
   const out = opts.out ?? 'reader-path-run';
+  const before = opts.versionUrl ? await readBuild(opts.versionUrl, opts) : undefined;
   const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [], stillLoading: [] } : await discover(start, opts);
   const base = dirOf(start ?? found.urls[0]);
   if (opts.add) {
@@ -143,8 +158,10 @@ export async function crawl(start, opts = {}) {
     writeFileSync(join(out, dir, 'index.html'), render(m));
     return { url: m.url, finalUrl: m.finalUrl, shape: shape(new URL(m.url).pathname, base), dir };
   });
+  const build = opts.versionUrl ? { build: { before, after: await readBuild(opts.versionUrl, opts) } } : {};
   const run = {
     start: start ?? null,
+    ...build,
     generated: new Date().toISOString(),
     browser: models[0]?.browser ?? null,
     pages,

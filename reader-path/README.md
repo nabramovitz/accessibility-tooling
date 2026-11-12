@@ -99,7 +99,8 @@ page. The report names the axe-core version of every model; a model
 written before this field existed is named with the installed version.
 
 Each command takes only its own options: the page command the ones
-above, `crawl` those and `--max`, `--urls`, `--add` and `--jobs`, and `acr`
+above, `crawl` those and `--max`, `--urls`, `--add`, `--jobs` and
+`--version-url`, and `acr`
 `--out` and `--base`. An option from another command stops the
 command with a usage error.
 
@@ -275,7 +276,7 @@ Content inside a shadow root is not measured. The rule ids are
 ## Crawl: a run over a site
 
 ```
-bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [page options]
+bun cli.js crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [--version-url <url>] [page options]
 ```
 
 This finds the pages of a site from `<url>` by their links, breadth
@@ -327,6 +328,12 @@ crawl looks for links and when it reads the page. An element named by
   on the site, so a page can seem done while it still loads: look in
   the models for a "Loading" status before you use the numbers. When a
   page fails, no new page starts.
+- `--version-url <url>`: a URL that names the site's build (Stratos:
+  `/pp/v1/version`). The crawl reads it before the first page and after
+  the last and writes both answers to `run.json` under `build` (`before`
+  and `after`; JSON when it parses). A shared site can be redeployed
+  while a run reads it; when the two answers differ, the command says
+  so.
 
 Then `bun cli.js acr <dir>/pages/*/model.json --out <file.yaml>`
 writes the report for the run.
