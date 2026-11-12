@@ -89,7 +89,10 @@ const STATE = `((ids) => {
       cut = p.tagName.toLowerCase() + (p.id ? '#' + p.id : '') + (p.classList[0] ? '.' + p.classList[0] : '') + ' (overflow)';
     }
   }
-  out.now = { ...b, text, kind, points, covered, by, person, cut, scroll: scroll(e) };
+  // Corner radii in px; a percentage is of the shorter side.
+  const rad = (v) => (v.split(' ')[0].endsWith('%') ? parseFloat(v) / 100 * Math.min(b.w, b.h) : parseFloat(v) || 0);
+  const radii = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(rad);
+  out.now = { ...b, text, kind, points, covered, by, person, cut, radii, scroll: scroll(e) };
   return out;
 })`;
 
@@ -119,7 +122,7 @@ export function focusWatch(page, cdp, model, root, notes) {
   // 2.4.13 from both shots, and 1.4.11 from the shot without focus.
   const pixels = async (last, focused, unfocused) => {
     const name = nameOf(last.node);
-    const geom = { clip: last.clip, box: { x: last.box.x, y: last.box.y, w: last.box.w, h: last.box.h }, kind: last.box.kind };
+    const geom = { clip: last.clip, box: { x: last.box.x, y: last.box.y, w: last.box.w, h: last.box.h, radii: last.box.radii }, kind: last.box.kind };
     const cutGap = (px) => gap(last.node, `The focus outline is cut off by ${last.box.cut}: ${Math.round(px.strong / (px.scale * px.scale))} of ${Math.round(px.perimeter / (px.scale * px.scale))} px² show. Draw it inside the control (a negative outline-offset).`, '2.4.13', 'A focus indicator is at least a 2 px perimeter, at 3 : 1 against the unfocused look', 'AAA');
     const px = await measurePixels(page, focused, unfocused, geom);
     if (!px) { look.push(name); if (last.box.kind) edge.push(name); return; }

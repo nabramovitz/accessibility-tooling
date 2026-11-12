@@ -208,7 +208,9 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   canvas in the page, with no image library. The pixels that change by
   3 : 1 or more between the shot with focus and the one without are
   counted, and their area is compared with the area of a 2 px
-  perimeter of the control. Both numbers are measures of a picture, so
+  perimeter of the control. The perimeter follows the control's
+  rounded corners (`border-radius`), so a 2 px ring drawn inside a
+  rounded control is the whole perimeter. Both numbers are measures of a picture, so
   there is a margin of error: a gap only when clearly under, that is
   when even the pixels at 2.5 : 1 cover less than three quarters of
   the perimeter. Between that and the full area, or for a text field

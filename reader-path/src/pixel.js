@@ -24,6 +24,20 @@ export function contrast(a, b) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
+// The area of a 2 px band inside a w x h box whose corners are rounded
+// by r = [top left, top right, bottom right, bottom left]. A rounded
+// corner takes (1 - π/4) r² off a box; the inner box's corners are r - 2.
+// simplification: corners are circles; an elliptical radius is read as
+// its first value.
+export function perimeterArea(w, h, r = [0, 0, 0, 0]) {
+  const area = (w, h, d) => {
+    if (w <= 0 || h <= 0) return 0;
+    const most = Math.min(w, h) / 2;
+    return w * h - r.reduce((s, x) => { const c = Math.min(Math.max(x - d, 0), most); return s + (1 - Math.PI / 4) * c * c; }, 0);
+  };
+  return area(w, h, 0) - area(w - 4, h - 4, 2);
+}
+
 // strong: pixels at NEED or more; lenient: pixels at MARGIN or more.
 export function judgeAppearance({ strong, lenient, perimeter }) {
   if (strong >= perimeter) return 'pass';
@@ -47,6 +61,7 @@ const PIXELS = `(async (f, u, g) => {
   ${chan}
   ${lum}
   ${contrast}
+  ${perimeterArea}
   const L = new Float64Array(256).map((_, i) => chan(i));
   const ratio = (a, b, c, d, e, h) => { const x = 0.2126 * L[a] + 0.7152 * L[b] + 0.0722 * L[c]; const y = 0.2126 * L[d] + 0.7152 * L[e] + 0.0722 * L[h]; return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
   const load = async (b64) => {
@@ -62,7 +77,7 @@ const PIXELS = `(async (f, u, g) => {
   const s = U.width / g.clip.width;
   const out = { strong: 0, lenient: 0, perimeter: 0, edge: null, glyph: null, scale: s };
   const w = g.box.w; const h = g.box.h;
-  out.perimeter = (w * h - Math.max(0, w - 4) * Math.max(0, h - 4)) * s * s;
+  out.perimeter = perimeterArea(w, h, g.box.radii) * s * s;
   if (F && F.width === U.width && F.height === U.height) {
     const a = F.data; const b = U.data;
     for (let i = 0; i < a.length; i += 4) {
