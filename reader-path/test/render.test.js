@@ -312,3 +312,77 @@ test('cli under bun exits as the bun run exits', () => {
 test('cli exits 1 with the three usage lines when no url is given', () => {
   assert.throws(() => execFileSync(NODE, [CLI], { stdio: 'pipe' }), (e) => e.status === 1 && e.stderr.toString().trim().split(/\r?\n/).length === 3);
 });
+
+test('review page: proposals are decided and saved as a decisions file, merged with a loaded one', async () => {
+  const model = {
+    url: 'file:///x', title: 'T', generated: '2026-01-01T00:00:00.000Z', notes: [], shape: 'apps',
+    root: { id: 'r', t: 'Page', comp: 'RootWebArea', role: 'RootWebArea', name: 'Page', c: [
+      { id: 'a', t: 'More', comp: 'link', role: 'link', name: 'More', tab: 1, c: [] },
+      { id: 'b', t: 'home Home', comp: 'button', role: 'button', name: 'home Home', tab: 2, c: [] },
+    ] },
+    proposals: [
+      { key: 'k1', sc: '2.4.4', rule: 'text-link', node: 'a', say: 'Two links named More go to different pages', propose: null },
+      { key: 'k2', sc: '2.4.6', rule: 'text-icon', node: 'b', say: 'The name reads the icon word "home"', propose: 'Home', n: 3 },
+    ],
+  };
+  const file = join(tmp(), 'index.html');
+  writeFileSync(file, render(model));
+  const loaded = { version: 1, decided: [
+    { page: 'apps', key: 'k1', verdict: 'fine', note: 'Same list', by: 'Ann', date: '2026-11-01' },
+    { page: 'orgs', key: 'z', verdict: 'defect', note: '', by: 'Ann', date: '2026-11-01' },
+  ] };
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(file).href);
+    const items = page.locator('#props li');
+    assert.equal(await items.count(), 2);
+    assert.match(await items.nth(1).innerText(), /2\.4\.6[\s\S]*icon word "home" \(3 times on this page\)[\s\S]*Suggested: Home/);
+    await items.nth(1).getByRole('button', { name: 'Show the box' }).click();
+    assert.match(await page.locator('#det h2').innerText(), /home Home/);
+
+    await page.getByRole('button', { name: 'Save decisions' }).click();
+    assert.match(await page.locator('#dmsg').innerText(), /your name/i);
+
+    await page.getByLabel('Decisions file to add to').setInputFiles({ name: 'decisions.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(loaded)) });
+    await page.waitForFunction(() => /Loaded/.test(document.getElementById('dmsg').textContent));
+    assert.equal(await items.nth(0).getByRole('button', { name: 'Fine' }).getAttribute('aria-pressed'), 'true');
+    assert.equal(await items.nth(1).getByRole('button', { name: 'Defect' }).getAttribute('aria-pressed'), 'false');
+
+    await page.getByLabel('Your name').fill('Norm');
+    await items.nth(1).getByRole('button', { name: 'Defect' }).click();
+    assert.equal(await items.nth(1).getByRole('button', { name: 'Defect' }).getAttribute('aria-pressed'), 'true');
+    await items.nth(1).getByLabel('Note').fill('Read twice');
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save decisions' }).click()]);
+    assert.equal(download.suggestedFilename(), 'decisions.json');
+    const saved = JSON.parse(readFileSync(await download.path(), 'utf8'));
+    assert.equal(saved.version, 1);
+    const today = await page.evaluate(() => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, '0')).join('-'); });
+    assert.deepEqual(saved.decided, [...loaded.decided, { page: 'apps', key: 'k2', verdict: 'defect', note: 'Read twice', by: 'Norm', date: today }]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('review page with proposals has no A/AA or 1.4.6 gaps, both themes; no section without them', async () => {
+  const base = await generate(fixture('gaps.html'));
+  const node = flat(base).find((n) => n.role === 'link' || n.role === 'button') ?? base.root;
+  const with_ = { ...base, shape: 'gaps', proposals: [{ key: 'k', sc: '2.4.4', rule: 'text-link', node: node.id, say: 'A link name to look at', propose: 'Better name' }] };
+  const browser = await chromium.launch();
+  try {
+    for (const [m, shown] of [[base, false], [with_, true]]) {
+      const file = join(tmp(), 'index.html');
+      writeFileSync(file, render(m));
+      for (const colorScheme of ['light', 'dark']) {
+        const page = await browser.newPage({ colorScheme, bypassCSP: true });
+        await page.goto(pathToFileURL(file).href);
+        assert.equal(await page.locator('#props').isVisible(), shown);
+        if (shown) await page.locator('#props li').getByRole('button', { name: 'Defect' }).click();
+        assert.deepEqual(await check(page), { violations: [], unfinished: [] }, `${colorScheme}, proposals ${shown}`);
+        await page.close();
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+});

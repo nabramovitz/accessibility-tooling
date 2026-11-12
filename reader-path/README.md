@@ -100,7 +100,7 @@ written before this field existed is named with the installed version.
 
 Each command takes only its own options: the page command the ones
 above, `crawl` those and `--max`, `--urls`, `--add` and `--jobs`, and `acr`
-`--out` and `--base`. An option from another command stops the
+`--out`, `--base` and `--decisions`. An option from another command stops the
 command with a usage error.
 
 ## Viewer
@@ -299,7 +299,8 @@ crawl looks for links and when it reads the page. An element named by
 
 - `--out <dir>`: the run directory. The default is `reader-path-run`.
   Each page goes to `<dir>/pages/<shape>/` (`model.json` and
-  `index.html`; `<shape>` is the path with `/` as `_` and ids as `id`),
+  `index.html`; `<shape>` is the path with `/` as `_` and ids as `id`;
+  the model holds its `shape` too),
   and `<dir>/run.json` lists the pages, the pages dropped because they
   moved to another page of the run (a default tab), and the URLs
   skipped. The same care as for `--out` above: the models hold the
@@ -334,7 +335,7 @@ writes the report for the run.
 ## OpenACR draft
 
 ```
-bun cli.js acr <model.json>... [--base <yaml>] --out <file.yaml>
+bun cli.js acr <model.json>... [--base <yaml>] [--decisions <file>] --out <file.yaml>
 ```
 
 This reads the `model.json` of one or more pages (made by this
@@ -433,6 +434,41 @@ axe-core did not run, or did not check a frame.
 
 Without `--base`, `title`, `product.name` and `author.email` are
 placeholders to fill in.
+
+- `--decisions <file>`: a person's verdicts on the proposals (below).
+
+### Proposals and decisions
+
+Some findings need a person: whether a link name says where it goes,
+whether a heading describes its section. The tool writes these as
+proposals in the model (`proposals`: the WCAG row, the check, the box,
+the finding and a suggested fix), never as a fail. The review page
+lists them under "Proposals". For each one, press Defect or Fine and,
+if you like, write a note. Type your name and press "Save decisions":
+the browser saves `decisions.json`. To add to an earlier file, load it
+first with "Decisions file to add to"; a decision made on the page
+replaces the loaded one for the same page and proposal.
+
+```json
+{ "version": 1, "decided": [
+  { "page": "applications_id_id_summary", "key": "...", "verdict": "defect",
+    "note": "", "by": "A. Person", "date": "2026-11-12" } ] }
+```
+
+`page` is the page's shape (as in the run folder), or `null` for every
+page with that proposal; a decision for the page wins over a `null`
+one. A model with no shape (one page read on its own) takes only the
+`null` decisions. The key is the check, the role, the name and the
+text, with numbers as `#`, so it stays the same from run to run.
+
+In the report, per page and check: a defect is a fail of its row (the
+row is at most `partially-supports`) with the finding, who decided and
+when as a gap line; an open proposal keeps the row `not-evaluated`; a
+check whose proposals are all fine passes. The row note counts them:
+`3 proposals for a person (1 decided defect, 1 fine, 1 open)`, and
+names who decided. A decision that no proposal matches any more is
+printed as stale, unless its page is not in this run. A base row a
+person wrote still wins.
 
 ## Tests
 

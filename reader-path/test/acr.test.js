@@ -544,3 +544,67 @@ test('grouped lines are ordered by page count, most first, and the 20-line cap i
   assert.equal(l.filter((x) => x.startsWith('https://')).length, 20);
   assert.ok(l.includes('and 26 more'));
 });
+
+// Proposals: findings that a person decides (plan E). A page has a
+// shape (crawl writes it); a decision names a shape or null (every page).
+const P = (sc, key, node = 'b', over = {}) => ({ key, sc, rule: 'text-link', node, say: `say ${key}`, propose: null, ...over });
+const withProposals = (shape, proposals, checks = {}) => model(checks, {
+  finalUrl: `https://x.test/${shape}`, shape, proposals,
+  root: { id: 'r', role: 'document', t: 'Home', c: [{ id: 'b', role: 'link', t: 'More' }] },
+});
+const D = (key, verdict, page = null) => ({ page, key, verdict, note: '', by: 'Norm', date: '2026-11-12' });
+const A = 'success_criteria_level_a';
+
+test('an old model without proposals reads, and its rows have no proposals line', () => {
+  const { report, stale } = buildReport([model({ '2.4.4': entry({ pass: ['link-name'] }) })], null, catalog, OPTS);
+  assert.equal(at(report, A, '2.4.4').level, 'supports');
+  assert.ok(!at(report, A, '2.4.4').notes.includes('proposal'));
+  assert.deepEqual(stale, []);
+});
+
+test('an undecided proposal makes its row not-evaluated, beside a passing rule', () => {
+  const m = withProposals('apps', [P('2.4.4', 'k1')], { '2.4.4': entry({ pass: ['link-name'] }) });
+  const { report } = buildReport([m], null, catalog, OPTS);
+  const a = at(report, A, '2.4.4');
+  assert.equal(a.level, 'not-evaluated');
+  assert.ok(a.notes.split('\n\n').includes('1 proposal for a person (0 decided defect, 0 fine, 1 open)'), a.notes);
+  assert.ok(!a.notes.includes('axe-core could not decide'));
+});
+
+test('a defect is a fail of its row with the proposal text and who decided; fine passes the rule', () => {
+  const m = withProposals('apps', [P('2.4.4', 'k1'), P('2.4.6', 'k2')]);
+  const { report, stale } = buildReport([m], null, catalog, { ...OPTS, decisions: [D('k1', 'defect'), D('k2', 'fine', 'apps')] });
+  const bad = at(report, A, '2.4.4');
+  assert.equal(bad.level, 'partially-supports');
+  assert.ok(bad.notes.includes('https://x.test/apps: More: say k1 (a defect: Norm, 2026-11-12)'), bad.notes);
+  assert.ok(bad.notes.includes('1 proposal for a person (1 decided defect, 0 fine, 0 open)'));
+  assert.ok(bad.notes.includes('Decided by: Norm'));
+  const ok = at(report, 'success_criteria_level_aa', '2.4.6');
+  assert.equal(ok.level, 'supports');
+  assert.ok(ok.notes.includes('1 proposal for a person (0 decided defect, 1 fine, 0 open)'));
+  assert.deepEqual(stale, []);
+  assert.equal(m.proposals[0].verdict, undefined, 'the models given are not changed');
+});
+
+test('a decision for the page wins over one for every page', () => {
+  const a = withProposals('apps', [P('2.4.4', 'k1')]);
+  const b = withProposals('orgs', [P('2.4.4', 'k1')]);
+  const { report } = buildReport([a, b], null, catalog, { ...OPTS, decisions: [D('k1', 'defect'), D('k1', 'fine', 'orgs')] });
+  const notes = at(report, A, '2.4.4').notes;
+  assert.ok(notes.includes('x.test/apps: More: say k1'));
+  assert.ok(!notes.includes('x.test/orgs: More'));
+  assert.ok(notes.includes('2 proposals for a person (1 decided defect, 1 fine, 0 open)'));
+});
+
+test('a decision that matches no proposal is stale; one for a page outside the run is left alone', () => {
+  const m = withProposals('apps', [P('2.4.4', 'k1')]);
+  const gone = [D('old', 'defect'), D('old2', 'fine', 'apps'), D('k1', 'fine', 'other-page')];
+  const { stale } = buildReport([m], null, catalog, { ...OPTS, decisions: gone });
+  assert.deepEqual(stale, gone.slice(0, 2));
+});
+
+test('a model without a shape takes only the decisions for every page', () => {
+  const m = withProposals(undefined, [P('2.4.4', 'k1')]);
+  const { report } = buildReport([m], null, catalog, { ...OPTS, decisions: [D('k1', 'defect', 'apps')] });
+  assert.equal(at(report, A, '2.4.4').level, 'not-evaluated');
+});
