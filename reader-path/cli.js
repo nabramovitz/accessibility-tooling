@@ -42,7 +42,7 @@ if (!process.versions.bun && !token) {
 
 const USAGE = 'usage: reader-path <url> [--out <dir>] [--storage-state <file>] [--ignore-https-errors]'
   + ' [--wait-for <selector>] [--idle <ms>] [--settle <ms>] [--no-views]\n'
-  + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [page options]\n'
+  + '       reader-path crawl <url> [--out <dir>] [--max <n>] [--urls <file>] [--add <file>] [--jobs <n>] [--version-url <url>] [page options]\n'
   + '       reader-path acr <model.json>... [--base <yaml>] --out <file.yaml>';
 
 const usage = (text) => Object.assign(new Error(text), { usage: true });
@@ -140,9 +140,12 @@ async function writeRun(start, values) {
     : readFileSync(f, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map(pageUrl));
   const urls = list(values.urls);
   const add = list(values.add);
-  const { out, run } = await crawl(start === undefined ? undefined : pageUrl(start), { ...pageOptions(values), out: values.out, max, urls, add, jobs });
+  const { out, run } = await crawl(start === undefined ? undefined : pageUrl(start), { ...pageOptions(values), out: values.out, max, urls, add, jobs, versionUrl: values['version-url'] });
   console.log(`wrote ${join(out, 'run.json')}: ${run.pages.length} page(s), ${run.dropped.length} dropped, ${run.skipped.length} skipped`);
   for (const s of run.skipped) console.log(`skipped ${s.url}: ${s.why}`);
+  if (run.build && JSON.stringify(run.build.before) !== JSON.stringify(run.build.after)) {
+    console.log('the build changed during the run: see build in run.json before the numbers are used');
+  }
   if (run.loading.length) console.log(`${run.loading.length} page(s) show a loading sign: look at them before the numbers are used`);
   if (run.discoverStillLoading.length) console.log(`${run.discoverStillLoading.length} page(s) were still loading when links were read: discovery may have missed links on them`);
 }
@@ -162,7 +165,7 @@ async function writePage(url, values) {
 const PAGE_OPTIONS = ['out', 'storage-state', 'ignore-https-errors', 'wait-for', 'idle', 'settle', 'no-views'];
 const TAKES = {
   'the page command': PAGE_OPTIONS,
-  crawl: [...PAGE_OPTIONS, 'max', 'urls', 'add', 'jobs'],
+  crawl: [...PAGE_OPTIONS, 'max', 'urls', 'add', 'jobs', 'version-url'],
   acr: ['out', 'base'],
 };
 function onlyOptions(values, command) {
@@ -187,6 +190,7 @@ try {
       max: { type: 'string' },
       urls: { type: 'string' },
       add: { type: 'string' },
+      'version-url': { type: 'string' },
       jobs: { type: 'string' },
     },
   });

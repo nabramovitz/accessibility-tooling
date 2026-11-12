@@ -162,6 +162,32 @@ test('--add reads the listed pages as well as the found ones; a listed page stan
   assert.deepEqual(runJson.pages.map((p) => path(p.url)), ['/index.html', '/a.html', '/hidden.html', '/added.html', '/b/67890/c.html']);
 });
 
+test('--version-url records the build before and after the run, and warns when it changed', async () => {
+  const { createServer } = await import('node:http');
+  let calls = 0;
+  const srv = createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ git_commit: ++calls === 1 ? 'aaa' : 'bbb' }));
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const version = `http://localhost:${srv.address().port}/version`;
+  try {
+    const out = tmp();
+    const { stdout } = await run('node', [CLI, 'crawl', fixture('site/a.html'), '--max', '1', '--no-views', '--version-url', version, '--out', out]);
+    const runJson = JSON.parse(readFileSync(join(out, 'run.json'), 'utf8'));
+    assert.deepEqual(runJson.build, { before: { git_commit: 'aaa' }, after: { git_commit: 'bbb' } });
+    assert.ok(stdout.includes('the build changed during the run'), stdout);
+  } finally {
+    srv.close();
+  }
+});
+
+test('without --version-url the run has no build', async () => {
+  const out = tmp();
+  await run('node', [CLI, 'crawl', fixture('site/a.html'), '--max', '1', '--no-views', '--out', out]);
+  assert.equal(JSON.parse(readFileSync(join(out, 'run.json'), 'utf8')).build, undefined);
+});
+
 test('inPool runs at most n at a time and keeps the order of the items', async () => {
   let now = 0;
   let most = 0;
