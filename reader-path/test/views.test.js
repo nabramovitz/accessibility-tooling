@@ -131,6 +131,13 @@ test('colours that fade into dark mode are read when the fade ends', async () =>
   assert.match(dark[0][1], /foreground color: #555555, background color: #222222/);
 });
 
+test('a second fade that cancels the first is waited for too', async () => {
+  const m = await generate(fixture('views/dark-refade.html'));
+  const dark = gaps(m, '1.4.3').filter((g) => /^In dark mode: /.test(g[1]));
+  assert.ok(dark.length >= 1);
+  assert.match(dark[0][1], /foreground color: #555555, background color: #222222/);
+});
+
 test('good colours in dark mode: both rows pass, no gap', async () => {
   const m = await generate(fixture('views/dark-good.html'));
   assert.ok(m.checks['1.4.3'].pass.includes('view-dark'));

@@ -218,8 +218,17 @@ async function dark(page, cdp, nearestKept, root, model, notes, laid) {
     await laid();
     // A page can fade its colours into the new scheme; read them when the
     // fades end. Only transitions: they end, a looping animation does not.
-    await page.evaluate(() => Promise.all(document.getAnimations()
-      .filter((a) => a instanceof CSSTransition).map((a) => a.finished.catch(() => {}))));
+    // A fade can be cancelled by a second one (a class set a moment after
+    // the media change), so look again until none runs, for 5 s at most.
+    await page.evaluate(async () => {
+      const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const running = () => document.getAnimations().filter((a) => a instanceof CSSTransition);
+      const end = performance.now() + 5000;
+      while (running().length && performance.now() < end) {
+        await Promise.race([Promise.all(running().map((a) => a.finished.catch(() => {}))), new Promise((r) => setTimeout(r, end - performance.now()))]);
+        await frames();
+      }
+    });
     const changed = (await cdp.send('Runtime.evaluate', { expression: COLOURS, returnByValue: true })).result.value !== light;
     if (!changed) {
       notes.push('The page has no dark mode');
