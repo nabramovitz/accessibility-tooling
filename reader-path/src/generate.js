@@ -7,6 +7,7 @@ import { focusWatch } from './focus.js';
 import { lists } from './lists.js';
 import { textLinks } from './text-links.js';
 import { textHeadings } from './text-headings.js';
+import { textLanguage } from './text-language.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 import { textColour } from './text-colour.js';
 
@@ -419,6 +420,7 @@ export async function generate(url, opts = {}) {
     textLinks(model, root);
     await textHeadings(page, cdp, nearestKept, root, model, notes);
     await textColour(page, cdp, nearestKept, root, model, notes);
+    await textLanguage(page, root, model, notes);
 
     const title = await page.title();
     const version = browser.version();

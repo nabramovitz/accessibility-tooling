@@ -560,6 +560,29 @@ fail by itself. A box with text, `aria-label`, `aria-labelledby`,
 The proposal sits on the nearest box the model keeps (a dot with no
 name is often not in it). The check runs with views on or off.
 
+#### Language and words (`text-` checks)
+
+Three checks read the text of the page after the views, with or
+without views, and write proposals (never a fail):
+
+- `text-language-part` (3.1.2, AA): a stretch of three words or more in
+  a script other than the page's (Greek on an English page), with no
+  `lang` on its element or an ancestor other than `html`. Names of
+  controls and links are not checked, nor stretches of one or two
+  words. Text in the same script as the page (French on an English
+  page) cannot be told apart.
+- `text-reading-level` (3.1.5, AAA): the Flesch-Kincaid grade of the
+  prose in `main` (runs of six words or more, not in controls), for an
+  English or unmarked page with at least 100 words. Above grade 9 it is
+  a proposal with the grade. Syllables are vowel groups, less a silent
+  final e and a final ed not after t or d.
+- `text-abbreviation` (3.1.4, AAA; the same list serves 3.1.3 and
+  3.1.6): words in capitals of 2 to 6 letters with no `abbr` that has a
+  `title` and no expansion in brackets beside them. One proposal per
+  page lists the words. `OK`, `ID`, `AM`, `PM` and `NA` are left out,
+  as is a line with no lower-case letter. Short, well-known words such
+  as API or URL are listed too: a person marks the proposal fine.
+
 ## Tests
 
 ```
