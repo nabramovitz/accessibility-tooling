@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { textLinks } from '../src/text-links.js';
 import { runChecks } from '../src/run-checks.js';
 import { generate } from '../src/generate.js';
-import { fixture } from './helpers.js';
+import { fixture, flat } from './helpers.js';
 
 const link = (name, href, id) => ({ id, role: 'link', name, href, c: [] });
 const tree = (...links) => ({ role: 'RootWebArea', c: [{ role: 'main', lm: 'main', c: links }] });
@@ -83,4 +83,11 @@ test('generate: a fixture page gives each proposal and keeps the target on the l
   const more = m.proposals.find((p) => p.rule === 'text-link-same-name');
   assert.match(more.say, /apps\.html.*orgs\.html/);
   assert.equal(m.proposals.some((p) => /Details|install guide/.test(p.say)), false);
+});
+
+test('a link target is saved without its query or fragment (a query can hold a token)', async () => {
+  const m = await generate(fixture('text-links/page.html'));
+  const status = flat(m).find((n) => n.role === 'link' && n.name === 'Read the status page');
+  assert.match(status.href, /status\.html$/);
+  assert.equal(JSON.stringify(m).includes('secret'), false);
 });

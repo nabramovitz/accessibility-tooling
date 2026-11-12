@@ -485,7 +485,9 @@ person wrote still wins.
 #### Link purpose (2.4.4, 2.4.9)
 
 After the views, a pass over the tree reads each link's name and target
-(`href` on the link node). It runs with or without views, on the same
+(`href` on the link node, saved without its query or fragment, as a
+query can hold a token; so links that differ only in their query are
+one target). It runs with or without views, on the same
 page and load, and proposes; it never fails a row. Each finding is
 proposed for 2.4.4 and again, under the same rule id plus `-alone`,
 for 2.4.9 (the name read without its context).
