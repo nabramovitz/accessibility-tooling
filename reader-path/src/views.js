@@ -216,6 +216,10 @@ async function dark(page, cdp, nearestKept, root, model, notes, laid) {
   await page.emulateMedia({ colorScheme: 'dark' });
   try {
     await laid();
+    // A page can fade its colours into the new scheme; read them when the
+    // fades end. Only transitions: they end, a looping animation does not.
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter((a) => a instanceof CSSTransition).map((a) => a.finished.catch(() => {}))));
     const changed = (await cdp.send('Runtime.evaluate', { expression: COLOURS, returnByValue: true })).result.value !== light;
     if (!changed) {
       notes.push('The page has no dark mode');

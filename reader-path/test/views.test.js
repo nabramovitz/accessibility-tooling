@@ -124,6 +124,13 @@ test('low contrast only in dark mode: a gap that says so, on both contrast rows'
   assert.ok(!m.notes.includes('The page has no dark mode'));
 });
 
+test('colours that fade into dark mode are read when the fade ends', async () => {
+  const m = await generate(fixture('views/dark-fade.html'));
+  const dark = gaps(m, '1.4.3').filter((g) => /^In dark mode: /.test(g[1]));
+  assert.ok(dark.length >= 1);
+  assert.match(dark[0][1], /foreground color: #555555, background color: #222222/);
+});
+
 test('good colours in dark mode: both rows pass, no gap', async () => {
   const m = await generate(fixture('views/dark-good.html'));
   assert.ok(m.checks['1.4.3'].pass.includes('view-dark'));
