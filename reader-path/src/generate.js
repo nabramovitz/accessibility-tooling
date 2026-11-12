@@ -117,7 +117,7 @@ export function buildTree(nodes, dom) {
       const state = stateOf(n);
       if (state) node.state = state;
       if (role === 'heading') node.h = prop(n, 'level');
-      if (role === 'link' && prop(n, 'url')) node.href = prop(n, 'url');
+      if (role === 'link' && prop(n, 'url')) node.href = bare(prop(n, 'url')); // no query: it can hold a token
       if (LANDMARKS.has(role)) node.lm = role;
       const box = boxOf(n, role);
       if (box) node.box = box;
