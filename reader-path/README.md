@@ -395,6 +395,18 @@ none), `run-ways` (2.4.5: navigation plus a search on every page, else
 review), and `run-media` (1.2.1 to 1.2.9 and 1.4.7: audio and video
 elements counted; none found is evidence for the person, never a level).
 
+Each page also counts its media (`media` in the model: `video`,
+`audio`, `object`, `embed`, `iframe` from a known player host, and
+`audio` or `video` with `autoplay`); a page that has any gets a run
+note, `Media elements: 1 video, 1 autoplay`. The 1.2.1 to 1.2.9, 1.4.2
+and 1.4.7 notes carry one line from all the pages: `No media elements
+on 12 pages`, or the pages that have some, with `none on 3 other
+pages`. The tool does not write not-applicable: a person does, with
+that line as the evidence. The player hosts: youtube.com,
+youtube-nocookie.com, youtu.be, vimeo.com, dailymotion.com, wistia.com,
+wistia.net, soundcloud.com, spotify.com, twitch.tv (and their
+subdomains).
+
 - `not-evaluated`: anything else. The note says what a person must
   look at, after `Needs a person:`: no automated check covers the row;
   a page has no result for it (for example, axe-core did not run
@@ -582,6 +594,26 @@ without views, and write proposals (never a fail):
   page lists the words. `OK`, `ID`, `AM`, `PM` and `NA` are left out,
   as is a line with no lower-case letter. Short, well-known words such
   as API or URL are listed too: a person marks the proposal fine.
+
+#### Purpose of fields and regions (1.3.6, AAA)
+
+Two checks, both proposals (`sc` 1.3.6), never a fail:
+
+- `text-purpose-field`: a field for a person's own data with no
+  `autocomplete` (or `autocomplete="off"`). It is that kind of field by
+  its type (`email`, `tel`, `password`) or by its label, `aria-label`,
+  placeholder, name or id: user name or login, email, phone, first or
+  last name, or "name" alone ("Application name" is not). The suggested
+  fix is the token, for example `autocomplete="given-name"`. A field
+  with an `autocomplete` token is not proposed.
+- `text-purpose-region`: a `div` with no `role` whose class or id is
+  the name of a landmark (`header`, `nav`, `navbar`, `navigation`,
+  `sidebar`, `footer`, `search`, `banner`, `main`, with `site-`,
+  `page-`, `top-`, `side-` or `main-` before it) and that is not inside
+  a landmark. Only the outermost such `div` is proposed.
+
+They run in `generate()` after the views, with or without `--no-views`,
+from one script in the page.
 
 ## Tests
 
