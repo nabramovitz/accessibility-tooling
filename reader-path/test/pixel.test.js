@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generate } from '../src/generate.js';
-import { contrast, judgeAppearance, judgeBoundary } from '../src/pixel.js';
+import { contrast, judgeAppearance, judgeBoundary, perimeterArea } from '../src/pixel.js';
 import { fixture, flat } from './helpers.js';
 
 const gapsOf = (m, sc) => flat(m).filter((n) => (n.gaps || []).some((g) => g[1] === sc)).map((n) => n.name);
@@ -19,6 +19,16 @@ test('judgeAppearance: pass at the area, review in the margin, gap clearly under
   assert.equal(judgeAppearance({ strong: 0, lenient: 0, perimeter: P }), 'fail');
 });
 
+test('perimeterArea: a square box is the 2 px band; round corners take off their part', () => {
+  assert.equal(perimeterArea(100, 30), 100 * 30 - 96 * 26);
+  // A pill 120 x 40: radius 20 outside, 18 inside.
+  const pill = 120 * 40 - (4 - Math.PI) * 400 - (116 * 36 - (4 - Math.PI) * 324);
+  assert.ok(Math.abs(perimeterArea(120, 40, [20, 20, 20, 20]) - pill) < 1e-9);
+  assert.ok(perimeterArea(120, 40, [20, 20, 20, 20]) < perimeterArea(120, 40));
+  // A radius past half the shorter side is clamped, as browsers do.
+  assert.equal(perimeterArea(120, 40, [99, 99, 99, 99]), perimeterArea(120, 40, [20, 20, 20, 20]));
+});
+
 test('judgeBoundary: 3 : 1 passes, 2.5 to 3 is review, under 2.5 is a gap, no sample is review', () => {
   assert.equal(judgeBoundary(3.2), 'pass');
   assert.equal(judgeBoundary(2.7), 'review');
@@ -33,6 +43,15 @@ test('2.4.13: a 1 px or a faint ring is a gap, a 2 px black ring passes, a mid g
   assert.ok(m.checks['2.4.13'].fail.includes('focus-appearance'));
   const note = m.notes.find((n) => n.startsWith('Focus appearance for a person'));
   assert.ok(note && note.includes('Middle grey') && !note.includes('Two px'), String(note));
+});
+
+// The 2 px perimeter of a rounded control follows its corners, so a
+// 2 px inset ring on it is the whole perimeter, not a few percent short.
+test('2.4.13: a 2 px inset ring on a rounded control passes', async () => {
+  const m = await generate(fixture('focus/rounded.html'));
+  assert.deepEqual(gapsOf(m, '2.4.13'), []);
+  const note = m.notes.find((n) => n.startsWith('Focus appearance for a person'));
+  assert.ok(!note, String(note));
 });
 
 test('1.4.11: a pale border, icon or icon-only link is a gap; a dark one passes; the check is never a pass', async () => {
