@@ -11,7 +11,7 @@ const LINES = { ...RUN_LINES, ...VIEW_LINES, ...FOCUS_LINES, ...LIST_LINES };
 
 // The tool's own rules, beside axe-core's: the Tab walk, the run checks,
 // the views, the focus measures, the lists and the text proposals.
-const own = (r) => r === 'tab-walk' || /^(run|view|focus|list|text)-/.test(r);
+const own = (r) => r === 'tab-walk' || /^(run|view|focus|list|walk|text)-/.test(r);
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;

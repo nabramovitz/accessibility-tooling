@@ -41,7 +41,7 @@ In this directory, with Bun:
 ```
 bun cli.js <url> [--out <dir>] [--storage-state <file>]
   [--ignore-https-errors] [--wait-for <selector>] [--idle <ms>]
-  [--settle <ms>] [--no-views]
+  [--settle <ms>] [--no-views] [--act]
 ```
 
 Or with Node.js: `node cli.js <url> ...`. Under Node.js the command
@@ -80,6 +80,15 @@ Windows path such as `C:\pages\page.html`.
   content that comes by a timer, not by a request.
 - `--no-views`: read the page in the default view only, with no focus
   measures (see "Views" and "Focus measures").
+- `--act`: turn the write guard on for the whole load. Every request
+  from the page with a method other than GET, HEAD or OPTIONS is
+  aborted before it leaves the browser, and a run note says
+  `write blocked: METHOD path` (the path only, with no query). The guard
+  is on the browser context, so a window the page opens is guarded too.
+  WebSocket opens still go. It does not stop a GET that changes data on
+  the server. This version presses nothing; the option is the safety net
+  for the actions to come. `crawl` takes it too, and `run.json` records
+  it as `act`. Without `--act` nothing is blocked.
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -299,7 +308,7 @@ to the same site (the first, if they are equal). An empty first
 instance thus does not hide the pages below it. If the first two
 instances are both empty, name the pages with `--urls`.
 The page options (`--storage-state`, `--ignore-https-errors`,
-`--wait-for`, `--idle`, `--settle`, `--no-views`) apply to every page, when the
+`--wait-for`, `--idle`, `--settle`, `--no-views`, `--act`) apply to every page, when the
 crawl looks for links and when it reads the page. An element named by
 `--wait-for` must be on every page of the site.
 
