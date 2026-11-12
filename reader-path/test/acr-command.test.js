@@ -263,3 +263,22 @@ test('one model gets no run rows', async () => {
   const { report } = await acr([PASS]);
   assert.ok(!row(report, 'success_criteria_level_a', '2.4.2').components[0].adherence.notes.includes('run-title'));
 });
+
+test('--decisions applies a person\'s verdicts and prints the stale ones', async () => {
+  const m = JSON.parse(readFileSync(PASS, 'utf8'));
+  m.shape = 'ok';
+  m.proposals = [{ key: 'k1', sc: '2.4.4', rule: 'text-link', node: m.root.id, say: 'Two links named More go to different pages', propose: null }];
+  const model = file(JSON.stringify(m), 'model.json');
+  const decided = [
+    { page: 'ok', key: 'k1', verdict: 'defect', note: '', by: 'Norm', date: '2026-11-12' },
+    { page: null, key: 'gone', verdict: 'fine', note: '', by: 'Norm', date: '2026-11-12' },
+  ];
+  const { report, stdout } = await acr([model, '--decisions', file(JSON.stringify({ version: 1, decided }), 'd.json')]);
+  assert.equal(row(report, 'success_criteria_level_a', '2.4.4').components[0].adherence.level, 'partially-supports');
+  assert.match(stdout, /^stale decision \(no proposal has its key\): every page: gone$/m);
+});
+
+test('a decisions file that is not one stops the command', async () => {
+  const d = file('{"version":1}', 'd.json');
+  await fails([PASS, '--decisions', d, '--out', join(tmp(), 'r.yaml')], `reader-path: not a decisions file (no decided list): ${d}`);
+});

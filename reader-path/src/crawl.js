@@ -152,11 +152,13 @@ export async function crawl(start, opts = {}) {
   const dropped = models.filter((m) => m.finalUrl !== m.url && urls.has(m.finalUrl));
   const kept = models.filter((m) => !dropped.includes(m));
   const pages = kept.map((m) => {
-    const dir = join('pages', shape(new URL(m.url).pathname, base));
+    // The shape is in the model too: a person's decisions name it.
+    m.shape = shape(new URL(m.url).pathname, base);
+    const dir = join('pages', m.shape);
     mkdirSync(join(out, dir), { recursive: true });
     writeFileSync(join(out, dir, 'model.json'), JSON.stringify(m, null, 2) + '\n');
     writeFileSync(join(out, dir, 'index.html'), render(m));
-    return { url: m.url, finalUrl: m.finalUrl, shape: shape(new URL(m.url).pathname, base), dir };
+    return { url: m.url, finalUrl: m.finalUrl, shape: m.shape, dir };
   });
   const build = opts.versionUrl ? { build: { before, after: await readBuild(opts.versionUrl, opts) } } : {};
   const run = {

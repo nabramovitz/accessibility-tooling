@@ -5,12 +5,13 @@ import { RUN_LINES } from './run-checks.js';
 import { VIEW_LINES } from './views.js';
 import { FOCUS_LINES } from './focus.js';
 import { LIST_LINES } from './lists.js';
+import { settle, proposalLines } from './proposals.js';
 
 const LINES = { ...RUN_LINES, ...VIEW_LINES, ...FOCUS_LINES, ...LIST_LINES };
 
 // The tool's own rules, beside axe-core's: the Tab walk, the run checks,
-// the views, the focus measures and the lists.
-const own = (r) => r === 'tab-walk' || /^(run|view|focus|list)-/.test(r);
+// the views, the focus measures, the lists and the text proposals.
+const own = (r) => r === 'tab-walk' || /^(run|view|focus|list|text)-/.test(r);
 
 const CHAPTERS = ['success_criteria_level_a', 'success_criteria_level_aa', 'success_criteria_level_aaa', 'functional_performance_criteria'];
 const MAX_GAP_LINES = 20;
@@ -112,7 +113,7 @@ function wcag(models, sc) {
     const rules = `Failing rules: ${[...ids, ...lowIds.map((r) => `${r} (1.4.3)`)].join(', ')} on ${failing.length} of ${models.length} page(s)`;
     const lowPages = models.filter(low).length;
     const lowLine = lowPages ? [`Text under 4.5 : 1 on ${lowPages} page(s) is also under 7 : 1: see the 1.4.3 row`] : [];
-    return { level: 'partially-supports', lines: [rules, ...lowLine, ...gapLines(models, sc)] };
+    return { level: 'partially-supports', lines: [rules, ...lowLine, ...proposalLines(models, sc), ...gapLines(models, sc)] };
   }
   // supports needs a pass, and a pass or na on every page (all of it,
   // frames included). The tool never writes not-applicable: an axe-core
@@ -131,6 +132,7 @@ function wcag(models, sc) {
     const detail = models.find((m) => m.runDetails?.[r])?.runDetails[r];
     lines.push(detail ? `${LINES[r].review}: ${detail.join('; ')}` : LINES[r].review);
   }
+  lines.push(...proposalLines(models, sc));
   if (axeReview.length) lines.push(`Needs a person: axe-core could not decide (${axeReview.join(', ')})`);
   const axeNa = na.filter((r) => !own(r));
   if (!pass.length && axeNa.length) lines.push(`Needs a person: the axe-core rules found nothing to check (${axeNa.join(', ')}); is the row not applicable?`);
@@ -199,8 +201,10 @@ const toolOwned = (row) => TOOL_END.test(String(adherence(row)?.notes ?? ''));
 // rows after this merge. Returns { report, conflicts, pending, automated }:
 // conflicts are lines for person rows better than the new evidence, pending
 // is the number of A and AA rows still not-evaluated, automated the number
-// of WCAG rows the tool wrote as supports from rules (4.1.1 is not one).
-export function buildReport(models, base, catalog, { version, axe, date }) {
+// of WCAG rows the tool wrote as supports from rules (4.1.1 is not one),
+// stale the decisions that matched no proposal.
+export function buildReport(given, base, catalog, { version, axe, date, decisions = [] }) {
+  const { models, stale } = settle(given, decisions);
   const quiet = new Set();
   const own = proposeRows(models, catalog, undefined, quiet);
   const report = base && Object.keys(base).length ? { ...base } : {
@@ -251,7 +255,7 @@ export function buildReport(models, base, catalog, { version, axe, date }) {
     chapters[id] ??= Array.isArray(chapter?.criteria) ? { ...chapter, criteria: strNums(chapter.criteria) } : chapter;
   }
   report.chapters = chapters;
-  return { report, conflicts, pending, automated };
+  return { report, conflicts, pending, automated, stale };
 }
 
 export const dump = (report) => yaml.dump(report, { lineWidth: 80, noRefs: true });

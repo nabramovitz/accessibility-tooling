@@ -133,6 +133,7 @@ test('the crawl command writes one folder per shape, drops a page that moved to 
   for (const p of runJson.pages) {
     assert.ok(existsSync(join(out, 'pages', p.shape, 'model.json')), p.shape);
     assert.ok(existsSync(join(out, 'pages', p.shape, 'index.html')), p.shape);
+    assert.equal(JSON.parse(readFileSync(join(out, 'pages', p.shape, 'model.json'), 'utf8')).shape, p.shape, 'the model knows its shape');
     assert.equal(p.dir, join('pages', p.shape));
   }
   assert.ok(!existsSync(join(out, 'pages', 'r.html')));

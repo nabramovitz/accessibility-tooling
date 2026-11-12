@@ -81,6 +81,12 @@ button:focus-visible,summary:focus-visible{outline:3px solid var(--fg);outline-o
 #loadmsg{font-weight:600} #loadmsg.bad{color:var(--err)}
 input:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
 summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
+/* Proposals: a person marks each one Defect or Fine. */
+#props ol{margin:4px 0;padding-left:22px} #props li{margin:6px 0} #props li p{margin:2px 0}
+#props button:not(.lnk){font:inherit;padding:2px 10px;border:1px solid var(--bd);border-radius:14px;background:var(--bg2);color:var(--fg);cursor:pointer}
+#props button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--bg)}
+#props input:not([type=file]){font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:4px;padding:1px 4px}
+#dmsg{font-weight:600} #dmsg.bad{color:var(--err)}
 </style>
 </head>
 <body>
@@ -99,6 +105,12 @@ summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:6px 0}
     <p>The results come from the browser's accessibility tree and from the axe-core rules. A person must confirm them; this page is not an evaluation.</p>
   </section>
   <section id="notes" aria-labelledby="notesh" hidden><h2 id="notesh">Run notes</h2><ul></ul></section>
+  <section class="sub" id="props" aria-labelledby="propsh" hidden><h2 id="propsh">Proposals</h2>
+    <p>A proposal is a finding the tool cannot decide. Mark each one Defect or Fine, then save the decisions file for <span class="k">reader-path acr --decisions</span>. To add to an earlier file, load it first. The file is read and written in this browser; nothing is uploaded.</p>
+    <p><label for="by">Your name</label> <input id="by" autocomplete="name"> <label for="dfile">Decisions file to add to</label> <input type="file" id="dfile" accept=".json,application/json"> <button id="dsave">Save decisions</button></p>
+    <p id="dmsg" role="status"></p>
+    <ol></ol>
+  </section>
   <section class="sub" id="sum" aria-labelledby="sumh"><h2 id="sumh">This model</h2>
     <dl id="sumc" class="stats"></dl>
     <table id="sumg" class="gaps"><caption></caption><thead><tr><th scope="col">Goal level</th><th scope="col">Gaps</th><th scope="col">Boxes this level adds</th><th scope="col">Boxes that need work</th></tr></thead><tbody></tbody></table>
@@ -177,7 +189,8 @@ map.onclick = e => {
   else return;
   e.stopPropagation(); paint();
 };
-det.onclick = e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } };
+const goTo = e => { const a = e.target.closest('[data-go]'); if (a) { sel = a.dataset.go; reveal(sel); paint(); dom(sel).scrollIntoView({block:'center'}); parts[sel].pick.focus(); } };
+det.onclick = goTo;
 function reveal(id){ for (let p = parent[id]; p; p = parent[p.id]) shut(dom(p.id), false); }
 let depth = 3;
 function setLevel(k){ depth = k; order.forEach(n => { if (n.c) shut(dom(n.id), n.depth >= k); }); paint(); }
@@ -258,6 +271,50 @@ btn('#goal', 'Our rule: comparable information', () => { ruleOn = !ruleOn; });
 btn('#goal', 'Only the chosen level', () => { only = !only; }, {only:1});
 [['Depth 1', 1], ['Depth 2', 2], ['Depth 3', 3], ['Depth 4', 4], ['All', 99]].forEach(([l, k]) => btn('#levels', l, () => setLevel(k), {k}));
 let resized; onresize = () => { clearTimeout(resized); resized = setTimeout(paint, 100); }; setLevel(3);
+// ---- Proposals. A verdict loaded from a file shows until the person changes it; Save writes the
+// loaded decisions plus the ones changed here (the same page and key: this page wins). ----
+function proposals(MODEL, goTo){
+  const PROPS = MODEL.proposals || [], PAGE = MODEL.shape ?? null, sec = $('#props'), ol = sec.querySelector('ol');
+  const say = (t, bad) => { $('#dmsg').textContent = t; $('#dmsg').classList.toggle('bad', !!bad); };
+  let loaded = []; const mine = new Map(), changed = new Set();
+  sec.hidden = !PROPS.length; ol.textContent = ''; say('');
+  const fromFile = p => (PAGE !== null && loaded.find(e => e.key === p.key && e.page === PAGE)) || loaded.find(e => e.key === p.key && e.page == null);
+  const verdict = p => mine.get(p.key) || fromFile(p)?.verdict;
+  const items = PROPS.map((p, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<p><span class="mut">${esc(p.sc)}</span> ${esc(p.say)}${p.n > 1 ? ' <span class="mut">(' + p.n + ' times on this page)</span>' : ''}</p>${p.propose ? `<p>Suggested: ${esc(p.propose)}</p>` : ''}
+      <p><span role="group" aria-label="Decision ${i + 1}"><button data-v="defect" aria-pressed="false">Defect</button> <button data-v="fine" aria-pressed="false">Fine</button></span>
+      <label>Note <input class="dnote"></label>${byId[p.node] ? ` <button class="lnk" data-go="${esc(p.node)}">Show the box</button>` : ''}</p>`;
+    const note = li.querySelector('.dnote');
+    li.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { mine.set(p.key, b.dataset.v); changed.add(p.key); show(); } else goTo(e); };
+    note.oninput = () => changed.add(p.key);
+    ol.append(li);
+    return { p, li, note };
+  });
+  const show = () => items.forEach(({ p, li, note }) => {
+    li.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === verdict(p)));
+    if (!changed.has(p.key)) note.value = fromFile(p)?.note || '';
+  });
+  $('#dfile').value = '';
+  $('#dfile').onchange = e => { const f = e.target.files[0]; if (!f) return; const fr = new FileReader();
+    fr.onload = () => { let d; try { d = JSON.parse(fr.result); } catch (x) {}
+      if (!d || d.version !== 1 || !Array.isArray(d.decided)) return say(f.name + ' is not a decisions file.', 1);
+      loaded = d.decided.filter(x => x && typeof x.key === 'string'); show(); say('Loaded ' + f.name + ': ' + loaded.length + ' decisions.'); };
+    fr.readAsText(f); };
+  $('#dsave').onclick = () => {
+    const by = $('#by').value.trim();
+    if (!by) return say('Type your name first: the file records who decided.', 1);
+    const d = new Date(), date = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, '0')).join('-');
+    const here = items.filter(({ p }) => changed.has(p.key) && verdict(p)).map(({ p, note }) => ({ page: PAGE, key: p.key, verdict: verdict(p), note: note.value.trim(), by, date }));
+    const decided = [...loaded.filter(e => !here.some(h => h.key === e.key && h.page === (e.page ?? null))), ...here];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ version: 1, decided }, null, 2) + '\n'], { type: 'application/json' }));
+    a.download = 'decisions.json'; document.body.append(a); a.click(); a.remove();
+    say('Saved decisions.json: ' + decided.length + ' decisions, ' + here.length + ' from this page.');
+  };
+  show();
+}
+proposals(MODEL, goTo);
 if ((MODEL.notes || []).length) { const sec = $('#notes'); sec.hidden = false; MODEL.notes.forEach(t => { const li = document.createElement('li'); li.textContent = t; sec.querySelector('ul').append(li); }); }
 }
 
