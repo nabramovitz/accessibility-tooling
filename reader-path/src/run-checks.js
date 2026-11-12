@@ -5,8 +5,27 @@
 import { walk, bare } from './generate.js';
 import { addCheck } from './axe.js';
 import { proposeLink, linkName, target } from './text-links.js';
+import { mediaWords } from './text-purpose.js';
 
 const MEDIA_ROWS = ['1.2.1', '1.2.2', '1.2.3', '1.2.4', '1.2.5', '1.2.6', '1.2.7', '1.2.8', '1.2.9', '1.4.7'];
+// Rows whose note says where the media is (or that there is none).
+export const MEDIA_NOTE_ROWS = [...MEDIA_ROWS, '1.4.2'];
+const MAX_MEDIA_PAGES = 10;
+
+// The line for those rows, from each page's media counts: "No media
+// elements on N pages", or the pages that have some. The person decides
+// not-applicable, with this as the evidence. undefined: no page has counts.
+export function mediaLine(models) {
+  const read = models.filter((m) => m.media);
+  if (!read.length) return undefined;
+  const has = read.filter((m) => mediaWords(m.media));
+  if (!has.length) return `No media elements on ${read.length} page${read.length === 1 ? '' : 's'}`;
+  const named = has.slice(0, MAX_MEDIA_PAGES).map((m) => `${label(m)} (${mediaWords(m.media)})`);
+  const more = has.length > MAX_MEDIA_PAGES ? ` and ${has.length - MAX_MEDIA_PAGES} more` : '';
+  const rest = read.length - has.length;
+  return `Media elements on ${named.join(', ')}${more}${rest ? `; none on ${rest} other page${rest === 1 ? '' : 's'}` : ''}`;
+}
+
 const CONTROLS = new Set(['button', 'menuitem', 'switch', 'checkbox', 'radio', 'combobox', 'textbox', 'searchbox', 'tab', 'slider', 'spinbutton']);
 const HELP = /\b(help|docs|documentation|support)\b/i;
 

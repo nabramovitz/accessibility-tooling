@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { walk, bare } from './generate.js';
-import { RUN_LINES } from './run-checks.js';
+import { RUN_LINES, MEDIA_NOTE_ROWS, mediaLine } from './run-checks.js';
 import { VIEW_LINES } from './views.js';
 import { FOCUS_LINES } from './focus.js';
 import { LIST_LINES } from './lists.js';
@@ -99,6 +99,12 @@ function gapLines(models, sc) {
 const CONTRAST = ['color-contrast', 'view-dark'];
 
 function wcag(models, sc) {
+  const row = wcagRow(models, sc);
+  const media = MEDIA_NOTE_ROWS.includes(sc) ? mediaLine(models) : undefined;
+  return media ? { ...row, lines: [...row.lines, media] } : row;
+}
+
+function wcagRow(models, sc) {
   if (sc === '4.1.1') {
     return { level: 'supports', lines: [`WCAG 2.2 removed 4.1.1. The WCAG 2.1 errata and the WCAG 2.0 Understanding note say content using HTML or XML always satisfies it: ${ERRATA.join(' ')}`] };
   }
