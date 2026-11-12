@@ -6,6 +6,7 @@ import { views } from './views.js';
 import { focusWatch } from './focus.js';
 import { lists } from './lists.js';
 import { textLinks } from './text-links.js';
+import { textHeadings } from './text-headings.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -415,6 +416,7 @@ export async function generate(url, opts = {}) {
     if (opts.views !== false) await lists(cdp, model, notes);
     if (opts.views !== false) await views(page, cdp, idleTime, opts, nearestKept, root, model, notes);
     textLinks(model, root);
+    await textHeadings(page, cdp, nearestKept, root, model, notes);
 
     const title = await page.title();
     const version = browser.version();

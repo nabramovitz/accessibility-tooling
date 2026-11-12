@@ -516,6 +516,37 @@ A link with no target is not compared. Links that share a name inside
 one card list are the usual false positive: the heading above each is
 the context 2.4.4 allows, so a person marks them Fine once.
 
+#### Headings, labels and names (`text-` checks)
+
+After the views, a text pass reads the built tree and, in one script in
+the page, which text sits in an icon-font element (a ligature word such
+as `home` or `more_vert`). It runs with or without views. Each finding
+is a proposal and never a fail. Proposals with the same key on a page
+are one proposal with a count `n` (a delete icon on 40 rows is one).
+
+For 2.4.6 Headings and Labels:
+
+- `text-empty-heading`: a heading with no words.
+- `text-icon-label`: a heading or field label whose name has an icon
+  word beside its real text ("home Home").
+- `text-label-same`: two fields in one form with the same label (radios
+  are left out: a group shares a label). Needs a `form` in the tree.
+- `text-main-no-heading`: a main with content and no heading.
+
+For the tool's own rule (the rule of comparable information), reported
+under row 302.1, the row it belongs to, as it has no WCAG number:
+
+- `text-icon-name`: an icon word in the name of a control. A name that
+  is only a plain word (`delete`) is left alone; `more_vert` is not.
+- `text-focus-nameless`: a box with `tabindex` 0 or more, no role and
+  no name.
+- `text-card-group`: a card (`mat-card`, or a `card` class, with two or
+  more parts) with no role and no name for the whole.
+
+Each carries a suggested name in `propose`, from the `title`, the
+visible text or the nearest heading. An icon that is `aria-hidden`, or
+inside a control with `aria-label`, is not read, so it is not proposed.
+
 ## Tests
 
 ```

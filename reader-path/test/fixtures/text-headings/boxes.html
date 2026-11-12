@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Boxes</title></head>
+<body><main>
+<h1>Boxes</h1>
+<div id="bare" tabindex="0"></div>
+<div id="titled" tabindex="0" title="Open the tray"></div>
+<div id="texty" tabindex="0">Tray</div>
+<div id="named" tabindex="0" role="button" aria-label="Open">x</div>
+<div id="scroller" style="height:20px;overflow:auto"><div style="height:200px">Long</div></div>
+<div id="skip" tabindex="-1">Not in Tab order</div>
+<div class="card" id="card"><h3>Card one</h3><p>Some text</p><a href="#">Open</a></div>
+<div class="card" id="card2"><h3>Card two</h3><p>More text</p><a href="#">Open</a></div>
+<div class="card" role="group" aria-labelledby="g"><h3 id="g">Named</h3><p>Text</p><a href="#">Open</a></div>
+<article class="card"><h3>Article</h3><p>Text</p></article>
+<div class="card"><p>One part only</p></div>
+</main></body></html>
