@@ -38,7 +38,9 @@ async function check(page) {
 
 const modelFile = async (name, mutate = (m) => m) => {
   const file = join(tmp(), name);
-  writeFileSync(file, JSON.stringify(mutate(await generate(fixture('gaps.html')))));
+  // These tests are about a model with no proposals (the text pass would add one).
+  const { proposals, ...model } = await generate(fixture('gaps.html'));
+  writeFileSync(file, JSON.stringify(mutate(model)));
   return file;
 };
 

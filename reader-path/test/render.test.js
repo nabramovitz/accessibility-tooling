@@ -365,7 +365,8 @@ test('review page: proposals are decided and saved as a decisions file, merged w
 });
 
 test('review page with proposals has no A/AA or 1.4.6 gaps, both themes; no section without them', async () => {
-  const base = await generate(fixture('gaps.html'));
+  // The base has no proposals (the text pass would add one to this page).
+  const { proposals, ...base } = await generate(fixture('gaps.html'));
   const node = flat(base).find((n) => n.role === 'link' || n.role === 'button') ?? base.root;
   const with_ = { ...base, shape: 'gaps', proposals: [{ key: 'k', sc: '2.4.4', rule: 'text-link', node: node.id, say: 'A link name to look at', propose: 'Better name' }] };
   const browser = await chromium.launch();
