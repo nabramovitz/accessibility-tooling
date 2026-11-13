@@ -12,6 +12,10 @@ import { addCheck } from './axe.js';
 // the longest an action may take to go idle.
 export const AFTER_IDLE = 2000;
 export const ACTION_LIMIT = 10000;
+// A page that makes a new control with each press never runs out of
+// distinct actions; past this many presses on one page the walk stops,
+// with a run note. Not a cap: real pages stay far below it.
+export const ACTION_MAX = 200;
 
 const SIGN_IN = /\/(login|logout)\b/;
 const CONFIRM = /confirm|are you sure|cannot be undone|permanently/i;
@@ -80,8 +84,9 @@ function candidates() {
     const row = e.closest('tr,li,[role=row],[role=listitem],[role=option]');
     const word = name.toLowerCase().replace(/\d+/g, '#').split(' ')[0];
     // One shape per control: a row's control is told by its place in the row and its first word,
-    // so "Delete" on each row is one; elsewhere by role and name (digits alike).
-    const key = row ? `row|${sig(e)}|${role}|${word}` : name ? `${role}|${name.toLowerCase().replace(/\d+/g, '#')}` : `${role}|${sig(e)}|${window.__rp.els.length}`;
+    // so "Delete" on each row is one; elsewhere by role and name (digits alike); a nameless one
+    // by its path of tags and classes alone, so the key holds when a press adds controls.
+    const key = row ? `row|${sig(e)}|${role}|${word}` : name ? `${role}|${name.toLowerCase().replace(/\d+/g, '#')}` : `${role}|${sig(e)}`;
     if (keys.has(key)) continue;
     keys.add(key);
     out.push({
@@ -117,6 +122,7 @@ const other = (v, w) => v.split('#')[0] !== w.split('#')[0];
 export async function actions(page, context, idleTime, opts, root, model, notes, hook) {
   const after = opts.actAfter ?? AFTER_IDLE;
   const limit = opts.actIdle ?? ACTION_LIMIT;
+  const max = opts.actMax ?? ACTION_MAX;
   const startUrl = page.url();
   const startPath = new URL(startUrl).pathname;
   // The SSH terminal page is not acted on: a path with /ssh, or a terminal widget.
@@ -160,6 +166,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     for (;;) {
       let c = (await list()).filter((x) => !done.has(x.key)).sort((a, b) => a.signout - b.signout)[0];
       if (!c) break;
+      if (done.size >= max) { notes.push(`actions stopped at ${max}`); break; }
       done.add(c.key);
       const events = [];
       let t0 = Date.now();

@@ -174,6 +174,22 @@ test('the SSH page is not acted on', async () => {
   } finally { s.close(); }
 });
 
+test('a nameless control is one action, even when a press adds another like it before it', async () => {
+  // Each press adds a nameless button of the same shape before the first
+  // (up to 20, so the test ends even when the key is not stable).
+  const { m } = await run({ body: `<div><button class=add id=b></button></div>
+    <script>let n = 0; b.onclick = () => { if (n++ < 20) { const x = document.createElement('button'); x.className = 'add'; b.before(x); } };</script>` });
+  assert.equal(m.actions.filter((a) => a.name === '').length, 1);
+});
+
+test('a page that keeps adding new controls stops at the action limit, with a note', async () => {
+  // Each press adds a button with a new name (letters, so not alike).
+  const { m } = await run({ body: `<div id=box><button>Add a</button></div>
+    <script>let n = 0; box.onclick = () => { if (n < 20) { const x = document.createElement('button'); x.textContent = 'Add ' + 'bcdefghijklmnopqrstuv'[n++]; box.append(x); } };</script>` }, { actMax: 5 });
+  assert.equal(m.actions.length, 5);
+  assert.ok(m.notes.includes('actions stopped at 5'), m.notes.join(' | '));
+});
+
 test('without --act nothing new runs', async () => {
   const s = await site({ '/': page(DELETE_NONE) });
   try {
