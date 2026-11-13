@@ -106,7 +106,7 @@ test('chapter 3 takes the worst related level and names the rows', () => {
   const n = adh(rows, '302.1').notes;
   assert.ok(n.includes('4.1.2 partially-supports'));
   assert.ok(n.includes('1.1.1 supports'));
-  assert.ok(n.includes('Needs a person: the rule of comparable information (the tool checks it in a later version).'));
+  assert.ok(n.includes('Needs a person: the rule of comparable information (the tool checks only part of it).'));
 });
 
 test('chapter 3 order: not-evaluated is worse than supports', () => {
@@ -268,7 +268,7 @@ test('4.1.1 note names the errata and the Understanding note', () => {
 test('302.1 and 302.9 with only supports rows: not-evaluated, a person checks the rest', () => {
   const rows = proposeRows([model({})], catalog, () => 'supports');
   assert.equal(adh(rows, '302.1').level, 'not-evaluated');
-  assert.ok(lines(rows, '302.1').includes('Needs a person: the rule of comparable information (the tool checks it in a later version).'));
+  assert.ok(lines(rows, '302.1').includes('Needs a person: the rule of comparable information (the tool checks only part of it).'));
   assert.equal(adh(rows, '302.9').level, 'not-evaluated');
   assert.ok(lines(rows, '302.9').includes('Needs a person: reading level.'));
   assert.equal(adh(rows, '302.7').level, 'supports');
@@ -607,6 +607,30 @@ test('a model without a shape takes only the decisions for every page', () => {
   const m = withProposals(undefined, [P('2.4.4', 'k1')]);
   const { report } = buildReport([m], null, catalog, { ...OPTS, decisions: [D('k1', 'defect', 'apps')] });
   assert.equal(at(report, A, '2.4.4').level, 'not-evaluated');
+});
+
+// The tool's own rule (comparable information) is filed under 302.1.
+const FPC = 'functional_performance_criteria';
+const related = () => Object.fromEntries(['1.1.1', '1.3.1', '1.3.2', '2.1.1', '2.4.3', '4.1.2'].map((c) => [c, entry({ pass: ['r'] })]));
+
+test('a 302.1 defect makes the 302.1 row partially-supports, with its text', () => {
+  const m = withProposals('apps', [P('302.1', 'k1', 'b', { rule: 'text-icon-name' })], related());
+  const { report } = buildReport([m], null, catalog, { ...OPTS, decisions: [D('k1', 'defect')] });
+  const a = at(report, FPC, '302.1');
+  assert.equal(a.level, 'partially-supports');
+  assert.ok(a.notes.includes('https://x.test/apps: More: say k1 (a defect: Norm, 2026-11-12)'), a.notes);
+  assert.ok(a.notes.includes('1 proposal for a person (1 decided defect, 0 fine, 0 open)'));
+  assert.ok(a.notes.includes('1.1.1 supports'));
+});
+
+test('an open 302.1 proposal is named in the 302.1 row; a fine one leaves it not-evaluated', () => {
+  const open = withProposals('apps', [P('302.1', 'k1', 'b', { rule: 'text-icon-name' })], related());
+  const a = at(buildReport([open], null, catalog, OPTS).report, FPC, '302.1');
+  assert.equal(a.level, 'not-evaluated');
+  assert.ok(a.notes.includes('1 proposal for a person (0 decided defect, 0 fine, 1 open)'), a.notes);
+  const fine = at(buildReport([open], null, catalog, { ...OPTS, decisions: [D('k1', 'fine')] }).report, FPC, '302.1');
+  assert.equal(fine.level, 'not-evaluated');
+  assert.ok(fine.notes.includes('Needs a person: the rule of comparable information'));
 });
 
 test('a walk rule is the tool\'s own, not axe-core\'s', () => {

@@ -20,7 +20,7 @@ const ERRATA = ['https://www.w3.org/WAI/WCAG21/errata/', 'https://www.w3.org/TR/
 // Chapter 3 rows: the related WCAG rows and, for a part no WCAG row
 // covers, a sentence for the note.
 const FPC = {
-  '302.1': { rows: ['1.1.1', '1.3.1', '1.3.2', '2.1.1', '2.4.3', '4.1.2'], extra: 'Needs a person: the rule of comparable information (the tool checks it in a later version).' },
+  '302.1': { rows: ['1.1.1', '1.3.1', '1.3.2', '2.1.1', '2.4.3', '4.1.2'], extra: 'Needs a person: the rule of comparable information (the tool checks only part of it).' },
   '302.2': { rows: ['1.4.3', '1.4.4', '1.4.10', '1.4.12', '2.4.7', '2.4.11'] },
   '302.3': { rows: ['1.4.1', '1.4.11'] },
   '302.4': { rows: ['1.2.1', '1.2.2', '1.2.4'] },
@@ -152,12 +152,15 @@ function wcagRow(models, sc) {
   return { level: pass.length && !review.length && !missing.length && !framed.length ? 'supports' : 'not-evaluated', lines };
 }
 
-function fpc(num, levelOf) {
+// self, when given, is the row from the tool's own checks filed under
+// this num (302.1: the rule of comparable information); its level counts
+// as a related row's does.
+function fpc(num, levelOf, self) {
   const { rows, extra } = FPC[num];
   if (!rows.length) return { level: 'not-evaluated', lines: ['Needs a person: does any function need speech?'] };
   const levels = rows.map(levelOf);
-  const worst = WORST.find((l) => levels.includes(l));
-  const lines = [`Worst of the related rows: ${rows.map((r, i) => `${r} ${levels[i]}`).join(', ')}`];
+  const worst = WORST.find((l) => levels.includes(l) || self?.level === l);
+  const lines = [`Worst of the related rows: ${rows.map((r, i) => `${r} ${levels[i]}`).join(', ')}`, ...(self?.lines ?? [])];
   if (extra) lines.push(extra);
   // The part in the extra sentence is not checked, so it is not supports.
   return { level: extra && worst === 'supports' ? 'not-evaluated' : worst, lines };
@@ -182,8 +185,9 @@ export function proposeRows(models, catalog, levelOf, quiet = new Set()) {
     const isFpc = id === FPC_ID;
     out[id] = chapter.criteria.map((c) => {
       const num = String(c.id);
-      const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level) : byCriterion(num);
-      if (isFpc ? FPC[num].rows.every((sc) => byCriterion(sc).quiet && levelOf?.(sc) === undefined) : byCriterion(num).quiet) quiet.add(num);
+      const self = isFpc && models.some((m) => m.checks?.[num]) ? byCriterion(num) : undefined;
+      const { level, lines } = isFpc ? fpc(num, (sc) => levelOf?.(sc) ?? byCriterion(sc).level, self) : byCriterion(num);
+      if (isFpc ? !self && FPC[num].rows.every((sc) => byCriterion(sc).quiet && levelOf?.(sc) === undefined) : byCriterion(num).quiet) quiet.add(num);
       const fromBase = isFpc && FPC[num].rows.some((sc) => levelOf?.(sc) !== undefined);
       const last = end(fromBase ? 'automated checks and the base file' : 'automated checks');
       return { num, components: [{ name: isFpc ? 'none' : 'web', adherence: { level, notes: [...lines, last].join('\n\n') } }] };
