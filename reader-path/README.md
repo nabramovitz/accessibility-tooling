@@ -428,7 +428,10 @@ ones in the report, base rows included, so a chapter 3 row can be
 for its WCAG rows. A base level that is not an OpenACR level counts as
 `not-evaluated`, and the command prints the row. 302.1 and 302.9 also
 have a part that no WCAG row covers (the rule of comparable
-information, the reading level), so they are never `supports`. A
+information, the reading level), so they are never `supports`. The
+tool's own checks filed under a chapter 3 row (the 302.1 proposals)
+count as a related row: a decided defect makes 302.1
+`partially-supports`, and their lines are in its note. A
 chapter 3 row built with a level from a person's row ends with "from
 automated checks and the base file".
 
