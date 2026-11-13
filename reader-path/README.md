@@ -532,6 +532,15 @@ for later); `node` is the tree node with that name; each event is
 `actions` still reads everywhere. The options `actAfter` and `actIdle`
 (ms) of `generate()` set the two times, for tests; no command line option.
 
+**When the walk ends.** Each distinct control is pressed once, so a
+control that comes back is not pressed again; a control with no name
+is told by its path of tags and classes, so adding controls before it
+does not make it new. A page that makes a new, different control with
+each press would never run out, and no reading of the page can tell
+that from a large page, so the walk stops after 200 presses on one page
+with the run note `actions stopped at 200` (`actMax` sets the number,
+for tests).
+
 **Checks.** Each is a proposal (never a fail) with a `walk-` rule, and
 the row is review. When the action showed the good case and the rule has
 no proposal, the check is a pass for that page.
