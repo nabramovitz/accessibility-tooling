@@ -528,8 +528,30 @@ idle again (`AFTER_IDLE` in `src/act.js`), the events are:
 - `dialog`, `note`: `dialog closed by Escape`, `dialog did not close`,
   `signed out by the action`, `could not press: ...`.
 
+**Hover and focus content (1.4.13).** Before the presses, each distinct
+control is hovered and then focused, from the page as loaded. The list
+is wider than the presses: it adds elements with `aria-describedby`,
+`mattooltip`, `data-tooltip` or a `tabindex` (an icon with a tooltip),
+and links, which are hovered and not followed. The pointer is moved to
+the control's centre and focus is set; nothing is pressed. New content is
+the first element that was not drawn before (not drawn at all, or added)
+and now is, with text, outside a dialog; the tool looks for it for 0.6 s
+(`HOVER_WAIT`). A control with no new content leaves no action. With
+content the tool records, in order: `content` (the text); `persist`: does
+it stay 1 s with no move; `dismiss`: is it gone after Escape, pointer and
+focus unmoved; and, for hover, after loading the page again, `hoverable`:
+does it stay when the pointer moves onto it. Each of the last three has
+`ok: true` or `false`. Dismiss and hoverable are tested only when the
+content stayed the 1 s. The action has kind `hover` or `focus`. After
+content, a new address or a dialog, the page is loaded again. The text
+found is not counted as a status message (4.1.3) when the control is
+pressed later. Hovers are bounded apart from presses, by the same
+`ACTION_MAX` (note `hovers stopped at 200`); the options `actHover`,
+`actHoverOnto` (ms) set the waits for tests. A page with many controls
+costs about 1 s a control for the two waits.
+
 **Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
-is `press` or `focus` so far (`submit`, `key`, `hover` and `idle` are
+is `press`, `focus` or `hover` so far (`submit`, `key` and `idle` are
 for later); `node` is the tree node with that name; each event is
 `{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
 `actions` still reads everywhere. The options `actAfter` and `actIdle`
@@ -558,6 +580,9 @@ no proposal, the check is a pass for that page.
 | `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
 | `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out) |
 | `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA |
+| `walk-hover-persist` | 1.4.13 | content that appeared on hover or focus is gone within 1 s with no move |
+| `walk-hover-dismiss` | 1.4.13 | the content stays after Escape |
+| `walk-hover-hoverable` | 1.4.13 | hover content is gone when the pointer moves onto it |
 
 A person decides each proposal (see "Proposals and decisions"). The tool
 writes no `not-applicable` or `does-not-support`.

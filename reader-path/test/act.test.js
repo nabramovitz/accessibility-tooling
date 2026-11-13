@@ -10,7 +10,7 @@ import { generate } from '../src/generate.js';
 import { render } from '../src/render.js';
 
 // Short waits for the tests; the defaults are 2 s after idle and 10 s.
-const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800 };
+const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150 };
 
 // A site: `pages` maps a path to html (or a function of the request that
 // ends the response itself). Every request is logged.
@@ -257,5 +257,82 @@ test('the review page: a Timeline section, hidden when the model has no actions'
     assert.ok(withActions.items >= 1 && /Save/.test(withActions.text) && /Saved the thing/.test(withActions.text), withActions.text);
     const { actions, ...old } = m;
     assert.equal((await shown(old)).hidden, true);
+  } finally { await browser.close(); }
+});
+
+// ---- Hover and focus content (1.4.13) ----
+
+// A tooltip on a button, shown on hover and on focus. esc: Escape hides it;
+// stay: it stays when the pointer moves onto it; vanish: it hides by itself
+// after 400 ms.
+const TIP = ({ esc = true, stay = true, vanish = false } = {}) => `<style>.w{position:relative;display:inline-block}#t{position:absolute;top:100%;left:0;white-space:nowrap;background:#eee}</style>
+  <span class=w><button id=b>Info</button><span id=t hidden>Shows the info</span></span>
+  <script>const hide = () => { t.hidden = true; };
+  const show = () => { t.hidden = false; ${vanish ? 'setTimeout(hide, 400);' : ''} };
+  b.onmouseenter = b.onfocus = show; b.onblur = hide;
+  ${stay ? 'b.parentNode.onmouseleave = hide;' : 'b.onmouseleave = hide;'}
+  ${esc ? "document.onkeydown = (e) => { if (e.key === 'Escape') hide(); };" : ''}</script>`;
+const OPTS = {};
+const tipActs = (m) => m.actions.filter((a) => a.name === 'Info' && /^(hover|focus)$/.test(a.kind));
+const sc1413 = (m) => (m.proposals || []).filter((p) => p.sc === '1.4.13').map((p) => p.rule).sort();
+
+test('1.4.13: a tooltip that Escape closes, stays on, and stays 1 s: hover and focus actions, no finding, a pass', async () => {
+  const { m } = await run({ body: TIP() }, OPTS);
+  assert.deepEqual(tipActs(m).map((a) => a.kind), ['hover', 'focus'], JSON.stringify(m.actions));
+  const h = tipActs(m)[0];
+  assert.ok(h.events.some((e) => e.type === 'content' && /Shows the info/.test(e.text)), text(h));
+  for (const type of ['persist', 'dismiss', 'hoverable']) assert.ok(h.events.some((e) => e.type === type && e.ok === true), `${type}: ${text(h)}`);
+  assert.deepEqual(sc1413(m), []);
+  assert.deepEqual(tipActs(m)[1].events.map((e) => e.type).filter((t) => t !== 'content').sort(), ['dismiss', 'persist']);
+  for (const r of ['walk-hover-dismiss', 'walk-hover-hoverable', 'walk-hover-persist']) assert.ok(m.checks['1.4.13'].pass.includes(r), r);
+});
+
+test('1.4.13: a tooltip that Escape does not close: a dismiss proposal, on hover and on focus', async () => {
+  const { m } = await run({ body: TIP({ esc: false }) }, OPTS);
+  assert.deepEqual(sc1413(m), ['walk-hover-dismiss', 'walk-hover-dismiss']);
+  assert.ok(m.checks['1.4.13'].review.includes('walk-hover-dismiss'));
+  assert.equal(m.checks['1.4.13'].fail?.length ?? 0, 0);
+  assert.ok(!m.checks['1.4.13'].pass?.includes('walk-hover-dismiss'));
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-hover-dismiss').say.includes('Info'));
+});
+
+test('1.4.13: a tooltip that vanishes when the pointer moves onto it: a hoverable proposal, for hover only', async () => {
+  const { m } = await run({ body: TIP({ stay: false }) }, OPTS);
+  assert.deepEqual(sc1413(m), ['walk-hover-hoverable']);
+  assert.ok(tipActs(m)[0].events.some((e) => e.type === 'hoverable' && e.ok === false), text(tipActs(m)[0]));
+});
+
+test('1.4.13: a tooltip that disappears by itself in under 1 s: a persist proposal', async () => {
+  const { m } = await run({ body: TIP({ vanish: true }) }, OPTS);
+  assert.deepEqual(sc1413(m), ['walk-hover-persist', 'walk-hover-persist']);
+  assert.ok(tipActs(m)[0].events.some((e) => e.type === 'persist' && e.ok === false), text(tipActs(m)[0]));
+});
+
+test('1.4.13: a control with no hover or focus content: no action, no finding, no check', async () => {
+  const { m } = await run({ body: '<button id=b>Plain</button>' }, OPTS);
+  assert.deepEqual(m.actions.map((a) => `${a.kind} ${a.name}`), ['press Plain']);
+  assert.deepEqual(sc1413(m), []);
+  assert.equal(m.checks['1.4.13'], undefined);
+});
+
+test('4.1.3: a tooltip added on hover is not a status message when the control is pressed', async () => {
+  const { m } = await run({ body: `<span style="position:relative"><button id=b>Info</button></span>
+    <script>let t; b.onmouseenter = () => { t = document.createElement('span'); t.textContent = 'Shows the info'; b.after(t); };
+    b.onmouseleave = () => t && t.remove(); b.onclick = () => {};</script>` }, OPTS);
+  assert.ok(tipActs(m).length, JSON.stringify(m.actions));
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.3')), [], JSON.stringify(m.actions.map(text)));
+});
+
+test('the review page: the Timeline shows a hover action and its events', async () => {
+  const { m } = await run({ body: TIP({ esc: false }) }, OPTS);
+  const dir = mkdtempSync(join(tmpdir(), 'reader-path-'));
+  const f = join(dir, 'r.html');
+  writeFileSync(f, render(m));
+  const browser = await chromium.launch();
+  try {
+    const p = await browser.newPage();
+    await p.goto(pathToFileURL(f).href);
+    const t = await p.evaluate(() => document.querySelector('#timeline').textContent);
+    assert.ok(/Info/.test(t) && /hover/.test(t) && /Shows the info/.test(t) && /Escape/.test(t), t);
   } finally { await browser.close(); }
 });
