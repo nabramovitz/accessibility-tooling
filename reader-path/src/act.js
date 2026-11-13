@@ -23,23 +23,38 @@ const CONFIRM = /confirm|are you sure|cannot be undone|permanently/i;
 // ---- Run in the page (passed to evaluate, so each is self-contained). ----
 
 // The recorder: one observer for text that appears. Text in a live region
-// is "live"; other new text is "text" unless it is in a dialog, or the
-// pressed control states its own change (aria-expanded, a tab, ...).
+// is "live"; other new text is "text" unless it is in or holds a dialog,
+// is hidden from readers or not drawn, was on the page before the press (drawn again,
+// or a clock: digits alike), or the pressed control states its own change
+// (aria-expanded, a tab, ...).
 function install() {
   if (window.__rp) return;
   const LIVE = '[aria-live]:not([aria-live=off]),[role=status],[role=alert],[role=log]';
   const DIALOG = 'dialog,[role=dialog],[role=alertdialog],[aria-modal=true]';
-  const rp = (window.__rp = { ev: [], els: [], quiet: false });
+  const rp = (window.__rp = { ev: [], els: [], quiet: false, seen: '' });
+  const flat = (t) => t.replace(/\s+/g, '').replace(/\d+/g, '#');
+  // Text as read: no aria-hidden part (an icon word) and, unless live, no
+  // part that is not drawn. The page before a press is read the same way.
+  const shown = (p, live) => p && !p.closest('[aria-hidden=true]') && (live || p.getClientRects().length > 0);
+  rp.read = (node, live) => {
+    if (node.nodeType === 3) return shown(node.parentElement, live) ? node.data : '';
+    const out = [];
+    const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    for (let t; (t = w.nextNode());) if (shown(t.parentElement, live)) out.push(t.data);
+    return out.join(' ');
+  };
   const add = (type, text) => { if (!rp.ev.some((e) => e.type === type && e.text === text)) rp.ev.push({ at: Date.now(), type, text }); };
   new MutationObserver((ms) => {
     for (const m of ms) {
-      const items = m.type === 'characterData' ? [[m.target.parentElement, m.target.data]]
-        : [...m.addedNodes].map((n) => [n.nodeType === 1 ? n : n.parentElement, n.textContent]);
-      for (const [el, raw] of items) {
-        const text = (raw || '').replace(/\s+/g, ' ').trim().slice(0, 120);
-        if (!text || !el) continue;
-        if (el.closest(LIVE)) add('live', text);
-        else if (!rp.quiet && !el.closest(DIALOG) && el.getClientRects().length) add('text', text);
+      const nodes = m.type === 'characterData' ? [m.target] : [...m.addedNodes];
+      for (const n of nodes) {
+        const el = n.nodeType === 1 ? n : n.parentElement;
+        if (!el || (n.nodeType !== 1 && n.nodeType !== 3)) continue;
+        const live = !!el.closest(LIVE);
+        const text = rp.read(n, live).replace(/\s+/g, ' ').trim().slice(0, 120);
+        if (!text) continue;
+        if (live) add('live', text);
+        else if (!rp.quiet && !el.closest(DIALOG) && !el.querySelector(DIALOG) && !rp.seen.includes(flat(text))) add('text', text);
       }
     }
   }).observe(document, { subtree: true, childList: true, characterData: true });
@@ -202,7 +217,9 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
 
       // The press (a select is changed to another option).
       before = await now();
-      await page.evaluate((q) => { window.__rp.ev = []; window.__rp.quiet = q; }, c.quiet);
+      await page.evaluate((q) => {
+        Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#') });
+      }, c.quiet);
       t0 = Date.now();
       hook.current = (w) => ev('write', `write blocked: ${w}`);
       popups.length = 0;
@@ -234,10 +251,13 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       if (c.input && changed) propose('walk-context-input', '3.2.2', node, '', `Changing "${c.name}" changes the context (a new page, window or dialog) with no other step`, 'Change the context on an action (a button), or say so before the change');
       else if (c.input) ok['walk-context-input'] = 1;
       if (st.body && !before.body && !moved && !opened) propose('walk-focus-lost', '2.4.3', node, '', `After "${c.name}" focus is lost to the page body`, 'Move focus to the next sensible control');
-      const text = events.find((e) => e.type === 'text');
+      // New text is a status message only on the same page and with no live message beside it.
+      const live = events.some((e) => e.type === 'live');
+      const text = !moved && !live && events.find((e) => e.type === 'text');
       if (text) propose('walk-live-missing', '4.1.3', node, text.text, `New text appears after "${c.name}" with no live region: "${text.text}"`, 'Put the message in a live region (role="status" or role="alert")');
-      else if (events.some((e) => e.type === 'live')) ok['walk-live-missing'] = 1;
-      if (events.some((e) => e.type === 'write')) {
+      else if (live) ok['walk-live-missing'] = 1;
+      // Signing out changes no data of the person's.
+      if (!c.signout && events.some((e) => e.type === 'write')) {
         const confirm = opened || events.some((e) => /^(text|live)$/.test(e.type) && CONFIRM.test(e.text));
         if (!confirm) {
           propose('walk-write-no-confirm', '3.3.4', node, '', `"${c.name}" sends a change (${events.find((e) => e.type === 'write').text.replace('write blocked: ', '')}) with no step to confirm or undo it`, 'Ask for a confirmation, or let the person undo it');

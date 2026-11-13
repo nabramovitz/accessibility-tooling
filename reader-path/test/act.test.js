@@ -101,6 +101,43 @@ test('a snackbar in a live region: live text, a pass', async () => {
   assert.ok(m.checks['4.1.3'].pass.includes('walk-live-missing'));
 });
 
+// Text that is not a status message: no 4.1.3 proposal (seen on the lab).
+const noLive = async (body) => {
+  const { m } = await run({ body });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.3')), [], JSON.stringify(m.actions.map((a) => text(a))));
+};
+
+test('4.1.3: the text of a dialog added inside an overlay is not a status message', () => noLive(
+  `<button id=o>Open</button><div id=ov></div>
+  <script>o.onclick = () => { ov.innerHTML = '<div class=pane><div role=dialog aria-label=Sure><p>Are you sure?</p><button>Cancel</button></div></div>'; };
+  document.onkeydown = (e) => { if (e.key === 'Escape') ov.innerHTML = ''; };</script>`));
+
+test('4.1.3: text after the address changed is a new page, not a status message', () => noLive(
+  `<button id=o>Edit</button><div id=v></div>
+  <script>o.onclick = () => { history.pushState({}, '', '/edit'); v.textContent = 'Edit the application name'; };</script>`));
+
+test('4.1.3: text drawn again as it was, or a clock that ticks, is not new', () => noLive(
+  `<button id=o>Sort</button><ul id=l><li>alpha</li><li>beta</li></ul><p id=c>Uptime 4h 25m 18s</p>
+  <script>o.onclick = () => { l.innerHTML = '<li>beta</li><li>alpha</li>'; c.textContent = 'Uptime 4h 25m 19s'; };</script>`));
+
+test('4.1.3: text drawn again is compared as read: hidden parts and icon words left out on both sides', () => noLive(
+  `<button id=o>Summary</button><ul id=l><li>alpha <i aria-hidden="true">sort</i><span hidden>(1 of 2)</span></li></ul>
+  <script>o.onclick = () => { l.innerHTML = l.innerHTML; };</script>`));
+
+test('4.1.3: an icon word hidden from readers is not read', () => noLive(
+  `<button id=o>Copy</button><span id=i></span>
+  <script>o.onclick = () => { i.innerHTML = '<span aria-hidden="true">check_circle</span>'; };</script>`));
+
+test('4.1.3: new text beside a live message in the same action is not proposed', () => noLive(
+  `<button id=o>Switch theme</button><span id=lab>Light</span><div role=status id=st></div>
+  <script>o.onclick = () => { lab.textContent = 'Dark'; st.textContent = 'Dark mode activated'; };</script>`));
+
+test('3.3.4: signing out is not a change to the person\'s data', async () => {
+  const { m } = await run({ body: `<button id=o>Sign out</button><script>o.onclick = () => fetch('/logout', { method: 'POST' });</script>` });
+  assert.ok(action(m, 'Sign out').events.some((e) => e.type === 'write'));
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('3.3')), []);
+});
+
 test('a select that navigates on change: a 3.2.2 proposal', async () => {
   const { m } = await run({
     body: `<label>Go to <select id=s aria-label=Section onchange="location.href='/two'"><option>One</option><option value=/two>Two</option></select></label>`,
