@@ -11,6 +11,7 @@ import { textLanguage } from './text-language.js';
 import { textPurpose } from './text-purpose.js';
 import { RUN_ONLY, axeToGaps, axeContrast, axeToChecks, addCheck } from './axe.js';
 import { textColour } from './text-colour.js';
+import { actions } from './act.js';
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
@@ -385,7 +386,9 @@ export async function generate(url, opts = {}) {
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
     const notes = [];
-    if (opts.act) await guardWrites(context, (w) => notes.push(`write blocked: ${w}`));
+    // hook.current: where the action phase listens for the blocked writes of one action.
+    const hook = { current: null };
+    if (opts.act) await guardWrites(context, (w) => { notes.push(`write blocked: ${w}`); hook.current?.(w); });
     const page = await context.newPage();
     const idleTime = watchRequests(page);
     const response = await page.goto(url, { waitUntil: 'load' });
@@ -425,6 +428,8 @@ export async function generate(url, opts = {}) {
     await textPurpose(page, cdp, nearestKept, root, model, notes);
 
     const title = await page.title();
+    // Last: the actions change the page, so everything above is the page as loaded.
+    if (opts.act) await actions(page, context, idleTime, opts, root, model, notes, hook);
     const version = browser.version();
     return {
       ...model,

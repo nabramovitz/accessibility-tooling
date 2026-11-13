@@ -86,9 +86,10 @@ Windows path such as `C:\pages\page.html`.
   `write blocked: METHOD path` (the path only, with no query). The guard
   is on the browser context, so a window the page opens is guarded too.
   WebSocket opens still go. It does not stop a GET that changes data on
-  the server. This version presses nothing; the option is the safety net
-  for the actions to come. `crawl` takes it too, and `run.json` records
-  it as `act`. Without `--act` nothing is blocked.
+  the server. After everything else the tool then presses the controls of
+  the page and records what follows (see "Actions"). `crawl` takes it
+  too, and `run.json` records it as `act`. Without `--act` nothing is
+  blocked and nothing is pressed.
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -472,6 +473,86 @@ Without `--base`, `title`, `product.name` and `author.email` are
 placeholders to fill in.
 
 - `--decisions <file>`: a person's verdicts on the proposals (below).
+
+### Actions (`--act`)
+
+With `--act`, after the tree, axe-core, the Tab walk, the views and the
+text passes, an action phase loads the page again and presses its
+controls. The tree, axe and focus results are from the page before any
+action. Every request that writes is blocked (above), so a press can
+only open a step, or try a write that does not leave the browser.
+
+**What is pressed.** One press for each distinct control that is
+visible and enabled: buttons, `role` button, menu item, tab, switch,
+checkbox and radio, `summary`, input buttons, and links that act in the
+page (`href` to `#...`, `javascript:` or the same page). A link to
+another page is not pressed: the crawl follows it. A select is changed
+to another option. The list is read again after each press, so the
+items of a menu that a press opened are pressed too. There is no fixed
+number of actions; a press that does not go idle in 10 s is cut off.
+
+**Rows.** The same control in each row of a list is one action,
+pressed on the first row: a control inside a `tr`, `li`, `role=row`,
+`role=listitem` or `role=option` is told by its place in the row and the
+first word of its name (digits alike), so "Delete row 1" and
+"Delete row 2" are one. Elsewhere a control is told by its role and name.
+
+**Order and reload.** Sign out and log out are pressed too, last. Each
+action starts from the page as loaded: the page is loaded again when the
+address changed, or a dialog is still open after Escape; else the next
+action runs on the same page. After a press that opened a dialog, Escape
+is pressed; a dialog still open after the idle limit is the event
+`dialog did not close`, and the page is loaded again. If an action lands
+on a `/login` page, the event `signed out by the action` is recorded,
+the cookies of the saved storage state are put back (its local storage
+is not), and the walk goes on. The SSH terminal page (a path with `/ssh`,
+or a `.xterm` element) is not acted on: a run note says so.
+
+**The recorder.** From a mark before the press to 2 s after the page is
+idle again (`AFTER_IDLE` in `src/act.js`), the events are:
+
+- `focus`: the active element before and after; where focus lands after
+  a dialog opens, and after it closes (back on the control, or not).
+- `live`: new text inside a live region (`aria-live`, `status`,
+  `alert`, `log`); `text`: new text outside any live region. Text in a
+  dialog, and text after a control that states its own change
+  (`aria-expanded`, `aria-pressed`, a tab, a checkbox), is not counted.
+- `context`: the address changed, a dialog opened, a new window. On
+  focus alone (the control is focused before it is pressed; the change
+  makes an action of kind `focus`) or on input alone (a select, checkbox,
+  radio or switch changed) it is a finding.
+- `write`: `write blocked: METHOD path`, from the guard, for this action.
+- `dialog`, `note`: `dialog closed by Escape`, `dialog did not close`,
+  `signed out by the action`, `could not press: ...`.
+
+**Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
+is `press` or `focus` so far (`submit`, `key`, `hover` and `idle` are
+for later); `node` is the tree node with that name; each event is
+`{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
+`actions` still reads everywhere. The options `actAfter` and `actIdle`
+(ms) of `generate()` set the two times, for tests; no command line option.
+
+**Checks.** Each is a proposal (never a fail) with a `walk-` rule, and
+the row is review. When the action showed the good case and the rule has
+no proposal, the check is a pass for that page.
+
+| Rule | Row | When it proposes |
+|---|---|---|
+| `walk-focus-return` | 2.4.3 | focus is not on the control after its dialog closes |
+| `walk-dialog-focus` | 2.4.3 | a dialog opens and focus stays outside it |
+| `walk-focus-lost` | 2.4.3 | focus moves to the body after a press (no new page or dialog) |
+| `walk-live-missing` | 4.1.3 | new text with no live region (a pass when live text came) |
+| `walk-context-focus` | 3.2.1 | focus alone opens a dialog or window or changes the address |
+| `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
+| `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it |
+| `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA |
+
+A person decides each proposal (see "Proposals and decisions"). The tool
+writes no `not-applicable` or `does-not-support`.
+
+**Timeline.** The review page has a "Timeline" section after the
+proposals: each action of the page with its events in order. It is
+hidden when the model has no actions.
 
 ### Proposals and decisions
 
