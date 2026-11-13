@@ -514,9 +514,12 @@ idle again (`AFTER_IDLE` in `src/act.js`), the events are:
 - `focus`: the active element before and after; where focus lands after
   a dialog opens, and after it closes (back on the control, or not).
 - `live`: new text inside a live region (`aria-live`, `status`,
-  `alert`, `log`); `text`: new text outside any live region. Text in a
-  dialog, and text after a control that states its own change
-  (`aria-expanded`, `aria-pressed`, a tab, a checkbox), is not counted.
+  `alert`, `log`); `text`: new text outside any live region. Not
+  counted: text in a dialog or in a node that holds one (an overlay),
+  text hidden from readers (`aria-hidden`, such as an icon word) or not
+  drawn, text that was on the page before the press (drawn again; both
+  read the same way, digits alike, so a clock that ticks is not new), and text after a control that states
+  its own change (`aria-expanded`, `aria-pressed`, a tab, a checkbox).
 - `context`: the address changed, a dialog opened, a new window. On
   focus alone (the control is focused before it is pressed; the change
   makes an action of kind `focus`) or on input alone (a select, checkbox,
@@ -550,10 +553,10 @@ no proposal, the check is a pass for that page.
 | `walk-focus-return` | 2.4.3 | focus is not on the control after its dialog closes |
 | `walk-dialog-focus` | 2.4.3 | a dialog opens and focus stays outside it |
 | `walk-focus-lost` | 2.4.3 | focus moves to the body after a press (no new page or dialog) |
-| `walk-live-missing` | 4.1.3 | new text with no live region (a pass when live text came) |
+| `walk-live-missing` | 4.1.3 | new text with no live region, on the same page and with no live text in the same action (a pass when live text came) |
 | `walk-context-focus` | 3.2.1 | focus alone opens a dialog or window or changes the address |
 | `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
-| `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it |
+| `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out) |
 | `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA |
 
 A person decides each proposal (see "Proposals and decisions"). The tool
