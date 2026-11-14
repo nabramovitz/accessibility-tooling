@@ -22,6 +22,15 @@ export const ACTION_MAX = 200;
 export const HOVER_WAIT = 600;
 export const PERSIST_WAIT = 1000;
 export const HOVER_ONTO = 300;
+// Single keys (2.1.4): each is pressed once with focus on the page body.
+export const KEYS = 'abcdefghijklmnopqrstuvwxyz0123456789?/.';
+// A key's watch after idle is shorter than a press's: a shortcut acts in
+// its keydown handler, and the idle wait already covers a request it
+// starts. Simplification: an effect a timer draws later than this is
+// missed; raise it if a page shows one (39 keys, so each 0.1 s is 4 s a page).
+export const KEY_AFTER = 300;
+// Updates by themselves (2.2.2): how long the page is watched with no action.
+export const WATCH = 10000;
 
 const SIGN_IN = /\/(login|logout)\b/;
 const CONFIRM = /confirm|are you sure|cannot be undone|permanently/i;
@@ -159,6 +168,51 @@ function found() {
   }
   return null;
 }
+// Updates by themselves: watches the page for ms with no action and returns
+// each drawn block whose text changed at least twice (once is a late load),
+// with a label and whether a pause, stop or hide control is near it (in the
+// block or up to three parents above it).
+function watch(ms) {
+  const BLOCK = 'section,article,aside,nav,form,table,ul,ol,dl,p,[role=region],[role=log],[role=marquee],[role=timer],[role=status],[role=feed],[role=list],[role=grid]';
+  const PAUSE = /\b(pause|stop|hide|resume|play)\b|auto[- ]?(refresh|update)/i;
+  const read = (e) => (e.innerText || '').replace(/\s+/g, ' ').trim();
+  const drawn = (e) => e.getClientRects().length > 0 && !e.closest('[aria-hidden=true]');
+  const last = new Map([...document.querySelectorAll(BLOCK)].map((e) => [e, read(e)]));
+  const count = new Map();
+  const mo = new MutationObserver((ms) => {
+    for (const m of ms) {
+      const box = (m.target.nodeType === 1 ? m.target : m.target.parentElement)?.closest(BLOCK);
+      if (!box || !drawn(box)) continue;
+      const t = read(box);
+      if (last.has(box) && last.get(box) !== t) count.set(box, (count.get(box) ?? 0) + 1);
+      last.set(box, t);
+    }
+  });
+  mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+  const label = (e) => {
+    const r = e.closest('[aria-label],[aria-labelledby],section,article,[role=region]');
+    const ids = r?.getAttribute('aria-labelledby');
+    const n = r?.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((i) => document.getElementById(i)?.textContent || '').join(' '))
+      || r?.querySelector('h1,h2,h3,h4,h5,h6')?.textContent;
+    return (n || e.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 60);
+  };
+  const near = (e) => {
+    for (let x = e, i = 0; x && x !== document.body && i < 4; x = x.parentElement, i++) {
+      for (const c of x.querySelectorAll('button,[role=button],[role=switch],input[type=checkbox],a[href]')) {
+        if (PAUSE.test(c.getAttribute('aria-label') || c.textContent || c.value || '')) return true;
+      }
+    }
+    return false;
+  };
+  return new Promise((done) => setTimeout(() => {
+    mo.disconnect();
+    // An outer block that only holds a changing inner one is the same update.
+    const boxes = [...count].filter(([, n]) => n >= 2).map(([e]) => e);
+    done(boxes.filter((e) => !boxes.some((o) => o !== e && o.contains(e)))
+      .map((e) => ({ label: label(e), n: count.get(e), sample: read(e).slice(0, 80), pause: near(e) })));
+  }, ms));
+}
+
 const shown = () => !!window.__rp.hc && window.__rp.hc.isConnected && window.__rp.drawn(window.__rp.hc);
 const centre = () => { const r = window.__rp.hc.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
 
@@ -207,10 +261,31 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   };
   const closePopups = async () => { for (const p of popups.splice(0)) await p.close().catch(() => {}); };
   const quiet = () => ready(page, idleTime, { idle: opts.idle, idleMax: limit }, []);
+  // Before a press or a key: the recorder empty, and the page's text as it is now.
+  const arm = (q, skip) => page.evaluate(({ q, skip }) => {
+    Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#'), skip: skip.map(window.__rp.flat) });
+  }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
 
   try {
     await restart(false);
+
+    // Updates by themselves (2.2.2, 2.2.4): the page as loaded, watched with
+    // no action. Each updating block is an action of kind idle.
+    const watchFor = opts.actWatch ?? WATCH;
+    const updating = watchFor > 0 ? await page.evaluate(watch, watchFor).catch(() => []) : [];
+    for (const u of updating) {
+      const node = nodeOf({ name: u.label, role: '' });
+      model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'idle', node: node.id, name: u.label, events: [
+        { t: watchFor, type: 'update', text: `text changed ${u.n} times in ${watchFor / 1000} s with no action: "${u.sample}"` },
+        { t: watchFor, type: 'control', text: u.pause ? 'a pause, stop or hide control near it' : 'no pause, stop or hide control near it', ok: u.pause },
+      ] });
+      if (u.pause) ok['walk-update-no-pause'] = ok['walk-update-no-pause-interrupt'] = 1;
+      else {
+        propose('walk-update-no-pause', '2.2.2', node, u.label, `"${u.label}" updates by itself (${u.n} changes in ${watchFor / 1000} s) with no control near it to pause, stop or hide it`, 'Add a control to pause, stop or hide the updates');
+        propose('walk-update-no-pause-interrupt', '2.2.4', node, u.label, `"${u.label}" updates by itself with no way to put the updates off (AAA)`, 'Let the person pause the updates, or turn them off');
+      }
+    }
 
     // Hover and focus content (1.4.13): each distinct control, a wider list
     // than the presses (a link is hovered, not followed; an icon with a
@@ -338,9 +413,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
 
       // The press (a select is changed to another option).
       before = await now();
-      await page.evaluate(({ q, skip }) => {
-        Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#'), skip: skip.map(window.__rp.flat) });
-      }, { q: c.quiet, skip: hoverText });
+      await arm(c.quiet, hoverText);
       t0 = Date.now();
       hook.current = (w) => ev('write', `write blocked: ${w}`);
       popups.length = 0;
@@ -417,6 +490,52 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       if (out) await restart(true);
       else if (moved || stuck) await restart(false);
     }
+
+    // Single keys (2.1.4): from the page as loaded, each key once, with focus
+    // on the page body (checked before each key, so a key never types into a
+    // field). A key that changes something is an action of kind key, and the
+    // page is loaded again. On a page that updates by itself, new text is not
+    // counted as a key's doing (the watch above found it changing alone).
+    const keys = opts.actKeys ?? KEYS;
+    if (keys.length) {
+      await restart(false);
+      let acted = false;
+      let all = true;
+      for (const k of keys) {
+        await page.evaluate(install);
+        const onBody = await page.evaluate(() => { document.activeElement?.blur?.(); const a = document.activeElement; return !a || a === document.body || a === document.documentElement; }).catch(() => false);
+        if (!onBody) { notes.push('Single keys stopped: focus does not stay on the page body'); all = false; break; }
+        const before = await now();
+        await arm(false, hoverText);
+        const events = [];
+        const t0 = Date.now();
+        const ev = (type, text, extra) => events.push({ t: Date.now() - t0, type, text, ...extra });
+        hook.current = (w) => ev('write', `write blocked: ${w}`);
+        popups.length = 0;
+        await page.keyboard.press(k);
+        await quiet();
+        await page.waitForTimeout(Math.min(after, KEY_AFTER));
+        hook.current = null;
+        const st = await now();
+        if (!updating.length) {
+          const rec = await page.evaluate(() => (window.__rp ? window.__rp.ev : [])).catch(() => []);
+          for (const r of rec) events.push({ t: r.at - t0, type: r.type, text: r.text });
+        }
+        if (!st.body) ev('focus', `${before.active} to ${st.active}`, { from: before.active, to: st.active });
+        if (other(before.url, st.url)) ev('context', `url changed to ${bare(st.url)}`, { what: 'url' });
+        if (st.dialogs > before.dialogs) ev('context', 'dialog opened', { what: 'dialog' });
+        for (const p of popups) ev('context', `new window: ${bare(p.url())}`, { what: 'window' });
+        if (!events.length) continue;
+        acted = true;
+        events.sort((a, b) => a.t - b.t);
+        model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'key', node: root.id, name: `Key "${k}"`, events });
+        propose('walk-single-key', '2.1.4', root, k, `The key "${k}" alone, with focus on the page body, does something (${events[0].text})`, 'Let the person turn the shortcut off or change it, or make it work only when its control has focus');
+        await closePopups();
+        const out = SIGN_IN.test(new URL(st.url).pathname) && !SIGN_IN.test(startPath);
+        await restart(out);
+      }
+      if (all && !acted) ok['walk-single-key'] = 1;
+    }
   } finally {
     context.off('page', onPage);
     hook.current = null;
@@ -428,5 +547,6 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   };
   for (const [sc, rule] of [['2.4.3', 'walk-focus-return'], ['2.4.3', 'walk-dialog-focus'], ['2.4.3', 'walk-focus-lost'], ['3.2.1', 'walk-context-focus'],
     ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
+    ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
     ['1.4.13', 'walk-hover-dismiss'], ['1.4.13', 'walk-hover-hoverable'], ['1.4.13', 'walk-hover-persist']]) verdict(sc, rule);
 }
