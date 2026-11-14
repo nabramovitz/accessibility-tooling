@@ -132,7 +132,8 @@ async function readBuild(url, opts) {
 }
 
 // The run: discover (or take `opts.urls`), read every page, write the run
-// folder. A page that moved to another page of the run is dropped.
+// folder. A page that lands on another page of the run (one in the list,
+// or one an earlier page landed on) is dropped, and not read past its load.
 // `opts.add`: pages read as well, for those no link reaches (a page opened
 // by a button, a tab shown on one app only); each stands for its shape in
 // place of a found page. `opts.jobs`: the pages read at the same time
@@ -148,10 +149,15 @@ export async function crawl(start, opts = {}) {
     const taken = new Set(added.map(shapeOf));
     found.urls = [...found.urls.filter((u) => !taken.has(shapeOf(u))), ...added];
   }
-  const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, opts));
-  const urls = new Set(models.map((m) => m.url));
-  const dropped = models.filter((m) => m.finalUrl !== m.url && urls.has(m.finalUrl));
-  const kept = models.filter((m) => !dropped.includes(m));
+  const landed = new Set(found.urls);
+  const skip = (finalUrl, url) => {
+    if (finalUrl !== url && landed.has(finalUrl)) return true;
+    landed.add(finalUrl);
+    return false;
+  };
+  const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, { ...opts, skip }));
+  const dropped = models.filter((m) => m.skipped);
+  const kept = models.filter((m) => !m.skipped);
   const pages = kept.map((m) => {
     // The shape is in the model too: a person's decisions name it.
     m.shape = shape(new URL(m.url).pathname, base);
@@ -167,7 +173,7 @@ export async function crawl(start, opts = {}) {
     act: !!opts.act,
     ...build,
     generated: new Date().toISOString(),
-    browser: models[0]?.browser ?? null,
+    browser: kept[0]?.browser ?? null,
     pages,
     dropped: dropped.map((m) => ({ url: m.url, finalUrl: m.finalUrl })),
     skipped: found.skipped,

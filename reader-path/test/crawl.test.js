@@ -236,3 +236,40 @@ test('--jobs takes a whole number above 0', async () => {
 test('crawl needs a url or --urls', async () => {
   await assert.rejects(run('node', [CLI, 'crawl']), (e) => /usage/.test(e.stderr));
 });
+
+import { createServer } from 'node:http';
+import { crawl } from '../src/crawl.js';
+import { generate } from '../src/generate.js';
+
+// A server: `/go/*` moves to `/z` (302); every other path is a page named by it.
+async function server() {
+  const srv = createServer((req, res) => {
+    if (req.url.startsWith('/go/')) { res.statusCode = 302; res.setHeader('location', '/z'); return void res.end(); }
+    res.setHeader('content-type', 'text/html');
+    res.end(`<!doctype html><html lang="en"><title>${req.url}</title><main><h1>Page ${req.url}</h1></main>`);
+  });
+  await new Promise((r) => srv.listen(0, r));
+  return { url: `http://localhost:${srv.address().port}`, close: () => { srv.closeAllConnections?.(); srv.close(); } };
+}
+const FAST = { views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150, actKeys: '', actWatch: 0, actSignIn: 500 };
+
+test('two listed pages that land on one page: the first is read, the second is dropped unread', async () => {
+  const s = await server();
+  try {
+    const out = tmp();
+    const { run: r } = await crawl(null, { ...FAST, urls: [`${s.url}/go/a`, `${s.url}/go/b`], out });
+    assert.deepEqual(r.pages.map((p) => new URL(p.url).pathname), ['/go/a']);
+    assert.deepEqual(r.dropped.map((p) => [new URL(p.url).pathname, new URL(p.finalUrl).pathname]), [['/go/b', '/z']]);
+  } finally { s.close(); }
+});
+
+test('generate stops after the load when skip says the landing page is read already', async () => {
+  const s = await server();
+  try {
+    const m = await generate(`${s.url}/go/a`, { ...FAST, skip: (u) => new URL(u).pathname === '/z' });
+    assert.equal(new URL(m.finalUrl).pathname, '/z');
+    assert.equal(m.skipped, true);
+    assert.equal(m.root, undefined, 'the page was not read');
+  } finally { s.close(); }
+});
+

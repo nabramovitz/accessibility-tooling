@@ -376,7 +376,8 @@ export async function guardWrites(context, onBlock) {
 // opts: act (the write guard is on), storageState, ignoreHTTPSErrors, waitFor (a selector), idle (ms
 // with no request in flight; default 500), settle (ms to wait after that).
 // views (false: the default view only; no narrow, zoom, spacing or dark view,
-// and no focus measure in the Tab walk; no lists for a person).
+// and no focus measure in the Tab walk; no lists for a person). skip(finalUrl, url):
+// true ends the read after the load, with a model marked skipped.
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -396,6 +397,8 @@ export async function generate(url, opts = {}) {
     // Without query and fragment: a redirect can carry a sign-in token.
     const finalUrl = bare(page.url());
     if (finalUrl !== bare(url)) notes.push(`Page moved to ${finalUrl}`);
+    // opts.skip (from crawl): the page landed on one the run reads already.
+    if (opts.skip?.(finalUrl, bare(url))) return { url, finalUrl, skipped: true, notes };
     const cdp = await context.newCDPSession(page);
 
     const { root: domRoot } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
