@@ -550,12 +550,42 @@ pressed later. Hovers are bounded apart from presses, by the same
 `actHoverOnto` (ms) set the waits for tests. A page with many controls
 costs about 1 s a control for the two waits.
 
+**Updates by themselves (2.2.2, 2.2.4).** First of all, the page as
+loaded is watched for 10 s with no action (`WATCH`). A drawn block (a
+section, list, table, paragraph, form, or a region, log, timer, feed or
+status role) whose text changes at least twice is an update; one change
+is a late load and is not counted. Each update is an action of kind
+`idle`, named by the block's label (its `aria-label`, or the heading of
+its section), with the events `update` (how many changes, and the text)
+and `control`: is there a pause, stop or hide control (or an "auto
+refresh" switch) in the block or up to three parents above it, with
+`ok: true` or `false`. A clock that ticks is an update too: a person
+decides it once for the run.
+
+**Single keys (2.1.4).** After the presses, from the page as loaded,
+each of `a`–`z`, `0`–`9`, `?`, `/` and `.` is pressed once (`KEYS`).
+Before each key, focus is taken off the active element and the tool
+checks that it is on the page body; if focus does not stay there, the
+keys stop with the run note `Single keys stopped: focus does not stay on
+the page body`, so a key never types into a field. The recorder runs as
+for a press, but watches 0.3 s after the page is idle, not 2 s
+(`KEY_AFTER`): a shortcut acts at once, and a request it starts is
+waited for; an effect that a timer draws later than that is missed. A key after which focus left the body, the address changed,
+a dialog or window opened, a write was blocked or new text came is an
+action of kind `key` (name `Key "s"`), and the page is loaded again. On
+a page that updates by itself, new text after a key is not counted (the
+watch saw that text change with no key). The 39 keys cost about
+0.3 s each, about 12 s a page; with the watch, `--act` adds about 22 s
+a page.
+
 **Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
-is `press`, `focus` or `hover` so far (`submit`, `key` and `idle` are
-for later); `node` is the tree node with that name; each event is
+is `press`, `focus`, `hover`, `key` or `idle` (`submit` is for
+later); `node` is the tree node with that name; each event is
 `{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
 `actions` still reads everywhere. The options `actAfter` and `actIdle`
 (ms) of `generate()` set the two times, for tests; no command line option.
+`actWatch` (ms, `0` for none) and `actKeys` (the keys, `''` for none)
+do the same for the watch and the keys.
 
 **When the walk ends.** Each distinct control is pressed once, so a
 control that comes back is not pressed again; a control with no name
@@ -583,6 +613,9 @@ no proposal, the check is a pass for that page.
 | `walk-hover-persist` | 1.4.13 | content that appeared on hover or focus is gone within 1 s with no move |
 | `walk-hover-dismiss` | 1.4.13 | the content stays after Escape |
 | `walk-hover-hoverable` | 1.4.13 | hover content is gone when the pointer moves onto it |
+| `walk-single-key` | 2.1.4 | a key alone, with focus on the body, does something (a pass when every key was tried and none did) |
+| `walk-update-no-pause` | 2.2.2 | a block updates by itself with no pause, stop or hide control near it |
+| `walk-update-no-pause-interrupt` | 2.2.4 | the same finding, for AAA |
 
 A person decides each proposal (see "Proposals and decisions"). The tool
 writes no `not-applicable` or `does-not-support`.

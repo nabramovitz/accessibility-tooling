@@ -10,7 +10,8 @@ import { generate } from '../src/generate.js';
 import { render } from '../src/render.js';
 
 // Short waits for the tests; the defaults are 2 s after idle and 10 s.
-const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150 };
+// No single keys and no idle watch unless a test asks (they cost seconds a page).
+const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150, actKeys: '', actWatch: 0 };
 
 // A site: `pages` maps a path to html (or a function of the request that
 // ends the response itself). Every request is logged.
@@ -335,4 +336,72 @@ test('the review page: the Timeline shows a hover action and its events', async 
     const t = await p.evaluate(() => document.querySelector('#timeline').textContent);
     assert.ok(/Info/.test(t) && /hover/.test(t) && /Shows the info/.test(t) && /Escape/.test(t), t);
   } finally { await browser.close(); }
+});
+
+// ---- Single keys (2.1.4) and updates by themselves (2.2.2, 2.2.4). ----
+
+const SEARCH_KEY = `<div id=panel hidden><label>Search the site <input id=q></label></div>
+  <script>document.addEventListener('keydown', (e) => { if (e.key === 's' && e.target === document.body) { panel.hidden = false; q.focus(); } });</script>`;
+const kinds = (m, kind) => m.actions.filter((a) => a.kind === kind);
+
+test('2.1.4: "s" on the page body opens search: a key action and a proposal; other keys leave none', async () => {
+  const { m } = await run({ body: SEARCH_KEY }, { actKeys: 'as' });
+  assert.deepEqual(kinds(m, 'key').map((a) => a.name), ['Key "s"'], JSON.stringify(m.actions));
+  assert.ok(kinds(m, 'key')[0].events.some((e) => e.type === 'focus'), text(kinds(m, 'key')[0]));
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.4')), ['2.1.4 walk-single-key']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-single-key').say.includes('"s"'));
+  assert.ok(m.checks['2.1.4'].review.includes('walk-single-key'));
+});
+
+test('2.1.4: a shortcut that works only in a field, every key tried: no finding, a pass', async () => {
+  const { m } = await run({ body: `<label>Name <input id=f></label><p id=o></p>
+    <script>f.addEventListener('keydown', (e) => { if (e.key === 's') o.textContent = 'Saved'; });</script>` }, { actKeys: undefined });
+  assert.deepEqual(kinds(m, 'key'), []);
+  assert.ok(m.checks['2.1.4'].pass.includes('walk-single-key'), JSON.stringify(m.checks['2.1.4']));
+});
+
+test('2.1.4: with a field focused at load, the keys go to the page body, not into the field', async () => {
+  const { m, s } = await run({
+    body: `<label>Find <input id=f autofocus></label><p id=o></p>
+      <script>f.oninput = () => fetch('/typed');
+      document.addEventListener('keydown', (e) => { if (e.key === 'k' && e.target === document.body) o.textContent = 'Shortcut used'; });</script>`,
+  }, { actKeys: 'ak' });
+  assert.ok(!s.seen.some((x) => x.includes('/typed')), s.seen.join(' '));
+  assert.deepEqual(kinds(m, 'key').map((a) => a.name), ['Key "k"']);
+});
+
+const TICKER = (pause) => `<section aria-label="Events"><h2>Events</h2>${pause ? '<button id=p>Pause</button>' : ''}<ul><li id=e>Event one</li></ul></section>
+  <script>const w = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  let n = 0, t = setInterval(() => { e.textContent = 'Event ' + w[++n % w.length]; }, 150);
+  ${pause ? 'p.onclick = () => clearInterval(t);' : ''}</script>`;
+
+test('2.2.2: a list that updates by itself with no pause control: an idle action and proposals for 2.2.2 and 2.2.4', async () => {
+  const { m } = await run({ body: TICKER(false) }, { actWatch: 1200 });
+  const idle = kinds(m, 'idle');
+  assert.deepEqual(idle.map((a) => a.name), ['Events'], JSON.stringify(m.actions));
+  assert.ok(idle[0].events.some((e) => e.type === 'update'), text(idle[0]));
+  assert.deepEqual(rules(m).filter((r) => /^2\.2\./.test(r)).sort(), ['2.2.2 walk-update-no-pause', '2.2.4 walk-update-no-pause-interrupt']);
+  assert.ok(m.checks['2.2.2'].review.includes('walk-update-no-pause'));
+});
+
+test('2.2.2: the same list with a Pause button beside it: no finding, a pass', async () => {
+  const { m } = await run({ body: TICKER(true) }, { actWatch: 1200 });
+  assert.equal(kinds(m, 'idle').length, 1, JSON.stringify(m.actions));
+  assert.deepEqual(rules(m).filter((r) => /^2\.2\./.test(r)), []);
+  assert.ok(m.checks['2.2.2'].pass.includes('walk-update-no-pause'));
+  assert.ok(m.checks['2.2.4'].pass.includes('walk-update-no-pause-interrupt'));
+});
+
+test('2.2.2: text that changes once after load is not an update: no idle action, no walk check', async () => {
+  const { m } = await run({ body: `<section aria-label="News"><p id=x>Loading</p></section>
+    <script>setTimeout(() => { x.textContent = 'All quiet'; }, 200);</script>` }, { actWatch: 1000 });
+  assert.deepEqual(kinds(m, 'idle'), []);
+  const c = m.checks['2.2.2'] ?? {};
+  assert.deepEqual([...(c.pass ?? []), ...(c.review ?? [])].filter((r) => r.startsWith('walk-')), []);
+});
+
+test('2.1.4: on a page that updates by itself, new text after a key is not the key\'s doing', async () => {
+  const { m } = await run({ body: TICKER(false) }, { actWatch: 1000, actKeys: 'ab' });
+  assert.deepEqual(kinds(m, 'key'), [], JSON.stringify(kinds(m, 'key')));
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.4')), []);
 });

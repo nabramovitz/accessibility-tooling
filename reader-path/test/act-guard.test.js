@@ -113,14 +113,22 @@ test('without --act nothing is blocked', async () => {
   }
 });
 
-test('--act on the page command and on crawl; run.json records it', async () => {
+// Two tests: each --act page has the 10 s watch and the single keys.
+test('--act on the page command', async () => {
   const s = await site();
   try {
     const out = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'out');
     await run('node', [CLI, s.url, '--act', '--out', out]);
     const m = JSON.parse(readFileSync(join(out, 'model.json'), 'utf8'));
     assert.ok(m.notes.includes('write blocked: POST /api/create'));
+  } finally {
+    s.close();
+  }
+});
 
+test('--act on crawl; run.json records it', async () => {
+  const s = await site();
+  try {
     const list = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'urls.txt');
     await run('node', ['-e', `require('fs').writeFileSync(${JSON.stringify(list)}, ${JSON.stringify(s.url)})`]);
     const crawlOut = join(mkdtempSync(join(tmpdir(), 'reader-path-')), 'run');
