@@ -41,7 +41,7 @@ In this directory, with Bun:
 ```
 bun cli.js <url> [--out <dir>] [--storage-state <file>]
   [--ignore-https-errors] [--wait-for <selector>] [--idle <ms>]
-  [--settle <ms>] [--no-views] [--act]
+  [--settle <ms>] [--no-views] [--act] [--trace]
 ```
 
 Or with Node.js: `node cli.js <url> ...`. Under Node.js the command
@@ -90,6 +90,12 @@ Windows path such as `C:\pages\page.html`.
   the page and records what follows (see "Actions"). `crawl` takes it
   too, and `run.json` records it as `act`. Without `--act` nothing is
   blocked and nothing is pressed.
+- `--trace`: write one line to stderr as each part of the read ends,
+  with the UTC time first: `loaded <final url>`, `checks done <s>`, and
+  with `--act` one `act <part> <s>` line for each action part (the parts
+  of the "Action phase times" note). Without it the command writes
+  nothing while it runs. The lines have no query, no cookie and no page
+  text, only URLs as `finalUrl` has them.
 
 The model has the requested `url`, the `finalUrl` after redirects and
 scripts, and the HTTP `status` of the main response. `finalUrl` has no
@@ -309,7 +315,7 @@ to the same site (the first, if they are equal). An empty first
 instance thus does not hide the pages below it. If the first two
 instances are both empty, name the pages with `--urls`.
 The page options (`--storage-state`, `--ignore-https-errors`,
-`--wait-for`, `--idle`, `--settle`, `--no-views`, `--act`) apply to every page, when the
+`--wait-for`, `--idle`, `--settle`, `--no-views`, `--act`, `--trace`) apply to every page, when the
 crawl looks for links and when it reads the page. An element named by
 `--wait-for` must be on every page of the site.
 
@@ -351,7 +357,14 @@ crawl looks for links and when it reads the page. An element named by
   the last and writes both answers to `run.json` under `build` (`before`
   and `after`; JSON when it parses). A shared site can be redeployed
   while a run reads it; when the two answers differ, the command says
-  so.
+  so. With `--trace` the crawl also reads it at each page start, and a
+  `BUILD CHANGED <answer>` line marks the first page read on a new build.
+
+With `--trace` the crawl writes `build <answer>` (with `--version-url`),
+`found <n> page(s)`, and for each page `page <i>/<n> start <url>`, the
+page lines above after `page <i>/<n>`, and `page <i>/<n> done <s>` (or
+`dropped: lands on <url>`). With `--jobs` above 1 the lines of pages
+read at the same time mix; the `page <i>/<n>` names them apart.
 
 Then `bun cli.js acr <dir>/pages/*/model.json --out <file.yaml>`
 writes the report for the run.

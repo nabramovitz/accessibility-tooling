@@ -183,6 +183,35 @@ test('--version-url records the build before and after the run, and warns when i
   }
 });
 
+test('--trace: timed lines on stderr for the build, each page and a build change; none without it', async () => {
+  const { createServer } = await import('node:http');
+  let calls = 0;
+  const srv = createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ git_commit: ++calls === 1 ? 'aaa' : 'bbb' }));
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const version = `http://localhost:${srv.address().port}/version`;
+  try {
+    const { stderr } = await run('node', [CLI, 'crawl', fixture('site/a.html'), '--max', '1', '--no-views', '--trace', '--version-url', version, '--out', tmp()]);
+    const lines = stderr.trim().split('\n');
+    for (const l of lines) assert.match(l, /^\d\d:\d\d:\d\dZ /, l);
+    const said = lines.map((l) => l.slice(10));
+    assert.equal(said[0], 'build {"git_commit":"aaa"}');
+    assert.match(said[1], /^found 1 page\(s\)$/);
+    assert.equal(said[2], 'BUILD CHANGED {"git_commit":"bbb"}');
+    assert.match(said[3], /^page 1\/1 start file:.*\/a\.html$/);
+    assert.match(said[4], /^page 1\/1 loaded file:/);
+    assert.match(said[5], /^page 1\/1 checks done [\d.]+ s$/);
+    assert.match(said[6], /^page 1\/1 done [\d.]+ s$/);
+    assert.equal(said.length, 7, said.join(' | '));
+    const quiet = await run('node', [CLI, 'crawl', fixture('site/a.html'), '--max', '1', '--no-views', '--out', tmp()]);
+    assert.equal(quiet.stderr, '');
+  } finally {
+    srv.close();
+  }
+});
+
 test('without --version-url the run has no build', async () => {
   const out = tmp();
   await run('node', [CLI, 'crawl', fixture('site/a.html'), '--max', '1', '--no-views', '--out', out]);
