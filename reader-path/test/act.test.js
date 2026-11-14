@@ -405,3 +405,98 @@ test('2.1.4: on a page that updates by itself, new text after a key is not the k
   assert.deepEqual(kinds(m, 'key'), [], JSON.stringify(kinds(m, 'key')));
   assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.4')), []);
 });
+
+// ---- Forms (3.3.1, 3.3.3) and steppers (3.3.7). ----
+
+// A form with its own checks (novalidate). `style`: 'linked' (text, linked by
+// aria-describedby, names the field), 'border' (a red border only), 'vague'
+// (linked text with no hint of the fix), 'loose' (text not linked, not naming it).
+const FORM = (style) => `<form id=f novalidate>
+  <label for=n>Name</label><input id=n aria-describedby=ne><span id=ne></span>
+  <label for=a>Age</label><input id=a type=number aria-describedby=ae><span id=ae></span>
+  <button>Save</button></form><p id=loose></p>
+  <script>const say = (field, box, msg) => {
+    if (${JSON.stringify(style)} === 'border') { field.style.borderColor = 'rgb(255, 0, 0)'; return; }
+    field.setAttribute('aria-invalid', 'true');
+    if (${JSON.stringify(style)} === 'loose') loose.textContent += ' This is wrong.'; else box.textContent = msg;
+  };
+  f.onsubmit = (e) => { e.preventDefault(); ne.textContent = ae.textContent = ''; loose.textContent = '';
+    for (const x of [n, a]) { x.removeAttribute('aria-invalid'); x.style.borderColor = ''; }
+    if (!n.value) say(n, ne, 'Name is required: enter a name');
+    if (a.validity.badInput) say(a, ae, ${JSON.stringify(style)} === 'vague' ? 'Age is wrong' : 'Age must be a number, such as 42');
+    if (n.value && !a.validity.badInput) fetch('/save', { method: 'POST' }); };</script>`;
+const submits = (m) => m.actions.filter((a) => a.kind === 'submit');
+const sc = (m, re) => rules(m).filter((r) => re.test(r)).sort();
+
+test('3.3.1: a form whose errors are text linked to the field and name it: one submit action, two submits, no finding, passes', async () => {
+  const { m, s } = await run({ body: FORM('linked') });
+  assert.equal(submits(m).length, 1, JSON.stringify(m.actions.map((a) => a.kind)));
+  assert.equal(submits(m)[0].events.filter((e) => e.type === 'submit').length, 2, text(submits(m)[0]));
+  assert.ok(submits(m).some((a) => a.events.some((e) => e.type === 'error' && /Name is required/.test(e.text))), submits(m).map(text).join(' || '));
+  assert.ok(submits(m).some((a) => a.events.some((e) => e.type === 'error' && /such as 42/.test(e.text))), submits(m).map(text).join(' || '));
+  assert.deepEqual(sc(m, /^3\.3\.[13] /), [], JSON.stringify(m.proposals) + submits(m).map(text).join(' || '));
+  assert.ok(m.checks['3.3.1'].pass.includes('walk-error-no-text'));
+  assert.ok(m.checks['3.3.3'].pass.includes('walk-error-no-suggestion'));
+  assert.deepEqual(s.writes, [], 'no write left the browser');
+});
+
+test('3.3.1: a field marked in error by a red border only: a no-text proposal', async () => {
+  const { m } = await run({ body: FORM('border') });
+  assert.ok(sc(m, /^3\.3\.1 /).includes('3.3.1 walk-error-no-text'), JSON.stringify(rules(m)));
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-error-no-text').say.includes('Name'));
+  assert.ok(m.checks['3.3.1'].review.includes('walk-error-no-text'));
+});
+
+test('3.3.1: error text that is not linked to the field and does not name it: an unnamed proposal', async () => {
+  const { m } = await run({ body: FORM('loose') });
+  assert.ok(sc(m, /^3\.3\.1 /).includes('3.3.1 walk-error-unnamed'), JSON.stringify(rules(m)));
+  assert.ok(!sc(m, /^3\.3\.1 /).includes('3.3.1 walk-error-no-text'));
+});
+
+test('3.3.3: an error after a wrong value with no hint of the fix: a suggestion proposal', async () => {
+  const { m } = await run({ body: FORM('vague') });
+  assert.deepEqual(sc(m, /^3\.3\.3 /), ['3.3.3 walk-error-no-suggestion']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-error-no-suggestion').say.includes('Age is wrong'));
+});
+
+test('3.3.1: the browser\'s own check (required, type=email): its message counts, no finding', async () => {
+  const { m } = await run({ body: `<form><label for=e>Email</label><input id=e type=email required><button>Send</button></form>` });
+  assert.ok(submits(m).some((a) => a.events.some((e) => e.type === 'error' && /browser/.test(e.text))), submits(m).map(text).join(' || '));
+  assert.deepEqual(sc(m, /^3\.3\.[13] /), []);
+  assert.ok(m.checks['3.3.1'].pass.includes('walk-error-no-text'));
+});
+
+// Two steps; the second asks for the organization again, empty or filled.
+const STEPPER = (prefill) => `<div id=s1><label for=o1>Organization</label><input id=o1><button id=next>Next</button></div>
+  <div id=s2 hidden><label for=o2>Organization</label><input id=o2><label for=sp>Space</label><input id=sp><button id=go>Create</button></div>
+  <script>next.onclick = () => { s1.hidden = true; s2.hidden = false; ${prefill ? 'o2.value = o1.value;' : ''} };
+  go.onclick = () => fetch('/create', { method: 'POST' });</script>`;
+
+test('3.3.7: a stepper that asks for the organization again, empty: a steps action and a redundant-entry proposal', async () => {
+  const { m, s } = await run({ body: STEPPER(false) });
+  const st = m.actions.filter((a) => a.kind === 'steps');
+  assert.equal(st.length, 1, JSON.stringify(m.actions.map((a) => `${a.kind} ${a.name}`)));
+  assert.ok(st[0].events.some((e) => e.type === 'step' && /Organization/.test(e.text) && /Space/.test(e.text)), text(st[0]));
+  assert.deepEqual(sc(m, /^3\.3\.7 /), ['3.3.7 walk-redundant-entry']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-redundant-entry').say.includes('Organization'));
+  assert.deepEqual(s.writes, []);
+});
+
+test('3.3.7: the same stepper with the organization filled in again: no finding, a pass', async () => {
+  const { m } = await run({ body: STEPPER(true) });
+  assert.deepEqual(sc(m, /^3\.3\.7 /), []);
+  assert.ok(m.checks['3.3.7'].pass.includes('walk-redundant-entry'));
+});
+
+test('3.3.7: a Next that does not go on ends the steps with a note', async () => {
+  const { m } = await run({ body: `<label for=x>Name</label><input id=x><button>Next</button>` });
+  const st = m.actions.filter((a) => a.kind === 'steps');
+  assert.equal(st.length, 1);
+  assert.ok(st[0].events.some((e) => e.type === 'note' && /did not go on/.test(e.text)), text(st[0]));
+  assert.equal(m.checks['3.3.7'], undefined);
+});
+
+test('3.3.7: a list paginator\'s "Next page" is not a stepper: no steps action', async () => {
+  const { m } = await run({ body: `<label for=q>Filter</label><input id=q><ul><li>One</li></ul><button aria-label="Next page">›</button>` });
+  assert.deepEqual(m.actions.filter((a) => a.kind === 'steps'), [], JSON.stringify(m.actions.map((a) => `${a.kind} ${a.name}`)));
+});
