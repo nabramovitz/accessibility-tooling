@@ -131,6 +131,20 @@ async function readBuild(url, opts) {
   }
 }
 
+// The session proposals (2.2.1, 2.2.3, 2.2.5, 2.2.6) are about the site, not
+// a page: they stay on the first page that has them; each other page keeps
+// its review rows and gets a note that names that page.
+const SESSION = /^walk-session-/;
+function sessionOnce(models) {
+  const first = models.find((m) => (m.proposals || []).some((p) => SESSION.test(p.rule)));
+  if (!first) return;
+  for (const m of models) {
+    if (m === first || !(m.proposals || []).some((p) => SESSION.test(p.rule))) continue;
+    m.proposals = m.proposals.filter((p) => !SESSION.test(p.rule));
+    m.notes.push(`The session proposals (2.2.1, 2.2.3, 2.2.5, 2.2.6) are on ${bare(first.finalUrl || first.url)}`);
+  }
+}
+
 // The run: discover (or take `opts.urls`), read every page, write the run
 // folder. A page that lands on another page of the run (one in the list,
 // or one an earlier page landed on) is dropped, and not read past its load.
@@ -158,6 +172,7 @@ export async function crawl(start, opts = {}) {
   const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, { ...opts, skip }));
   const dropped = models.filter((m) => m.skipped);
   const kept = models.filter((m) => !m.skipped);
+  sessionOnce(kept);
   const pages = kept.map((m) => {
     // The shape is in the model too: a person's decisions name it.
     m.shape = shape(new URL(m.url).pathname, base);

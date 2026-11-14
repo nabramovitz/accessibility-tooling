@@ -252,6 +252,7 @@ async function server() {
   return { url: `http://localhost:${srv.address().port}`, close: () => { srv.closeAllConnections?.(); srv.close(); } };
 }
 const FAST = { views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150, actKeys: '', actWatch: 0, actSignIn: 500 };
+const model = (out, p) => JSON.parse(readFileSync(join(out, p.dir, 'model.json'), 'utf8'));
 
 test('two listed pages that land on one page: the first is read, the second is dropped unread', async () => {
   const s = await server();
@@ -273,3 +274,17 @@ test('generate stops after the load when skip says the landing page is read alre
   } finally { s.close(); }
 });
 
+test('--act over a run: the session proposals stay on the first page, the others get a note', async () => {
+  const s = await server();
+  try {
+    const out = tmp();
+    const storageState = { cookies: [{ name: 'sess', value: 'v', domain: 'localhost', path: '/', expires: Math.round(Date.now() / 1000) + 30 * 60, httpOnly: true, secure: false, sameSite: 'Lax' }], origins: [] };
+    const { run: r } = await crawl(null, { ...FAST, act: true, storageState, urls: [`${s.url}/one`, `${s.url}/two`], out });
+    const [one, two] = r.pages.map((p) => model(out, p));
+    const session = (m) => (m.proposals || []).filter((p) => p.rule.startsWith('walk-session-')).map((p) => p.rule);
+    assert.deepEqual(session(one), ['walk-session-timeout', 'walk-session-timing', 'walk-session-reauth', 'walk-session-warning']);
+    assert.deepEqual(session(two), []);
+    assert.ok(two.notes.some((n) => /session proposals .* on \S+\/one/.test(n)), two.notes.join(' | '));
+    assert.ok(two.checks['2.2.1'].review.includes('walk-session-timeout'), 'the row still needs a person on every page');
+  } finally { s.close(); }
+});
