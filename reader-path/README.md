@@ -674,6 +674,11 @@ that from a large page, so the walk stops after 200 presses on one page
 with the run note `actions stopped at 200` (`actMax` sets the number,
 for tests).
 
+**What it costs.** The run note `Action phase times:` gives the time of
+each part of the walk (reads, watch, hover, mouse down, presses, forms,
+steps, keys), with the number of controls hovered, mouse-down tests,
+presses and forms.
+
 **Checks.** Each is a proposal (never a fail) with a `walk-` rule, and
 the row is review. When the action showed the good case and the rule has
 no proposal, the check is a pass for that page.
