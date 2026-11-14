@@ -134,6 +134,15 @@ export function runChecks(models) {
     proposeLink(models[0], node, 'text-link-footer-differs', `The link "${e.node.name}" in the page shell goes to different places: ${where.join(', ')}`, 'The same link name goes to the same place on every page');
   }
 
+  // 2.4.8 (AAA): a breadcrumb or a current item in a navigation on every
+  // page read for it (model.location, from --act). A page with neither is
+  // for a person: the title or a heading may say where the person is.
+  const located = models.filter((m) => m.location !== undefined);
+  if (located.length >= 2) {
+    const where = located.every((m) => m.location) ? 'pass' : 'review';
+    for (const m of located) addCheck(m.checks, '2.4.8', where, 'run-location');
+  }
+
   // 1.2.x and 1.4.7: audio and video elements over the run.
   const media = models.reduce((k, m) => k + nodes(m).filter(([n]) => ['video', 'audio'].includes(n.role) || ['video', 'audio'].includes(n.comp)).length, 0);
   for (const sc of MEDIA_ROWS) result(sc, media ? 'review' : 'na', 'run-media');
@@ -145,5 +154,6 @@ export const RUN_LINES = {
   'run-identification': { review: 'Needs a person: a component that appears once on a page carries different names on different pages' },
   'run-ways': { review: 'Needs a person: a navigation on every page, no search found; is there a second way to reach each page?' },
   'run-help': { na: 'Needs a person: no help or documentation link found on any page; is the row not applicable?' },
+  'run-location': { review: 'Needs a person: some pages have no breadcrumb and no current item in a navigation; does the title or a heading say where the person is?' },
   'run-media': { review: 'Needs a person: audio or video elements found; captions, descriptions and controls', na: 'Needs a person: no audio or video element found on any page; is the row not applicable?' },
 };
