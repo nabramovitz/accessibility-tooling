@@ -591,7 +591,10 @@ any action:
   cookie's name, never its value). An end less than 20 hours away is a
   proposal for each of the four rows: a person checks the warning, the
   way to extend, and that the work goes on after a new sign-in. The tool
-  does not wait for the session to end (D5).
+  does not wait for the session to end (D5). The session is the site's,
+  not a page's: in a crawl the four proposals stay on the first page
+  that has them, and each other page gets a run note that names it
+  (its rows are still review).
 - *The sign-in page (3.3.8, 3.3.9).* The page itself when it has a
   password field; else, with `--storage-state`, the same address in a
   fresh context with no cookies (writes blocked there too; up to 5 s for a
