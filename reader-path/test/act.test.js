@@ -11,7 +11,7 @@ import { render } from '../src/render.js';
 
 // Short waits for the tests; the defaults are 2 s after idle and 10 s.
 // No single keys and no idle watch unless a test asks (they cost seconds a page).
-const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150, actKeys: '', actWatch: 0 };
+const FAST = { act: true, views: false, idle: 100, actAfter: 150, actIdle: 800, actHover: 150, actKeys: '', actWatch: 0, actSignIn: 500 };
 
 // A site: `pages` maps a path to html (or a function of the request that
 // ends the response itself). Every request is logged.
@@ -499,4 +499,120 @@ test('3.3.7: a Next that does not go on ends the steps with a note', async () =>
 test('3.3.7: a list paginator\'s "Next page" is not a stepper: no steps action', async () => {
   const { m } = await run({ body: `<label for=q>Filter</label><input id=q><ul><li>One</li></ul><button aria-label="Next page">›</button>` });
   assert.deepEqual(m.actions.filter((a) => a.kind === 'steps'), [], JSON.stringify(m.actions.map((a) => `${a.kind} ${a.name}`)));
+});
+
+// ---- Reads with no action: pointers (2.5.x), order (1.3.2), words (1.3.3),
+// location (2.4.8), the session (2.2.x), the sign-in page (3.3.8, 3.3.9). ----
+
+const walkRules = (m, sc) => { const c = m.checks[sc] ?? {}; return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v.filter((r) => r.startsWith('walk-'))]).filter(([, v]) => v.length)); };
+
+test('2.5.2: a button that acts on mouse down: a down action and a proposal; one that acts on click, with a down listener, is not', async () => {
+  const { m } = await run({ body: `<button id=d>Show</button><p id=o></p><button id=r>Ripple</button>
+    <script>d.addEventListener('mousedown', () => { o.textContent = 'Shown on down'; });
+    r.addEventListener('mousedown', () => r.appendChild(document.createElement('span')));
+    r.addEventListener('click', () => { o.textContent = 'Shown on click'; });</script>` });
+  const down = m.actions.filter((a) => a.kind === 'down');
+  assert.deepEqual(down.map((a) => a.name), ['Show'], JSON.stringify(m.actions.map((a) => `${a.kind} ${a.name}`)));
+  assert.deepEqual(sc(m, /^2\.5\.2 /), ['2.5.2 walk-down-event']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-down-event').say.includes('"Show"'));
+});
+
+test('2.5.2: only click handlers: no down action, a pass', async () => {
+  const { m } = await run({ body: `<button id=r>Ripple</button><p id=o></p>
+    <script>r.addEventListener('mousedown', () => r.appendChild(document.createElement('span')));
+    r.addEventListener('click', () => { o.textContent = 'Shown on click'; });</script>` });
+  assert.deepEqual(m.actions.filter((a) => a.kind === 'down'), []);
+  assert.deepEqual(walkRules(m, '2.5.2'), { pass: ['walk-down-event'] });
+});
+
+const POINTERS = `<div id=sw aria-label="Photos" role=region>Swipe photos</div>
+  <ul><li draggable=true>Drag me</li></ul>
+  <style>body { touch-action: none }</style>
+  <script>sw.addEventListener('touchmove', () => {}); window.addEventListener('deviceorientation', () => {});</script>`;
+
+test('2.5.1, 2.5.4, 2.5.6, 2.5.7: a swipe, a drag, device motion and touch turned off: a proposal each', async () => {
+  const { m } = await run({ body: POINTERS });
+  assert.deepEqual(sc(m, /^2\.5\.[1467] /), ['2.5.1 walk-gesture', '2.5.4 walk-motion', '2.5.6 walk-input-limited', '2.5.7 walk-drag']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-gesture').say.includes('Photos'));
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-drag').say.includes('Drag me'));
+});
+
+test('2.5.1, 2.5.4, 2.5.6, 2.5.7: a plain page: no proposal, a pass each', async () => {
+  const { m } = await run({ body: '<p>Plain</p><button>Save</button>' });
+  assert.deepEqual(sc(m, /^2\.5\.[1467] /), []);
+  for (const [n, r] of [['2.5.1', 'walk-gesture'], ['2.5.4', 'walk-motion'], ['2.5.6', 'walk-input-limited'], ['2.5.7', 'walk-drag']]) {
+    assert.deepEqual(walkRules(m, n), { pass: [r] }, n);
+  }
+});
+
+test('1.3.2: two paragraphs drawn in the reverse of their reading order: a proposal', async () => {
+  const { m } = await run({ body: `<div style="display:flex;flex-direction:column-reverse"><p>First in the code</p><p>Second in the code</p></div>` });
+  assert.deepEqual(sc(m, /^1\.3\.2 /), ['1.3.2 walk-order']);
+  assert.ok(m.proposals.find((p) => p.rule === 'walk-order').say.includes('Second in the code'));
+});
+
+test('1.3.2: two columns read one after the other: no proposal, a pass', async () => {
+  const { m } = await run({ body: `<div style="display:grid;grid-template-columns:1fr 1fr"><div><p>Left one</p><p>Left two</p><p>Left three</p></div><div><p>Right one</p><p>Right two</p></div></div>` });
+  assert.deepEqual(sc(m, /^1\.3\.2 /), []);
+  assert.deepEqual(walkRules(m, '1.3.2'), { pass: ['walk-order'] });
+});
+
+test('1.3.3: an instruction by shape and place: a proposal; plain words: a pass', async () => {
+  const a = (await run({ body: '<p>Press the round button on the right to go on.</p>' })).m;
+  assert.deepEqual(sc(a, /^1\.3\.3 /), ['1.3.3 walk-sensory']);
+  assert.ok(a.proposals.find((p) => p.rule === 'walk-sensory').say.includes('round button on the right'));
+  const b = (await run({ body: '<p>Press Save to go on. All rights reserved.</p>' })).m;
+  assert.deepEqual(sc(b, /^1\.3\.3 /), []);
+  assert.deepEqual(walkRules(b, '1.3.3'), { pass: ['walk-sensory'] });
+});
+
+test('2.4.8: the page records whether it says where the person is (a breadcrumb or a current item)', async () => {
+  const a = (await run({ body: '<nav aria-label="Breadcrumb"><a href="/">Home</a> / <span>Apps</span></nav>' })).m;
+  assert.equal(a.location, 'breadcrumb');
+  const b = (await run({ body: '<nav aria-label="Main"><a href="/" aria-current="page">Home</a></nav>' })).m;
+  assert.equal(b.location, 'current');
+  const c = (await run({ body: '<p>Nothing</p>' })).m;
+  assert.equal(c.location, null);
+});
+
+const SESSION = (mins) => ({ cookies: [{ name: 'sess', value: 'v', domain: 'localhost', path: '/', expires: mins < 0 ? -1 : Math.round(Date.now() / 1000) + mins * 60, httpOnly: true, secure: false, sameSite: 'Lax' }], origins: [] });
+
+test('2.2.1: a session cookie that ends in 30 min: a note and proposals for 2.2.1, 2.2.3, 2.2.5, 2.2.6', async () => {
+  const { m } = await run({ body: '<p>App</p>' }, { storageState: SESSION(30) });
+  assert.ok(m.notes.some((n) => /session cookie "sess" ends in about (29|30) min/.test(n)), m.notes.join(' | '));
+  assert.deepEqual(sc(m, /^2\.2\.[1356] /), ['2.2.1 walk-session-timeout', '2.2.3 walk-session-timing', '2.2.5 walk-session-reauth', '2.2.6 walk-session-warning']);
+  assert.ok(!JSON.stringify(m).includes('"v"'), 'no cookie value in the model');
+});
+
+test('2.2.1: a session cookie of 30 days, or one with no end: no proposal', async () => {
+  const a = (await run({ body: '<p>App</p>' }, { storageState: SESSION(30 * 24 * 60) })).m;
+  assert.deepEqual(sc(a, /^2\.2\.[1356] /), []);
+  const b = (await run({ body: '<p>App</p>' }, { storageState: SESSION(-1) })).m;
+  assert.deepEqual(sc(b, /^2\.2\.[1356] /), []);
+  assert.ok(b.notes.some((n) => /no end time/.test(n)), b.notes.join(' | '));
+});
+
+const LOGIN = (extra = '') => `<form><label>User <input name=u></label><label>Password <input type=password name=p></label>${extra}<button>Sign in</button></form>`;
+
+test('3.3.8: a sign-in page that blocks paste and shows a puzzle: proposals for 3.3.8 and 3.3.9', async () => {
+  const { m } = await run({ body: LOGIN('<canvas aria-label="Type the letters"></canvas><script>document.querySelector("[type=password]").onpaste = (e) => e.preventDefault();</script>') });
+  assert.deepEqual(sc(m, /^3\.3\.[89] /), ['3.3.8 walk-signin-paste', '3.3.8 walk-signin-puzzle', '3.3.9 walk-signin-paste-enhanced', '3.3.9 walk-signin-puzzle-enhanced']);
+});
+
+test('3.3.8: a plain sign-in page: no proposal, a pass for 3.3.8 and 3.3.9', async () => {
+  const { m, s } = await run({ body: LOGIN() });
+  assert.deepEqual(sc(m, /^3\.3\.[89] /), []);
+  assert.deepEqual(walkRules(m, '3.3.8'), { pass: ['walk-signin-paste', 'walk-signin-puzzle'] });
+  assert.deepEqual(walkRules(m, '3.3.9'), { pass: ['walk-signin-paste-enhanced', 'walk-signin-puzzle-enhanced'] });
+  assert.deepEqual(s.writes, []);
+});
+
+test('3.3.8: with a saved sign-in, the sign-in page is read in a fresh context with no cookies', async () => {
+  const signedIn = (req) => /sess=v/.test(req.headers.cookie || '');
+  const { m } = await run({ routes: { '/': (req, res) => {
+    res.setHeader('content-type', 'text/html');
+    res.end(page(signedIn(req) ? '<p>App</p>' : LOGIN('<script>document.querySelector("[type=password]").onpaste = (e) => e.preventDefault();</script>')));
+  } } }, { storageState: SESSION(30 * 24 * 60) });
+  assert.deepEqual(sc(m, /^3\.3\.8 /), ['3.3.8 walk-signin-paste']);
+  assert.ok(m.notes.some((n) => /sign-in page read in a fresh context/.test(n)), m.notes.join(' | '));
 });

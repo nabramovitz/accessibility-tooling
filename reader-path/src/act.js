@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { bare, ready, walk } from './generate.js';
 import { addProposal } from './proposals.js';
 import { addCheck } from './axe.js';
+import { reads } from './reads.js';
 
 // How long the recorder keeps watching after the page is idle again, and
 // the longest an action may take to go idle.
@@ -135,6 +136,8 @@ function candidates(hover) {
       quiet: e.hasAttribute('aria-expanded') || e.hasAttribute('aria-pressed') || e.hasAttribute('aria-checked')
         || e.hasAttribute('aria-selected') || /^(tab|summary|switch|checkbox|radio)$/.test(role),
       signout: /\b(sign|log)[ -]?out\b/i.test(name),
+      // A down listener on it or on a box around it (reads.js keeps them).
+      down: (window.__rpDown || []).some((d) => d === e || d.contains(e)),
       focusable: e.matches('a[href],button,input,select,textarea,summary,[tabindex]'),
     });
   }
@@ -325,6 +328,11 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   try {
     await restart(false);
 
+    // Reads with no action, on the page as loaded; then the controls with a
+    // down listener, for the mouse-down test below.
+    await reads(page, context, opts, model, notes, { propose, ok: (r) => { ok[r] = 1; }, nodeOf, root });
+    const downKeys = (await list()).filter((x) => x.down).map((x) => x.key);
+
     // Updates by themselves (2.2.2, 2.2.4): the page as loaded, watched with
     // no action. Each updating block is an action of kind idle.
     const watchFor = opts.actWatch ?? WATCH;
@@ -427,6 +435,51 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
           await restart(false);
         } else await away();
       }
+    }
+
+    // Mouse down (2.5.2): each control with a down listener. The pointer goes
+    // onto it, the button goes down, and the page is read; then the pointer
+    // moves away and the button comes up there, so a click never fires. A
+    // change while the button is down (new text, a dialog, a new address or
+    // window, a write, aria-expanded) means the control acts on down.
+    if (downKeys.length) await restart(false);
+    for (const key of downKeys) {
+      const c = (await list()).find((x) => x.key === key);
+      if (!c) continue;
+      const h = (await page.evaluateHandle((i) => window.__rp.els[i], c.i)).asElement();
+      await h.scrollIntoViewIfNeeded({ timeout: 1000 }).catch(() => {});
+      const b = await h.boundingBox();
+      if (!b) continue;
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 });
+      await page.waitForTimeout(150);
+      const before = await now();
+      const open0 = await h.getAttribute('aria-expanded').catch(() => null);
+      await arm(false, hoverText);
+      const events = [];
+      const t0 = Date.now();
+      const ev = (type, text, extra) => events.push({ t: Date.now() - t0, type, text, ...extra });
+      hook.current = (w) => ev('write', `write blocked: ${w}`);
+      popups.length = 0;
+      await page.mouse.down();
+      await quiet();
+      await page.waitForTimeout(Math.min(after, KEY_AFTER));
+      hook.current = null;
+      const st = await now();
+      const rec = await page.evaluate(() => (window.__rp ? window.__rp.ev : [])).catch(() => []);
+      for (const r of rec) events.push({ t: r.at - t0, type: r.type, text: r.text });
+      if (other(before.url, st.url)) ev('context', `url changed to ${bare(st.url)}`, { what: 'url' });
+      if (st.dialogs > before.dialogs) ev('context', 'dialog opened', { what: 'dialog' });
+      for (const p of popups) ev('context', `new window: ${bare(p.url())}`, { what: 'window' });
+      if ((await h.getAttribute('aria-expanded').catch(() => open0)) !== open0) ev('context', 'expanded on down', { what: 'expanded' });
+      await page.mouse.move(1, 1, { steps: 2 });
+      await page.mouse.up();
+      if (!events.length) { ok['walk-down-event'] = 1; continue; }
+      events.sort((x, y) => x.t - y.t);
+      const node = nodeOf(c);
+      model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'down', node: node.id, name: c.name, events });
+      propose('walk-down-event', '2.5.2', node, '', `"${c.name}" acts when the mouse button goes down (${events[0].text}), before it comes up`, 'Act when the button comes up (a click), so the person can move away to cancel');
+      await closePopups();
+      await restart(false);
     }
 
     const done = new Set();
@@ -729,5 +782,9 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
     ['3.3.1', 'walk-error-no-text'], ['3.3.1', 'walk-error-unnamed'], ['3.3.3', 'walk-error-no-suggestion'], ['3.3.7', 'walk-redundant-entry'],
     ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
+    ['2.5.1', 'walk-gesture'], ['2.5.2', 'walk-down-event'], ['2.5.4', 'walk-motion'], ['2.5.6', 'walk-input-limited'], ['2.5.7', 'walk-drag'],
+    ['1.3.2', 'walk-order'], ['1.3.3', 'walk-sensory'], ['2.2.1', 'walk-session-timeout'], ['2.2.3', 'walk-session-timing'],
+    ['2.2.5', 'walk-session-reauth'], ['2.2.6', 'walk-session-warning'], ['3.3.8', 'walk-signin-paste'], ['3.3.8', 'walk-signin-puzzle'],
+    ['3.3.9', 'walk-signin-paste-enhanced'], ['3.3.9', 'walk-signin-puzzle-enhanced'],
     ['1.4.13', 'walk-hover-dismiss'], ['1.4.13', 'walk-hover-hoverable'], ['1.4.13', 'walk-hover-persist']]) verdict(sc, rule);
 }

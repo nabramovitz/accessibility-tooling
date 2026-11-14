@@ -393,7 +393,9 @@ whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 with different names on different pages goes to review), `run-help`
 (3.2.6: a help or documentation link on every page, some pages, or
 none), `run-ways` (2.4.5: navigation plus a search on every page, else
-review), and `run-media` (1.2.1 to 1.2.9 and 1.4.7: audio and video
+review), `run-location` (2.4.8: with `--act`, a breadcrumb or a current
+item in a navigation on every page is a pass, else review), and
+`run-media` (1.2.1 to 1.2.9 and 1.4.7: audio and video
 elements counted; none found is evidence for the person, never a level).
 
 Each page also counts its media (`media` in the model: `video`,
@@ -550,7 +552,54 @@ pressed later. Hovers are bounded apart from presses, by the same
 `actHoverOnto` (ms) set the waits for tests. A page with many controls
 costs about 1 s a control for the two waits.
 
-**Updates by themselves (2.2.2, 2.2.4).** First of all, the page as
+**Reads with no action.** First of all, on the page as loaded, before
+any action:
+
+- *Pointers.* The listeners of every node and of `window`, through the
+  DevTools protocol (`DOMDebugger.getEventListeners`). A `touchmove` or
+  `gesture...` listener on an element (2.5.1), an element that can be
+  dragged (`draggable`, a `dragstart` listener, a `cdk-drag` class;
+  2.5.7), a `devicemotion` or `deviceorientation` listener on `window`
+  (2.5.4), and `touch-action: none` on the page (2.5.6) are proposals.
+  Listeners on the document, `html` or `body` are left out (a page-wide
+  "click outside" listener does not act on a control).
+- *Mouse down (2.5.2).* Each control with a `pointerdown`, `mousedown`
+  or `touchstart` listener on it or on a box around it is tried: the
+  pointer goes onto it, the button goes down, and the page is read 0.3 s
+  after idle; then the pointer moves away and the button comes up there,
+  so no click fires. New text, a dialog, a new address or window, a
+  blocked write or a change of `aria-expanded` while the button is down
+  is an action of kind `down` and a proposal. A listener that only draws
+  (a ripple) changes none of these. With no such control, 2.5.2 gets no
+  walk check.
+- *Order (1.3.2).* The blocks of main with their own text, in reading
+  order. A block drawn wholly above the block before it in the same
+  column (more than a line higher), or wholly before it on the same line,
+  is a proposal (at most 5 a page). Columns read one after the other are
+  not: the later column does not overlap the earlier one.
+- *Words (1.3.3).* A sentence of main that points by place ("on the
+  right", "above", "below") or by shape or colour ("the round button",
+  "the red icon") is a proposal (at most 5 a page).
+- *Location (2.4.8).* `model.location`: `breadcrumb` (a navigation or
+  box named or classed breadcrumb), `current` (an `aria-current` item in
+  a navigation) or `null`. The run check `run-location` reads it.
+- *The session (2.2.1, 2.2.3, 2.2.5, 2.2.6).* With `--storage-state`,
+  the cookies the saved sign-in holds are read after the load (the
+  server may have renewed them): the soonest end is a run note (the
+  cookie's name, never its value). An end less than 20 hours away is a
+  proposal for each of the four rows: a person checks the warning, the
+  way to extend, and that the work goes on after a new sign-in. The tool
+  does not wait for the session to end (D5).
+- *The sign-in page (3.3.8, 3.3.9).* The page itself when it has a
+  password field; else, with `--storage-state`, the same address in a
+  fresh context with no cookies (writes blocked there too; up to 5 s for a
+  password field to show, `SIGN_IN_WAIT`), with a run note. A paste
+  event is sent to the password field: a handler that cancels it is a
+  proposal. A `canvas`, a captcha box or frame, or a `data-sitekey` is a
+  puzzle, a proposal. The sign-in page is read once a page, not once a
+  run.
+
+**Updates by themselves (2.2.2, 2.2.4).** Then the page as
 loaded is watched for 10 s with no action (`WATCH`). A drawn block (a
 section, list, table, paragraph, form, or a region, log, timer, feed or
 status role) whose text changes at least twice is an update; one change
@@ -608,12 +657,13 @@ watch saw that text change with no key). The 39 keys cost about
 a page.
 
 **Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
-is `press`, `focus`, `hover`, `submit`, `steps`, `key` or `idle`; `node` is the tree node with that name; each event is
+is `press`, `focus`, `hover`, `down`, `submit`, `steps`, `key` or `idle`; `node` is the tree node with that name; each event is
 `{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
 `actions` still reads everywhere. The options `actAfter` and `actIdle`
 (ms) of `generate()` set the two times, for tests; no command line option.
 `actWatch` (ms, `0` for none) and `actKeys` (the keys, `''` for none)
-do the same for the watch and the keys.
+do the same for the watch and the keys, and `actSignIn` (ms) for the
+wait for a password field.
 
 **When the walk ends.** Each distinct control is pressed once, so a
 control that comes back is not pressed again; a control with no name
@@ -648,6 +698,21 @@ no proposal, the check is a pass for that page.
 | `walk-single-key` | 2.1.4 | a key alone, with focus on the body, does something (a pass when every key was tried and none did) |
 | `walk-update-no-pause` | 2.2.2 | a block updates by itself with no pause, stop or hide control near it |
 | `walk-update-no-pause-interrupt` | 2.2.4 | the same finding, for AAA |
+| `walk-gesture` | 2.5.1 | an element listens for a swipe or a multi-touch gesture |
+| `walk-down-event` | 2.5.2 | a control acts while the mouse button is down |
+| `walk-motion` | 2.5.4 | the page listens for device motion or orientation |
+| `walk-input-limited` | 2.5.6 | `touch-action: none` on the page (AAA) |
+| `walk-drag` | 2.5.7 | an element can be dragged: is there a single-pointer way? |
+| `walk-order` | 1.3.2 | a block is drawn above or before the block it follows in the reading order |
+| `walk-sensory` | 1.3.3 | an instruction points by place, shape or colour |
+| `walk-session-timeout` | 2.2.1 | the session ends in less than 20 hours (never a pass) |
+| `walk-session-timing` | 2.2.3 | the same, for AAA |
+| `walk-session-reauth` | 2.2.5 | the same, for AAA |
+| `walk-session-warning` | 2.2.6 | the same, for AAA |
+| `walk-signin-paste` | 3.3.8 | the sign-in page cancels a paste into the password field |
+| `walk-signin-paste-enhanced` | 3.3.9 | the same, for AAA |
+| `walk-signin-puzzle` | 3.3.8 | the sign-in page shows a puzzle (a canvas or captcha) |
+| `walk-signin-puzzle-enhanced` | 3.3.9 | the same, for AAA |
 
 A person decides each proposal (see "Proposals and decisions"). The tool
 writes no `not-applicable` or `does-not-support`.

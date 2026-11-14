@@ -114,3 +114,17 @@ test('the 3.2.4 review names the component and its names', () => {
   runChecks([a, b]);
   assert.deepEqual(a.runDetails['run-identification'], ['app-theme-toggle button: "Toggle theme to dark mode", "Theme"']);
 });
+
+test('2.4.8: a breadcrumb or a current item on every page passes; a page with neither is review; pages not read are left out', () => {
+  const all = [page('Home'), page('Apps'), page('Old')];
+  all[0].location = 'breadcrumb'; all[1].location = 'current';
+  runChecks(all);
+  assert.deepEqual(kind(all[0], '2.4.8', 'pass'), ['run-location']);
+  const some = [page('Home'), page('Apps')];
+  some[0].location = 'breadcrumb'; some[1].location = null;
+  runChecks(some);
+  assert.deepEqual(kind(some[0], '2.4.8', 'review'), ['run-location']);
+  const none = [page('Home'), page('Apps')];
+  runChecks(none);
+  assert.equal(none[0].checks['2.4.8'], undefined);
+});
