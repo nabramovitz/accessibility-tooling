@@ -318,9 +318,11 @@ crawl looks for links and when it reads the page. An element named by
   `index.html`; `<shape>` is the path with `/` as `_` and ids as `id`;
   the model holds its `shape` too),
   and `<dir>/run.json` lists the pages, the pages dropped because they
-  moved to another page of the run (a default tab), and the URLs
-  skipped. The same care as for `--out` above: the models hold the
-  signed-in content.
+  landed on another page of the run, and the URLs skipped. A page is
+  dropped when it lands on a page in the list (a default tab) or on a
+  page an earlier one landed on (two tabs that now go to one); it is
+  not read past its load, so it costs only the load. The same care as
+  for `--out` above: the models hold the signed-in content.
 
   A page whose tree shows a progress bar, a status or alert that says
   "Loading", or a busy element gets the run note `Page shows a loading
