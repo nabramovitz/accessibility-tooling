@@ -152,9 +152,19 @@ function sessionOnce(models) {
 // by a button, a tab shown on one app only); each stands for its shape in
 // place of a found page. `opts.jobs`: the pages read at the same time
 // (default 1). `opts.versionUrl`: the build is read before and after.
+// `opts.trace(line)`: a line as each part ends (--trace); with a version
+// URL the build is read again at each page start, and a change is a line.
 export async function crawl(start, opts = {}) {
   const out = opts.out ?? 'reader-path-run';
+  const trace = opts.trace;
   const before = opts.versionUrl ? await readBuild(opts.versionUrl, opts) : undefined;
+  let seenBuild = JSON.stringify(before);
+  const buildNow = (b) => {
+    const now = JSON.stringify(b);
+    if (now !== seenBuild) trace?.(`BUILD CHANGED ${now}`);
+    seenBuild = now;
+  };
+  if (opts.versionUrl) trace?.(`build ${seenBuild}`);
   const found = opts.urls ? { urls: opts.urls.map(bare), skipped: [], stillLoading: [] } : await discover(start, opts);
   const base = dirOf(start ?? found.urls[0]);
   if (opts.add) {
@@ -169,7 +179,17 @@ export async function crawl(start, opts = {}) {
     landed.add(finalUrl);
     return false;
   };
-  const models = await inPool(found.urls, opts.jobs ?? 1, (url) => generate(url, { ...opts, skip }));
+  trace?.(`found ${found.urls.length} page(s)`);
+  const read = async ([url, i]) => {
+    const tag = `page ${i + 1}/${found.urls.length}`;
+    if (trace && opts.versionUrl) buildNow(await readBuild(opts.versionUrl, opts));
+    trace?.(`${tag} start ${url}`);
+    const at = Date.now();
+    const m = await generate(url, { ...opts, skip, trace: trace && ((l) => trace(`${tag} ${l}`)) });
+    trace?.(`${tag} ${m.skipped ? `dropped: lands on ${m.finalUrl}` : 'done'} ${((Date.now() - at) / 1000).toFixed(1)} s`);
+    return m;
+  };
+  const models = await inPool(found.urls.map((u, i) => [u, i]), opts.jobs ?? 1, read);
   const dropped = models.filter((m) => m.skipped);
   const kept = models.filter((m) => !m.skipped);
   sessionOnce(kept);
@@ -182,7 +202,9 @@ export async function crawl(start, opts = {}) {
     writeFileSync(join(out, dir, 'index.html'), render(m));
     return { url: m.url, finalUrl: m.finalUrl, shape: m.shape, dir };
   });
-  const build = opts.versionUrl ? { build: { before, after: await readBuild(opts.versionUrl, opts) } } : {};
+  const after = opts.versionUrl ? await readBuild(opts.versionUrl, opts) : undefined;
+  if (opts.versionUrl) buildNow(after);
+  const build = opts.versionUrl ? { build: { before, after } } : {};
   const run = {
     start: start ?? null,
     act: !!opts.act,

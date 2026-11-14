@@ -324,10 +324,16 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#'), skip: skip.map(window.__rp.flat) });
   }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
-  // The time of each part, for the cost of a run: one note at the end.
+  // The time of each part, for the cost of a run: one note at the end, and
+  // a trace line as each part ends (--trace).
   const times = [];
   let lapAt = Date.now();
-  const lap = (part, count) => { times.push(`${part} ${((Date.now() - lapAt) / 1000).toFixed(1)} s${count === undefined ? '' : ` (${count})`}`); lapAt = Date.now(); };
+  const lap = (part, count) => {
+    const t = `${part} ${((Date.now() - lapAt) / 1000).toFixed(1)} s${count === undefined ? '' : ` (${count})`}`;
+    times.push(t);
+    opts.trace?.(`act ${t}`);
+    lapAt = Date.now();
+  };
 
   try {
     await restart(false);

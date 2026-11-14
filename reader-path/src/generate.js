@@ -378,6 +378,7 @@ export async function guardWrites(context, onBlock) {
 // views (false: the default view only; no narrow, zoom, spacing or dark view,
 // and no focus measure in the Tab walk; no lists for a person). skip(finalUrl, url):
 // true ends the read after the load, with a model marked skipped.
+// trace(line): called as each part of the read ends (--trace).
 export async function generate(url, opts = {}) {
   const browser = await chromium.launch();
   try {
@@ -397,6 +398,8 @@ export async function generate(url, opts = {}) {
     // Without query and fragment: a redirect can carry a sign-in token.
     const finalUrl = bare(page.url());
     if (finalUrl !== bare(url)) notes.push(`Page moved to ${finalUrl}`);
+    opts.trace?.(`loaded ${finalUrl}`);
+    const checksAt = Date.now();
     // opts.skip (from crawl): the page landed on one the run reads already.
     if (opts.skip?.(finalUrl, bare(url))) return { url, finalUrl, skipped: true, notes };
     const cdp = await context.newCDPSession(page);
@@ -431,6 +434,7 @@ export async function generate(url, opts = {}) {
     await textPurpose(page, cdp, nearestKept, root, model, notes);
 
     const title = await page.title();
+    opts.trace?.(`checks done ${((Date.now() - checksAt) / 1000).toFixed(1)} s`);
     // Last: the actions change the page, so everything above is the page as loaded.
     if (opts.act) await actions(page, context, idleTime, opts, root, model, notes, hook);
     const version = browser.version();

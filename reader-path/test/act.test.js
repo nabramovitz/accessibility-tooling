@@ -625,3 +625,13 @@ test('the action phase leaves a note of its time per part, with the number of mo
   assert.match(note, /mouse down [\d.]+ s \(1 test\)/);
   for (const part of ['reads', 'watch', 'hover', 'presses', 'forms', 'steps', 'keys']) assert.match(note, new RegExp(`${part} [\\d.]+ s`), part);
 });
+
+test('opts.trace: the load, the checks and each action part, in order, as each ends', async () => {
+  const lines = [];
+  await run({ body: '<button>Plain</button>' }, { trace: (l) => lines.push(l) });
+  assert.match(lines[0], /^loaded http:\/\/localhost:\d+\/$/);
+  assert.match(lines[1], /^checks done [\d.]+ s$/);
+  const parts = ['reads', 'watch', 'hover', 'mouse down', 'presses', 'forms', 'steps', 'keys'];
+  assert.equal(lines.length, 2 + parts.length, lines.join(' | '));
+  parts.forEach((p, i) => assert.match(lines[2 + i], new RegExp(`^act ${p} [\\d.]+ s`), lines.join(' | ')));
+});
