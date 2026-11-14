@@ -324,6 +324,10 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#'), skip: skip.map(window.__rp.flat) });
   }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
+  // The time of each part, for the cost of a run: one note at the end.
+  const times = [];
+  let lapAt = Date.now();
+  const lap = (part, count) => { times.push(`${part} ${((Date.now() - lapAt) / 1000).toFixed(1)} s${count === undefined ? '' : ` (${count})`}`); lapAt = Date.now(); };
 
   try {
     await restart(false);
@@ -332,6 +336,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     // down listener, for the mouse-down test below.
     await reads(page, context, opts, model, notes, { propose, ok: (r) => { ok[r] = 1; }, nodeOf, root });
     const downKeys = (await list()).filter((x) => x.down).map((x) => x.key);
+    lap('reads');
 
     // Updates by themselves (2.2.2, 2.2.4): the page as loaded, watched with
     // no action. Each updating block is an action of kind idle.
@@ -349,6 +354,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
         propose('walk-update-no-pause-interrupt', '2.2.4', node, u.label, `"${u.label}" updates by itself with no way to put the updates off (AAA)`, 'Let the person pause the updates, or turn them off');
       }
     }
+    lap('watch');
 
     // Hover and focus content (1.4.13): each distinct control, a wider list
     // than the presses (a link is hovered, not followed; an icon with a
@@ -436,6 +442,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
         } else await away();
       }
     }
+    lap('hover', `${tried} control${tried === 1 ? '' : 's'}`);
 
     // Mouse down (2.5.2): each control with a down listener. The pointer goes
     // onto it, the button goes down, and the page is read; then the pointer
@@ -443,6 +450,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     // change while the button is down (new text, a dialog, a new address or
     // window, a write, aria-expanded) means the control acts on down.
     if (downKeys.length) await restart(false);
+    let downTests = 0;
     for (const key of downKeys) {
       const c = (await list()).find((x) => x.key === key);
       if (!c) continue;
@@ -450,6 +458,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       await h.scrollIntoViewIfNeeded({ timeout: 1000 }).catch(() => {});
       const b = await h.boundingBox();
       if (!b) continue;
+      downTests++;
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 });
       await page.waitForTimeout(150);
       const before = await now();
@@ -481,6 +490,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       await closePopups();
       await restart(false);
     }
+    lap('mouse down', `${downTests} test${downTests === 1 ? '' : 's'}`);
 
     const done = new Set();
     for (;;) {
@@ -598,6 +608,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       if (out) await restart(true);
       else if (moved || stuck) await restart(false);
     }
+    lap('presses', done.size);
 
     // Forms (3.3.1, 3.3.3): each form with a submit control, from the page as
     // loaded: once with every text field empty, then once for each typed
@@ -681,6 +692,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       }
       model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'submit', node: nodeOf({ name: info.name, role: '' }).id, name: info.name, events });
     }
+    lap('forms', formCount);
 
     // Steppers (3.3.7): a page with a Next or Continue control is walked: the
     // empty fields of each step are filled with safe values and Next is
@@ -723,6 +735,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       }
       model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'steps', node: root.id, name: `Steps from "${first ?? 'Next'}"`, events });
     }
+    lap('steps');
 
     // Single keys (2.1.4): from the page as loaded, each key once, with focus
     // on the page body (checked before each key, so a key never types into a
@@ -769,9 +782,11 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       }
       if (all && !acted) ok['walk-single-key'] = 1;
     }
+    lap('keys');
   } finally {
     context.off('page', onPage);
     hook.current = null;
+    if (times.length) notes.push(`Action phase times: ${times.join(', ')}`);
   }
 
   const verdict = (sc, rule) => {

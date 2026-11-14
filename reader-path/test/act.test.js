@@ -616,3 +616,12 @@ test('3.3.8: with a saved sign-in, the sign-in page is read in a fresh context w
   assert.deepEqual(sc(m, /^3\.3\.8 /), ['3.3.8 walk-signin-paste']);
   assert.ok(m.notes.some((n) => /sign-in page read in a fresh context/.test(n)), m.notes.join(' | '));
 });
+
+test('the action phase leaves a note of its time per part, with the number of mouse-down tests', async () => {
+  const { m } = await run({ body: `<button id=r>Ripple</button><button>Plain</button>
+    <script>r.addEventListener('mousedown', () => r.appendChild(document.createElement('span')));</script>` });
+  const note = m.notes.find((n) => n.startsWith('Action phase times:'));
+  assert.ok(note, m.notes.join(' | '));
+  assert.match(note, /mouse down [\d.]+ s \(1 test\)/);
+  for (const part of ['reads', 'watch', 'hover', 'presses', 'forms', 'steps', 'keys']) assert.match(note, new RegExp(`${part} [\\d.]+ s`), part);
+});
