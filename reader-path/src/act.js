@@ -31,6 +31,14 @@ export const KEYS = 'abcdefghijklmnopqrstuvwxyz0123456789?/.';
 export const KEY_AFTER = 300;
 // Updates by themselves (2.2.2): how long the page is watched with no action.
 export const WATCH = 10000;
+// Steppers (3.3.7): the most steps walked with Next.
+export const STEP_MAX = 10;
+// Safe values (ruling D4): never a real name; the submit is blocked anyway.
+const SAFE = { email: 'a11y-test@example.com', url: 'https://example.com', number: '1', tel: '1', range: null, date: null, color: null, file: null };
+// A wrong value for a typed field: letters where a number, an address or a pattern is asked.
+const WRONG = { number: 'e', email: 'x', url: 'x' };
+// Words of an error text that tell the person how to fix it (3.3.3).
+const SUGGEST = /\b(enter|use|must|should|include|choose|select|pick|format|example|e\.g\.|such as|like|only|at least|at most|between|from|up to|valid|characters?|digits?|numbers?)\b/i;
 
 const SIGN_IN = /\/(login|logout)\b/;
 const CONFIRM = /confirm|are you sure|cannot be undone|permanently/i;
@@ -211,6 +219,53 @@ function watch(ms) {
     done(boxes.filter((e) => !boxes.some((o) => o !== e && o.contains(e)))
       .map((e) => ({ label: label(e), n: count.get(e), sample: read(e).slice(0, 80), pause: near(e) })));
   }, ms));
+}
+
+// Forms. fieldsIn(i) finds form i (-1: the whole page, for a stepper) and
+// keeps its fields and its submit control in __rp.form; it returns what
+// Node needs of them. look() is each field's state: marked in error
+// (aria-invalid, the browser's own check), the text linked to it, and the
+// colours of its border, outline and shadow.
+function fieldsIn(i) {
+  const scope = i < 0 ? document.body : document.querySelectorAll('form,[role=form]')[i];
+  if (!scope) return null;
+  const norm = (t) => (t || '').replace(/\s+/g, ' ').trim();
+  const labelOf = (e) => {
+    const ids = e.getAttribute('aria-labelledby');
+    return norm(e.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((x) => document.getElementById(x)?.textContent || '').join(' '))
+      || (e.labels && [...e.labels].map((l) => l.textContent).join(' ')) || e.placeholder || e.name || e.id).slice(0, 60);
+  };
+  const els = [...scope.querySelectorAll('input,select,textarea')].filter((e) => !/^(hidden|submit|button|reset|image)$/.test(e.type)
+    && !e.disabled && !e.readOnly && e.getClientRects().length && !e.closest('[inert],[aria-hidden=true]'));
+  const btn = i < 0 ? null : scope.querySelector('button:not([type=button]):not([type=reset]),input[type=submit]')
+    || (scope.id && document.querySelector(`button[form="${scope.id}"]`));
+  window.__rp.form = { scope, els, btn };
+  const name = norm(scope.getAttribute('aria-label') || (btn && (btn.textContent || btn.value)) || 'form').slice(0, 60);
+  return {
+    name, submit: !!btn, native: i >= 0 && !scope.noValidate,
+    fields: els.map((e, j) => ({
+      j, label: labelOf(e), tag: e.tagName.toLowerCase(), type: e.tagName === 'INPUT' ? e.type : e.tagName.toLowerCase(),
+      value: e.type === 'checkbox' || e.type === 'radio' ? (e.checked ? 'on' : '') : e.value,
+      typed: e.tagName === 'INPUT' && (/^(number|email|url)$/.test(e.type) || e.hasAttribute('pattern') || /numeric|decimal/.test(e.inputMode)),
+      choices: e.tagName === 'SELECT' || !!e.list || e.getAttribute('role') === 'combobox' || e.hasAttribute('aria-autocomplete'),
+    })),
+  };
+}
+function look() {
+  const f = window.__rp.form;
+  const text = (ids) => (ids || '').split(/\s+/).filter(Boolean).map((x) => document.getElementById(x)).filter((e) => e && e.getClientRects().length)
+    .map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim();
+  return f.els.map((e) => {
+    const c = getComputedStyle(e);
+    return {
+      invalid: e.getAttribute('aria-invalid') === 'true',
+      native: !e.validity.valid ? e.validationMessage : '',
+      linked: text(`${e.getAttribute('aria-describedby') || ''} ${e.getAttribute('aria-errormessage') || ''}`),
+      paint: [c.borderTopColor, c.borderBottomColor, c.outlineColor, c.boxShadow, e.className].join('|'),
+      // A focus ring is not an error mark: colours are compared only when the field has no focus.
+      focused: e.matches(':focus'),
+    };
+  });
 }
 
 const shown = () => !!window.__rp.hc && window.__rp.hc.isConnected && window.__rp.drawn(window.__rp.hc);
@@ -491,6 +546,131 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       else if (moved || stuck) await restart(false);
     }
 
+    // Forms (3.3.1, 3.3.3): each form with a submit control, from the page as
+    // loaded: once with every text field empty, then once for each typed
+    // field with a wrong value typed in and the others safe. A field is marked
+    // in error when aria-invalid turns true, its border, outline or shadow
+    // changes, or (with no novalidate) the browser's own check fails. Its
+    // error text is the text linked to it, the browser's message, or new text.
+    const formCount = await page.evaluate(() => document.querySelectorAll('form,[role=form]').length).catch(() => 0);
+    const fill = async (j, value, typeIt) => {
+      const h = (await page.evaluateHandle((k) => window.__rp.form.els[k], j)).asElement();
+      const kind = await h.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));
+      if (kind === 'select') {
+        const v = await h.evaluate((e) => [...e.options].find((o) => !o.disabled && o.value)?.value ?? null);
+        if (v !== null && value !== '') await h.selectOption(v).catch(() => {});
+      } else if (kind === 'checkbox' || kind === 'radio') {
+        if (value !== '') await h.check({ timeout: 1000 }).catch(() => {});
+      } else if (typeIt) {
+        await h.fill('', { timeout: 1000 }).catch(() => {});
+        await h.focus().catch(() => {});
+        await page.keyboard.type(value);
+      } else await h.fill(value, { timeout: 1000 }).catch(() => {});
+    };
+    const safe = (f) => (f.type in SAFE ? SAFE[f.type] : 'a11y-test');
+    for (let i = 0; i < formCount; i++) {
+      await restart(false);
+      await page.evaluate(install);
+      const info = await page.evaluate(fieldsIn, i).catch(() => null);
+      if (!info || !info.submit || !info.fields.length) continue;
+      const cases = [{ what: 'every text field empty', target: null }, ...info.fields.filter((f) => f.typed).map((f) => ({ what: `a wrong value in "${f.label}"`, target: f }))];
+      const events = [];
+      const t0 = Date.now();
+      const ev = (type, text, extra) => events.push({ t: Date.now() - t0, type, text, ...extra });
+      for (const cs of cases) {
+        if (cs.target) { await restart(false); await page.evaluate(install); await page.evaluate(fieldsIn, i); }
+        for (const f of info.fields) {
+          if (cs.target === null) { if (!f.choices && f.type !== 'checkbox' && f.type !== 'radio') await fill(f.j, ''); }
+          else if (f.j === cs.target.j) await fill(f.j, f.type in WRONG ? WRONG[f.type] : 'abc', true);
+          else if (safe(f) !== null) await fill(f.j, safe(f));
+        }
+        const before = await page.evaluate(look);
+        const url0 = page.url();
+        await arm(false, hoverText);
+        ev('submit', `submitted with ${cs.what}`);
+        let wrote = false;
+        hook.current = (w) => { wrote = true; ev('write', `write blocked: ${w}`); };
+        const btn = (await page.evaluateHandle(() => window.__rp.form.btn)).asElement();
+        await btn.click({ timeout: Math.min(limit, 3000) }).catch((e) => ev('note', `could not press: ${String(e.message).split(/\r?\n/)[0]}`));
+        await quiet();
+        await page.waitForTimeout(after);
+        hook.current = null;
+        const now2 = await page.evaluate(look).catch(() => null);
+        if (!now2 || other(url0, page.url())) { ev('note', 'the form was sent (a new page)'); continue; }
+        const added = (await page.evaluate(() => (window.__rp ? window.__rp.ev : [])).catch(() => [])).map((r) => r.text).join(' ');
+        const asked = cs.target ? [cs.target] : info.fields;
+        let marked = 0;
+        for (const f of asked) {
+          const b = before[f.j];
+          const a = now2[f.j];
+          const nat = info.native && a.native;
+          const painted = a.paint !== b.paint && !a.focused && !b.focused;
+          if (!(nat || (a.invalid && !b.invalid) || painted || (a.linked && a.linked !== b.linked))) continue;
+          marked++;
+          const node = nodeOf({ name: f.label, role: '' });
+          const msg = nat ? a.native : a.linked || added;
+          if (!msg) {
+            ev('error', `"${f.label}" is marked in error with no text`, { ok: false });
+            propose('walk-error-no-text', '3.3.1', node, cs.what, `After a submit with ${cs.what}, "${f.label}" is marked in error with no text that says what is wrong`, 'Describe the error in text, and link it to the field (aria-describedby or aria-errormessage)');
+            continue;
+          }
+          ok['walk-error-no-text'] = 1;
+          ev('error', nat ? `browser message on "${f.label}": ${msg}` : `"${f.label}": ${msg.slice(0, 120)}`, { ok: true, linked: !!(nat || a.linked) });
+          if (!nat && !a.linked && !msg.toLowerCase().includes(f.label.toLowerCase())) {
+            propose('walk-error-unnamed', '3.3.1', node, cs.what, `After a submit with ${cs.what}, the error text ("${msg.slice(0, 80)}") is not linked to "${f.label}" and does not name it`, 'Link the error text to the field, or name the field in it');
+          } else ok['walk-error-unnamed'] = 1;
+          if (cs.target) {
+            if (SUGGEST.test(msg)) ok['walk-error-no-suggestion'] = 1;
+            else propose('walk-error-no-suggestion', '3.3.3', node, cs.what, `After ${cs.what}, the error text ("${msg.slice(0, 80)}") does not say how to fix it`, 'Say what is expected, such as the format or an example');
+          }
+        }
+        if (!marked) ev('note', wrote ? 'the form was sent, with no error shown' : 'no field was marked in error');
+      }
+      model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'submit', node: nodeOf({ name: info.name, role: '' }).id, name: info.name, events });
+    }
+
+    // Steppers (3.3.7): a page with a Next or Continue control is walked: the
+    // empty fields of each step are filled with safe values and Next is
+    // pressed, until no Next, STEP_MAX steps, or a Next that does not go on.
+    // A label asked again in a later step, empty and with nothing to choose
+    // from, is a proposal. The last step's submit is not pressed.
+    // "Next page" of a list paginator is not a step.
+    const NEXT = /^(next|continue)\b(?!.*\bpage\b)/i;
+    await restart(false);
+    if ((await list()).some((x) => NEXT.test(x.name))) {
+      const events = [];
+      const t0 = Date.now();
+      const ev = (type, text, extra) => events.push({ t: Date.now() - t0, type, text, ...extra });
+      const asked = new Map();
+      let first = null;
+      for (let n = 1; n <= STEP_MAX; n++) {
+        const info = await page.evaluate(fieldsIn, -1);
+        ev('step', `step ${n}: ${info.fields.map((f) => f.label).join(', ') || 'no fields'}`);
+        for (const f of info.fields) {
+          const key = f.label.toLowerCase();
+          if (n > 1 && asked.has(key) && asked.get(key) < n) {
+            const node = nodeOf({ name: f.label, role: '' });
+            if (!f.value && !f.choices) propose('walk-redundant-entry', '3.3.7', node, f.label, `Step ${n} asks for "${f.label}" again, empty, after an earlier step of the same process asked for it`, 'Fill it in from the earlier step, or let the person pick the earlier value');
+            else ok['walk-redundant-entry'] = 1;
+          }
+          if (!asked.has(key)) asked.set(key, n);
+          if (!f.value && safe(f) !== null) await fill(f.j, safe(f));
+        }
+        const next = (await list()).find((x) => NEXT.test(x.name));
+        if (!next) break;
+        first ??= next.name;
+        if (n === STEP_MAX) { ev('note', `steps stopped at ${STEP_MAX}`); break; }
+        const sig = JSON.stringify(info.fields.map((f) => f.label));
+        hook.current = (w) => ev('write', `write blocked: ${w}`);
+        await (await page.evaluateHandle((k) => window.__rp.els[k], next.i)).asElement().click({ timeout: Math.min(limit, 3000) }).catch(() => {});
+        await quiet();
+        await page.waitForTimeout(after);
+        hook.current = null;
+        if (JSON.stringify((await page.evaluate(fieldsIn, -1)).fields.map((f) => f.label)) === sig) { ev('note', `"${next.name}" did not go on at step ${n}`); break; }
+      }
+      model.actions.push({ id: `a${model.actions.length + 1}`, kind: 'steps', node: root.id, name: `Steps from "${first ?? 'Next'}"`, events });
+    }
+
     // Single keys (2.1.4): from the page as loaded, each key once, with focus
     // on the page body (checked before each key, so a key never types into a
     // field). A key that changes something is an action of kind key, and the
@@ -547,6 +727,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   };
   for (const [sc, rule] of [['2.4.3', 'walk-focus-return'], ['2.4.3', 'walk-dialog-focus'], ['2.4.3', 'walk-focus-lost'], ['3.2.1', 'walk-context-focus'],
     ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
+    ['3.3.1', 'walk-error-no-text'], ['3.3.1', 'walk-error-unnamed'], ['3.3.3', 'walk-error-no-suggestion'], ['3.3.7', 'walk-redundant-entry'],
     ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
     ['1.4.13', 'walk-hover-dismiss'], ['1.4.13', 'walk-hover-hoverable'], ['1.4.13', 'walk-hover-persist']]) verdict(sc, rule);
 }

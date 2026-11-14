@@ -562,7 +562,36 @@ refresh" switch) in the block or up to three parents above it, with
 `ok: true` or `false`. A clock that ticks is an update too: a person
 decides it once for the run.
 
-**Single keys (2.1.4).** After the presses, from the page as loaded,
+**Forms (3.3.1, 3.3.3).** After the presses, each `form` (or
+`role=form`) with a submit control is submitted, from the page as
+loaded: once with every text field empty, then once for each typed
+field (`number`, `email`, `url`, a `pattern`, or a numeric
+`inputmode`) with a wrong value typed in (`e` in a number field, `x` in
+an address field, `abc` in a pattern field) and the other fields safe
+(below). Every write is blocked, so nothing is sent. A field is marked
+in error when `aria-invalid` turns true, its border, outline, shadow or
+class changes (not while it has focus: a focus ring is not an error
+mark), or, with no `novalidate`, the browser's own check fails. Its error
+text is the text linked to it (`aria-describedby`, `aria-errormessage`),
+the browser's message, or new text on the page. Each form is one action
+of kind `submit`, with a `submit` event for each case and an `error`
+event for each field marked in error.
+
+**Steppers (3.3.7).** When the page has a control named Next or
+Continue (not "Next page", a list paginator), the steps are walked: the empty fields of each step are filled
+with safe values, and Next is pressed, until there is no Next, after 10
+steps (`STEP_MAX`), or when Next does not go on (the step's fields are
+the same; a `note` event). Each step is a `step` event with its field
+labels. A label asked again in a later step, empty and with nothing to
+choose from (a select, a list, a combobox), is a finding. The last
+step's submit is not pressed. The action has kind `steps`.
+
+**Safe values (D4).** `a11y-test` for a text field,
+`a11y-test@example.com` for an address, `https://example.com` for a
+URL, `1` for a number or telephone field, the first option of a select;
+date, range, colour and file fields are left as they are.
+
+**Single keys (2.1.4).** After the forms, from the page as loaded,
 each of `a`–`z`, `0`–`9`, `?`, `/` and `.` is pressed once (`KEYS`).
 Before each key, focus is taken off the active element and the tool
 checks that it is on the page body; if focus does not stay there, the
@@ -579,8 +608,7 @@ watch saw that text change with no key). The 39 keys cost about
 a page.
 
 **Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
-is `press`, `focus`, `hover`, `key` or `idle` (`submit` is for
-later); `node` is the tree node with that name; each event is
+is `press`, `focus`, `hover`, `submit`, `steps`, `key` or `idle`; `node` is the tree node with that name; each event is
 `{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
 `actions` still reads everywhere. The options `actAfter` and `actIdle`
 (ms) of `generate()` set the two times, for tests; no command line option.
@@ -613,6 +641,10 @@ no proposal, the check is a pass for that page.
 | `walk-hover-persist` | 1.4.13 | content that appeared on hover or focus is gone within 1 s with no move |
 | `walk-hover-dismiss` | 1.4.13 | the content stays after Escape |
 | `walk-hover-hoverable` | 1.4.13 | hover content is gone when the pointer moves onto it |
+| `walk-error-no-text` | 3.3.1 | after a submit, a field is marked in error with no text |
+| `walk-error-unnamed` | 3.3.1 | the error text is not linked to the field and does not name it |
+| `walk-error-no-suggestion` | 3.3.3 | after a wrong value, the error text has no word of how to fix it (enter, must, such as, format, ...) |
+| `walk-redundant-entry` | 3.3.7 | a later step asks again, empty, for a field an earlier step asked for |
 | `walk-single-key` | 2.1.4 | a key alone, with focus on the body, does something (a pass when every key was tried and none did) |
 | `walk-update-no-pause` | 2.2.2 | a block updates by itself with no pause, stop or hide control near it |
 | `walk-update-no-pause-interrupt` | 2.2.4 | the same finding, for AAA |
