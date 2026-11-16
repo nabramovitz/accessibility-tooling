@@ -165,7 +165,8 @@ measured in five more views, on the same load:
   in this view or the default one, a 1.4.6 fail too.
 - `motion`: reduced motion asked (`prefers-reduced-motion: reduce`)
   (2.3.3). A run note counts the animations that run in the default
-  view and those that still run, and names up to 10 of them. Nothing is
+  view and those that still run, and for each names up to 10 elements,
+  most animations first (`span.dot ×40`). Nothing is
   pressed, so animation from an interaction is not checked: the row is
   always for a person.
 

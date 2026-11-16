@@ -321,9 +321,15 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
   await laid();
   const still = await running(cdp);
   await page.emulateMedia({ reducedMotion: null });
-  const names = [...new Set(still)];
-  const named = names.length ? ` (${names.slice(0, MAX_MOVING).join(', ')}${names.length > MAX_MOVING ? ', ...' : ''})` : '';
-  notes.push(`Animations running: ${before.length} in the default view, ${still.length} with reduced motion asked${named}`);
+  // Each list names the elements, most animations first ("span.dot ×40"),
+  // so a person can find what moves.
+  const namesOf = (list) => {
+    const count = new Map();
+    for (const n of list) count.set(n, (count.get(n) ?? 0) + 1);
+    const names = [...count].sort((x, y) => y[1] - x[1]).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n));
+    return names.length ? ` (${names.slice(0, MAX_MOVING).join(', ')}${names.length > MAX_MOVING ? ', ...' : ''})` : '';
+  };
+  notes.push(`Animations running: ${before.length} in the default view${namesOf(before)}, ${still.length} with reduced motion asked${namesOf(still)}`);
   addCheck(model.checks, '2.3.3', 'review', 'view-motion');
   model.views.push({ name: 'motion', ...start });
 }
