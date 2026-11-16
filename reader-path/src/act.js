@@ -556,7 +556,11 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
         t0 = Date.now();
       } else ok['walk-context-focus'] = 1;
 
-      // The press (a select is changed to another option).
+      // The press (a select is changed to another option). A control in an
+      // open popup (a menu item) has the button that opened it: after a
+      // dialog the item may be gone, and focus goes back to that button.
+      const opener = await handle.evaluateHandle((el) => [...document.querySelectorAll('[aria-haspopup]:not([aria-haspopup=false])[aria-expanded=true]')]
+        .find((b) => b !== el && !b.contains(el) && (document.getElementById(b.getAttribute('aria-controls') || '')?.contains(el) || b.parentElement?.contains(el))) || null).catch(() => null);
       before = await now();
       await arm(c.quiet, hoverText);
       t0 = Date.now();
@@ -637,8 +641,8 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
           ev('dialog', 'dialog did not close');
         } else {
           ev('dialog', 'dialog closed by Escape');
-          const back = await handle.evaluate((el) => document.activeElement === el).catch(() => false);
-          ev('focus', back ? 'focus returned to the control' : `focus went to ${s2.active}, not back to the control`, { where: 'after dialog close' });
+          const back = await handle.evaluate((el, o) => (document.activeElement === el ? 'the control' : o && document.activeElement === o ? 'the button that opened the control\'s menu' : ''), opener).catch(() => '');
+          ev('focus', back ? `focus returned to ${back}` : `focus went to ${s2.active}, not back to the control`, { where: 'after dialog close' });
           if (back) ok['walk-focus-return'] = 1;
           else propose('walk-focus-return', '2.4.3', node, '', `After the dialog opened by "${c.name}" closes, focus is on ${s2.active}, not on the control`, 'Return focus to the control that opened the dialog');
         }
