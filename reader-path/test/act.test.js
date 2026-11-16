@@ -104,6 +104,14 @@ test('a delete with no confirm step: blocked, recorded, proposed for 3.3.4 and 3
   assert.ok(m.checks['3.3.4'].review.includes('walk-write-no-confirm'));
 });
 
+test('3.3.6: a favorite toggle that the same control undoes is reversible: no 3.3.4 or 3.3.6 proposal, a note', async () => {
+  const { m } = await run({ body: `<div role=button tabindex=0 id=f aria-label="Add to favorites">*</div>
+    <button id=p aria-pressed=false>Pin</button>
+    <script>f.onclick = () => fetch('/pp/v1/favorites', { method: 'POST' }); p.onclick = () => fetch('/api/pin', { method: 'POST' });</script>` });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('3.3')), [], JSON.stringify(m.actions.map((x) => `${x.name}: ${text(x)}`)));
+  for (const n of ['Add to favorites', 'Pin']) assert.ok(action(m, n).events.some((e) => e.type === 'note' && /toggle/.test(e.text)), text(action(m, n)));
+});
+
 const SNACK = (attrs) => `<button id=o>Save</button><div id=s ${attrs}></div><script>o.onclick = () => { s.textContent = 'Saved the thing'; };</script>`;
 
 test('a snackbar with no live region: a 4.1.3 proposal', async () => {
