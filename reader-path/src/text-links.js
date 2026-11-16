@@ -24,6 +24,10 @@ export function target(href) {
   } catch { return href; }
 }
 
+// A target on the page's own site by its path, so the finding is short.
+const shown = (t, page) => {
+  try { const u = new URL(t); return page && u.origin === new URL(page).origin ? u.pathname + u.search : t; } catch { return t; }
+};
 const some = (list) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} and ${list.length - 3} more` : list.join(', '));
 
 // One finding, proposed for 2.4.4 and, with the name read alone, 2.4.9.
@@ -64,7 +68,7 @@ export function textLinks(model, root) {
   for (const [, list] of groups) {
     const targets = [...new Set(list.map((n) => target(n.href)))];
     if (targets.length < 2) continue;
-    const say = `${list.length} links named "${list[0].name}" go to ${targets.length} different pages: ${some(targets)}`;
+    const say = `${list.length} links named "${list[0].name}" go to ${targets.length} different pages: ${some(targets.map((t) => shown(t, model.finalUrl || model.url)))}`;
     // With context (2.4.4): links whose column headers differ are told apart.
     const byColumn = new Map();
     for (const n of list) { const k = columnOf(n, up); (byColumn.get(k) || byColumn.set(k, new Set()).get(k)).add(target(n.href)); }
