@@ -92,3 +92,11 @@ test('a stop moved by a scroll and still in view is compared where it is', async
   assert.deepEqual(gapsOf(m, '2.4.7'), ['Plain moved']);
   assert.ok(!m.notes.some((n) => n.startsWith('Focus not compared')), m.notes.join('\n'));
 });
+
+// Rows that touch, each with three buttons: a row is compared once focus has
+// left its surroundings, however many stops that takes.
+test('rows that touch are compared once focus leaves them', async () => {
+  const m = await generate(fixture('focus/rows.html'));
+  assert.deepEqual(gapsOf(m, '2.4.7'), []);
+  assert.ok(!m.notes.some((n) => n.startsWith('Focus not compared')), m.notes.join('\n'));
+});
