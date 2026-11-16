@@ -49,7 +49,7 @@ const CONFIRM = /confirm|are you sure|cannot be undone|permanently/i;
 // The recorder: one observer for text that appears. Text in a live region
 // is "live"; other new text is "text" unless it is in or holds a dialog,
 // is hidden from readers or not drawn, was on the page before the press (drawn again,
-// or a clock: digits alike), is hover or focus content the hover phase
+// or a clock: numbers alike), is hover or focus content the hover phase
 // already found (rp.skip: a tooltip is not a status message), or the pressed
 // control states its own change (aria-expanded, a tab, ...).
 function install() {
@@ -57,7 +57,9 @@ function install() {
   const LIVE = '[aria-live]:not([aria-live=off]),[role=status],[role=alert],[role=log]';
   const DIALOG = 'dialog,[role=dialog],[role=alertdialog],[aria-modal=true]';
   const rp = (window.__rp = { ev: [], els: [], quiet: false, seen: '', skip: [] });
-  const flat = (t) => t.replace(/\s+/g, '').replace(/\d+/g, '#');
+  // A run of numbers with time units is one mark, so a clock that drops a
+  // zero part ("52m", then "52m 1s") reads the same.
+  const flat = (t) => t.replace(/\s+/g, '').replace(/(?:\d+(?:ms|[dhms](?![a-z]))?)+/gi, '#');
   rp.flat = flat;
   // Text as read: no aria-hidden part (an icon word) and, unless live, no
   // part that is not drawn. The page before a press is read the same way.
@@ -332,7 +334,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   const quiet = () => ready(page, idleTime, { idle: opts.idle, idleMax: limit }, []);
   // Before a press or a key: the recorder empty, and the page's text as it is now.
   const arm = (q, skip) => page.evaluate(({ q, skip }) => {
-    Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.read(document.body).replace(/\s+/g, '').replace(/\d+/g, '#'), skip: skip.map(window.__rp.flat) });
+    Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.flat(window.__rp.read(document.body)), skip: skip.map(window.__rp.flat) });
   }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
   // The time of each part, for the cost of a run: one note at the end, and
