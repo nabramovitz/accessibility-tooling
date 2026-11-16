@@ -56,9 +56,10 @@ function install() {
   if (window.__rp) return;
   const LIVE = '[aria-live]:not([aria-live=off]),[role=status],[role=alert],[role=log]';
   const DIALOG = 'dialog,[role=dialog],[role=alertdialog],[aria-modal=true]';
-  const rp = (window.__rp = { ev: [], evEl: [], els: [], quiet: false, seen: '', skip: [] });
+  const rp = (window.__rp = { ev: [], evEl: [], cut: new Set(), adds: [], els: [], quiet: false, seen: '', skip: [] });
   // A run of numbers with time units is one mark, so a clock that drops a
   // zero part ("52m", then "52m 1s") reads the same.
+  const VIEW_TEXT = 40;
   const flat = (t) => t.replace(/\s+/g, '').replace(/(?:\d+(?:ms|[dhms](?![a-z]))?)+/gi, '#');
   rp.flat = flat;
   // Text as read: no aria-hidden part (an icon word) and, unless live, no
@@ -75,6 +76,12 @@ function install() {
   const add = (type, text, el) => { if (!rp.ev.some((e) => e.type === type && e.text === text)) { rp.ev.push({ at: Date.now(), type, text }); rp.evEl.push(el); } };
   new MutationObserver((ms) => {
     for (const m of ms) {
+      // A view replaced: a block of text taken out of a parent that gets new
+      // nodes in the same press (cards swapped for a table).
+      if (m.type === 'childList') {
+        if ([...m.removedNodes].some((r) => (r.textContent || '').trim().length >= VIEW_TEXT)) rp.cut.add(m.target);
+        for (const n of m.addedNodes) rp.adds.push([m.target, n]);
+      }
       const nodes = m.type === 'characterData' ? [m.target] : [...m.addedNodes];
       for (const n of nodes) {
         const el = n.nodeType === 1 ? n : n.parentElement;
@@ -335,7 +342,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   const quiet = () => ready(page, idleTime, { idle: opts.idle, idleMax: limit }, []);
   // Before a press or a key: the recorder empty, and the page's text as it is now.
   const arm = (q, skip) => page.evaluate(({ q, skip }) => {
-    Object.assign(window.__rp, { ev: [], evEl: [], quiet: q, seen: window.__rp.flat(window.__rp.read(document.body)), skip: skip.map(window.__rp.flat) });
+    Object.assign(window.__rp, { ev: [], evEl: [], cut: new Set(), adds: [], quiet: q, seen: window.__rp.flat(window.__rp.read(document.body)), skip: skip.map(window.__rp.flat) });
   }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
   // The time of each part, for the cost of a run: one note at the end, and
@@ -575,9 +582,18 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
         const rp = window.__rp;
         if (!rp) return [];
         const own = [rp.els[i], document.activeElement].filter((x) => x && x !== document.body);
-        return rp.ev.filter((e, j) => !(e.type === 'text' && own.some((x) => x.contains(rp.evEl[j]))));
+        const views = rp.adds.filter(([p]) => rp.cut.has(p)).map(([, n]) => n);
+        return rp.ev.flatMap((e, j) => {
+          const el = rp.evEl[j];
+          if (e.type !== 'text') return [e];
+          if (own.some((x) => x.contains(el))) return [];
+          return [views.some((v) => v.contains(el)) ? { ...e, type: 'view' } : e];
+        });
       }, c.i).catch(() => []);
-      for (const r of rec) events.push({ t: r.at - t0, type: r.type, text: r.text });
+      // Content the person asked for that replaces the view is not a status message (4.1.3): a note.
+      const viewText = rec.filter((r) => r.type === 'view').map((r) => r.text);
+      if (viewText.length) ev('note', `view replaced: "${viewText[0]}"${viewText.length > 1 ? ` and ${viewText.length - 1} more` : ''}`);
+      for (const r of rec.filter((x) => x.type !== 'view')) events.push({ t: r.at - t0, type: r.type, text: r.text });
       if (st.active !== before.active) ev('focus', `${before.active} to ${st.active}`, { from: before.active, to: st.active });
       const moved = other(before.url, st.url);
       const opened = st.dialogs > before.dialogs;

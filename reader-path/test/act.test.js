@@ -119,6 +119,21 @@ test('a snackbar in a live region: live text, a pass', async () => {
   assert.ok(m.checks['4.1.3'].pass.includes('walk-live-missing'));
 });
 
+// A view switch: the cards are taken out and a table put in their place.
+const VIEWS = `<button id=o>Switch to table view</button><div id=v><ul><li>nodejs-sample, running, 1 of 1 instances, 28 MB of 1 GB</li></ul></div>
+  <script>o.onclick = () => { v.innerHTML = '<table><tr><th>Name</th><th>State</th></tr><tr><td>nodejs-sample</td><td>Running now</td></tr></table>'; };</script>`;
+
+test('4.1.3: content asked for that replaces the view: no proposal, a note on the action', async () => {
+  const { m } = await run({ body: VIEWS });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.3')), [], text(action(m, 'Switch to table view')));
+  assert.ok(action(m, 'Switch to table view').events.some((e) => e.type === 'note' && /view replaced/.test(e.text)), text(action(m, 'Switch to table view')));
+});
+
+test('4.1.3: a short message that replaces another is still a status message', async () => {
+  const { m } = await run({ body: `<button id=o>Save</button><p id=s>Not saved yet</p><script>o.onclick = () => { s.innerHTML = '<span>Saved the thing</span>'; };</script>` });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.3')), ['4.1.3 walk-live-missing']);
+});
+
 // Text that is not a status message: no 4.1.3 proposal (seen on the lab).
 const noLive = async (body) => {
   const { m } = await run({ body });
