@@ -141,11 +141,30 @@ const MEASURE = `((mark, base, scroll, clear) => {
   const EXEMPT = 'table, [role=table], [role=grid], [role=treegrid], pre, img, canvas, svg, video';
   const shown = (e, cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && e.getClientRects().length;
   const cut = (v) => v === 'hidden' || v === 'clip';
+  // A container (no text of its own) loses text only when some text inside
+  // it lies outside what it shows: one that cuts off empty space loses
+  // nothing. A box with text of its own is measured by its overflow alone.
+  const hidesText = (e) => {
+    const r = e.getBoundingClientRect();
+    const left = r.left + e.clientLeft, top = r.top + e.clientTop;
+    const right = left + e.clientWidth, bottom = top + e.clientHeight;
+    const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let t; (t = w.nextNode());) {
+      if (!t.data.trim()) continue;
+      range.selectNodeContents(t);
+      for (const q of range.getClientRects()) {
+        if (q.width && q.height && (q.right > right + 1 || q.bottom > bottom + 1 || q.left < left - 1 || q.top < top - 1)) return true;
+      }
+    }
+    return false;
+  };
+  const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
   const clipped = [];
   for (const e of document.body.querySelectorAll('*')) {
     const cs = getComputedStyle(e);
     if (!shown(e, cs) || !e.textContent.trim()) continue;
-    if ((cut(cs.overflowX) && e.scrollWidth > e.clientWidth + 1) || (cut(cs.overflowY) && e.scrollHeight > e.clientHeight + 1)) clipped.push(e);
+    if (((cut(cs.overflowX) && e.scrollWidth > e.clientWidth + 1) || (cut(cs.overflowY) && e.scrollHeight > e.clientHeight + 1)) && (own(e) || hidesText(e))) clipped.push(e);
   }
   if (base) {
     window[KEY] = new WeakSet(clipped);
@@ -156,7 +175,6 @@ const MEASURE = `((mark, base, scroll, clear) => {
   }
   const before = window[KEY] || new WeakSet();
   const seen = window[KEY2] || new WeakMap();
-  const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
   const found = clipped.filter((e) => !before.has(e)).map((e) => [e, own(e) ? 'clipped' : 'cut']);
   const small = [];
   const pinned = [];
