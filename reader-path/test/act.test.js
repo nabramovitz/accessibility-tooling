@@ -104,6 +104,12 @@ test('a delete with no confirm step: blocked, recorded, proposed for 3.3.4 and 3
   assert.ok(m.checks['3.3.4'].review.includes('walk-write-no-confirm'));
 });
 
+test('3.3.4: the proposal names the three cases it covers, for a person to rule', async () => {
+  const { m } = await run({ body: DELETE_NONE });
+  const p = m.proposals.find((x) => x.rule === 'walk-write-no-confirm');
+  assert.match(p.say, /legal commitment.*financial transaction.*stored data/, p.say);
+});
+
 test('3.3.6: a favorite toggle that the same control undoes is reversible: no 3.3.4 or 3.3.6 proposal, a note', async () => {
   const { m } = await run({ body: `<div role=button tabindex=0 id=f aria-label="Add to favorites">*</div>
     <button id=p aria-pressed=false>Pin</button>
