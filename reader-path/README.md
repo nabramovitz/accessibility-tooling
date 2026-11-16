@@ -529,7 +529,10 @@ or a `.xterm` element) is not acted on: a run note says so.
 idle again (`AFTER_IDLE` in `src/act.js`), the events are:
 
 - `focus`: the active element before and after; where focus lands after
-  a dialog opens, and after it closes (back on the control, or not).
+  a dialog opens, and after it closes (back on the control, or not). A
+  control in an open popup (a menu item: `aria-haspopup` and
+  `aria-expanded=true` on the button that holds or controls it) may be
+  gone when the dialog closes; focus back on that button is a return too.
 - `live`: new text inside a live region (`aria-live`, `status`,
   `alert`, `log`); `text`: new text outside any live region. Not
   counted: text in a dialog or in a node that holds one (an overlay),

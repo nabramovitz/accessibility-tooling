@@ -134,6 +134,21 @@ test('4.1.3: a short message that replaces another is still a status message', a
   assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.3')), ['4.1.3 walk-live-missing']);
 });
 
+// A menu button whose item opens a dialog: the menu closes, and when the
+// dialog closes focus goes back to the menu button (the item is gone).
+const MENU_DIALOG = `<div><button id=mb aria-haspopup=menu aria-expanded=false>Row actions</button><div id=mu hidden><button id=del>Delete</button></div></div>
+  <dialog id=d><p>Delete it?</p><button id=c>Cancel</button></dialog>
+  <script>mb.onclick = () => { mu.hidden = !mu.hidden; mb.setAttribute('aria-expanded', String(!mu.hidden)); };
+  del.onclick = () => { mu.hidden = true; mb.setAttribute('aria-expanded', 'false'); d.showModal(); };
+  d.onclose = () => mb.focus(); c.onclick = () => d.close();</script>`;
+
+test('2.4.3: focus back on the menu button after a dialog opened from its menu: a pass', async () => {
+  const { m } = await run({ body: MENU_DIALOG });
+  const a = action(m, 'Delete');
+  assert.ok(a && a.events.some((e) => e.type === 'focus' && /returned/.test(e.text)), JSON.stringify(m.actions.map((x) => `${x.name}: ${text(x)}`)));
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.4.3')), []);
+});
+
 // Text that is not a status message: no 4.1.3 proposal (seen on the lab).
 const noLive = async (body) => {
   const { m } = await run({ body });
