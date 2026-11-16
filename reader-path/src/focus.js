@@ -102,6 +102,17 @@ const meet = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y +
 
 // focus.after(): call after each Tab press. focus.at(node): call when the
 // walk has a new stop, with its kept node. focus.finish(): the checks.
+// A Tab stop's name in the notes: its own, else its role and the first
+// name inside it (a row: 'row "nodejs-sample"').
+export function stopName(node) {
+  if (node.name || node.t) return node.name || node.t;
+  const role = node.role || node.r || 'a control';
+  let inner = '';
+  const find = (n) => { for (const x of n.c || []) { if (inner) return; if (x.name) inner = x.name; else find(x); } };
+  find(node);
+  return inner ? `${role} "${inner.slice(0, 40)}"` : role;
+}
+
 export function focusWatch(page, cdp, model, root, notes) {
   let state = null; // the page state after the last Tab press
   let pending = []; // stops with no second shot yet: { id, node, box, clip, shot, age }
@@ -119,7 +130,7 @@ export function focusWatch(page, cdp, model, root, notes) {
     (model.levels ||= {})[sc] = level;
     fails[sc]++;
   };
-  const nameOf = (node) => node.name || node.t || node.role || node.r || 'a control';
+  const nameOf = stopName;
   // 2.4.13 from both shots, and 1.4.11 from the shot without focus.
   const pixels = async (last, focused, unfocused) => {
     const name = nameOf(last.node);
