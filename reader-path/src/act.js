@@ -181,7 +181,7 @@ function found() {
   const DIALOG = 'dialog,[role=dialog],[role=alertdialog],[aria-modal=true]';
   for (const e of document.body.querySelectorAll('*')) {
     if (rp.before.has(e) || !rp.drawn(e) || (e.parentElement && !rp.before.has(e.parentElement) && e.parentElement !== document.body && rp.drawn(e.parentElement))) continue;
-    const t = (e.innerText || '').replace(/\s+/g, ' ').trim();
+    const t = rp.read(e).replace(/\s+/g, ' ').trim();
     if (!t || e.closest(DIALOG) || e.querySelector(DIALOG)) continue;
     rp.hc = e;
     return t.slice(0, 120);
