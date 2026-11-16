@@ -17,6 +17,11 @@ test('a focus that does not move is a gap', async () => {
   assert.ok(m.notes.includes('Tab walk stopped: focus did not move'));
 });
 
+test('a focus that does not move: a note names the control and its description (the way out it may give)', async () => {
+  const m = await generate(fixture('trap-hint.html'));
+  assert.ok(m.notes.includes('Focus stuck on button "Terminal"; its description: "Press Ctrl+Shift+M, then Tab, to move focus out"'), m.notes.join('\n'));
+});
+
 test('a focus loop that skips the start is a gap', async () => {
   const m = await generate(fixture('trap-loop.html'));
   assert.ok(m.root.gaps.some((g) => g[1] === '2.1.2'));

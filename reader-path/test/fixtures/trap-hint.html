@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Trap with a hint</title></head>
+<body>
+<button id="t" aria-describedby="h">Terminal</button>
+<p id="h">Press Ctrl+Shift+M, then Tab, to move focus out</p>
+<script>
+  document.getElementById('t').addEventListener('keydown', (e) => { if (e.key === 'Tab') e.preventDefault(); });
+</script>
+</body></html>

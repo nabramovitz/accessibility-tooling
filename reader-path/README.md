@@ -925,7 +925,9 @@ runs the files one after another and stops a test after 5 seconds;
 - No frames: the content of an iframe is not read. A run note says so.
 - The Tab walk stops at 500 Tab stops; a run note says so. Focus that
   does not move, or that goes round a loop without coming back to the
-  start, is a 2.1.2 gap. A walk that stops at 500, or that passes an
+  start, is a 2.1.2 gap. For focus that does not move, a note names the
+  control and its description, which may tell the way out (2.1.2 allows
+  a way out that the person is told). A walk that stops at 500, or that passes an
   iframe whose Tab stops it does not read, puts 2.1.2 in review.
 - Gaps come from the axe-core rules, the views and the focus measures.
   A rule cannot judge whether a name or a text is a good one.
