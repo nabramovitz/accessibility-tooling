@@ -541,6 +541,10 @@ idle again (`AFTER_IDLE` in `src/act.js`), the events are:
   its own change (`aria-expanded`, `aria-pressed`, a tab, a checkbox), and text in the pressed
   control or in the control that has focus after the press (its own new
   name: "Show secrets" to "Hide secrets").
+  Text in nodes put into a parent that lost a block of 40 or more
+  characters in the same press (cards swapped for a table) is content
+  the person asked for, not a status message: a `note` `view replaced:
+  ...`, and no `text` event.
 - `context`: the address changed, a dialog opened, a new window. On
   focus alone (the control is focused before it is pressed; the change
   makes an action of kind `focus`) or on input alone (a select, checkbox,
