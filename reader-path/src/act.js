@@ -148,6 +148,8 @@ function candidates(hover) {
       quiet: e.hasAttribute('aria-expanded') || e.hasAttribute('aria-pressed') || e.hasAttribute('aria-checked')
         || e.hasAttribute('aria-selected') || /^(tab|summary|switch|checkbox|radio)$/.test(role),
       signout: /\b(sign|log)[ -]?out\b/i.test(name),
+      // The role of the popup it says it opens (aria-haspopup; true is a menu).
+      popup: { true: 'menu', menu: 'menu', listbox: 'listbox', tree: 'tree', grid: 'grid', dialog: 'dialog' }[(e.getAttribute('aria-haspopup') || '').toLowerCase()] || '',
       // A toggle: pressing it again undoes its change (3.3.4, 3.3.6 reversible).
       // simplification: a fixed list of toggle names; a toggle named otherwise needs aria-pressed or a toggle role.
       toggle: e.hasAttribute('aria-pressed') || /^(switch|checkbox|menuitemcheckbox)$/.test(role)
@@ -620,6 +622,20 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       const text = !moved && !live && events.find((e) => e.type === 'text');
       if (text) propose('walk-live-missing', '4.1.3', node, text.text, `New text appears after "${c.name}" with no live region: "${text.text}"`, 'Put the message in a live region (role="status" or role="alert")');
       else if (live) ok['walk-live-missing'] = 1;
+      // A popup button, now expanded: the popup it controls, or one drawn on
+      // the page, has the role that aria-haspopup names (4.1.2).
+      if (c.popup) {
+        const got = await page.evaluate(({ i, want }) => {
+          const el = window.__rp?.els[i];
+          if (!el?.isConnected || el.getAttribute('aria-expanded') !== 'true') return '';
+          const roles = want === 'dialog' ? 'dialog,[role=dialog],[role=alertdialog]' : `[role=${want}]`;
+          const ctrl = document.getElementById(el.getAttribute('aria-controls') || '');
+          const has = ctrl ? ctrl.matches(roles) || !!ctrl.querySelector(roles) : [...document.querySelectorAll(roles)].some((x) => x.getClientRects().length > 0);
+          return has ? 'ok' : 'missing';
+        }, { i: c.i, want: c.popup }).catch(() => '');
+        if (got === 'ok') ok['walk-popup-role'] = 1;
+        else if (got === 'missing') propose('walk-popup-role', '4.1.2', node, '', `"${c.name}" says it opens a ${c.popup} (aria-haspopup), but what opened has no ${c.popup} role`, `Give the popup role="${c.popup}" and its items their roles, or change aria-haspopup to what opens`);
+      }
       // Signing out changes no data of the person's.
       if (!c.signout && c.toggle && events.some((e) => e.type === 'write')) ev('note', 'a toggle: pressing it again undoes the change');
       else if (!c.signout && events.some((e) => e.type === 'write')) {
@@ -848,7 +864,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
     else if (ok[rule]) addCheck(model.checks, sc, 'pass', rule);
   };
   for (const [sc, rule] of [['2.4.3', 'walk-focus-return'], ['2.4.3', 'walk-dialog-focus'], ['2.4.3', 'walk-focus-lost'], ['3.2.1', 'walk-context-focus'],
-    ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
+    ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['4.1.2', 'walk-popup-role'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
     ['3.3.1', 'walk-error-no-text'], ['3.3.1', 'walk-error-unnamed'], ['3.3.3', 'walk-error-no-suggestion'], ['3.3.7', 'walk-redundant-entry'],
     ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
     ['2.5.1', 'walk-gesture'], ['2.5.2', 'walk-down-event'], ['2.5.4', 'walk-motion'], ['2.5.6', 'walk-input-limited'], ['2.5.7', 'walk-drag'],

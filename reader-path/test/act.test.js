@@ -174,6 +174,23 @@ test('2.4.3: focus back on the menu button after a dialog opened from its menu: 
   assert.deepEqual(rules(m).filter((r) => r.startsWith('2.4.3')), []);
 });
 
+// A button that says it opens a menu; `role`: the popup's role, '' for none.
+const POPUP = (role) => `<div><button id=mb aria-haspopup=menu aria-expanded=false>Row actions</button>
+  <div id=mu ${role ? `role=${role}` : ''} hidden><button ${role ? 'role=menuitem' : ''}>Edit</button></div></div>
+  <script>mb.onclick = () => { mu.hidden = !mu.hidden; mb.setAttribute('aria-expanded', String(!mu.hidden)); };</script>`;
+
+test('4.1.2: a button with aria-haspopup=menu whose popup has no menu role: a proposal', async () => {
+  const { m } = await run({ body: POPUP('') });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.2')), ['4.1.2 walk-popup-role'], JSON.stringify(m.actions.map((x) => `${x.name}: ${text(x)}`)));
+  assert.match(m.proposals.find((x) => x.rule === 'walk-popup-role').say, /"Row actions".*menu/);
+});
+
+test('4.1.2: the popup has the role the button names: no proposal, a pass', async () => {
+  const { m } = await run({ body: POPUP('menu') });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('4.1.2')), []);
+  assert.ok(m.checks['4.1.2'].pass.includes('walk-popup-role'));
+});
+
 // Text that is not a status message: no 4.1.3 proposal (seen on the lab).
 const noLive = async (body) => {
   const { m } = await run({ body });
