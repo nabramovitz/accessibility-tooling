@@ -10,8 +10,6 @@ import { measurePixels, judgeAppearance, judgeBoundary, NEED } from './pixel.js'
 
 const MAX_STOPS = 150;
 const PAD = 8;
-// Tab presses to wait for focus to leave the surroundings of a stop.
-const MAX_WAIT = 3;
 const TARGET = 44;
 
 // The person's lines for the report.
@@ -142,7 +140,7 @@ export function stopName(node) {
 
 export function focusWatch(page, cdp, model, root, notes) {
   let state = null; // the page state after the last Tab press
-  let pending = []; // stops with no second shot yet: { id, node, box, clip, shot, age }
+  let pending = []; // stops with no second shot yet: { id, node, box, clip, shot }
   let stops = 0;
   let capped = false;
   const uncompared = [];
@@ -190,7 +188,7 @@ export function focusWatch(page, cdp, model, root, notes) {
 
   return {
     // The second shot of a stop is taken once focus is off its
-    // surroundings (the next stops can be right beside it).
+    // surroundings (the next stops can be right beside it, or inside it).
     // If a scroll moved the stop, the clip moves with it, when it is still
     // in view and nothing is on top of the stop. A box that changes with
     // focus (a skip link) is compared as it is.
@@ -205,10 +203,8 @@ export function focusWatch(page, cdp, model, root, notes) {
         const was = state.was[i];
         const clip = was?.same ? last.clip : was?.clip;
         if (!last.shot || !clip) { uncompared.push(nameOf(last.node)); continue; }
-        if (now && meet(now, clip)) {
-          if (++last.age > MAX_WAIT) uncompared.push(nameOf(last.node)); else wait.push(last);
-          continue;
-        }
+        // Focus still near the stop (a row with its own controls): wait for it to leave.
+        if (now && meet(now, clip)) { wait.push(last); continue; }
         const shot = await shoot(clip);
         if (!shot) { uncompared.push(nameOf(last.node)); continue; }
         // Equal shots of a text field: its caret is hidden, so a person looks.
@@ -245,7 +241,7 @@ export function focusWatch(page, cdp, model, root, notes) {
       const y = Math.max(0, now.y - PAD);
       const clip = { x, y, width: Math.min(state.vw, now.x + now.w + PAD) - x, height: Math.min(state.vh, now.y + now.h + PAD) - y };
       const seen = now.w > 0 && now.h > 0 && clip.width > 0 && clip.height > 0;
-      pending.push({ id: state.id, node, box: now, clip, shot: seen ? await shoot(clip) : null, age: 0 });
+      pending.push({ id: state.id, node, box: now, clip, shot: seen ? await shoot(clip) : null });
     },
 
     async finish(walk) {
