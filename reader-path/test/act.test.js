@@ -80,6 +80,12 @@ test('a control\'s name leaves out an icon word hidden from readers', async () =
   assert.ok(action(m, 'Cancel'), m.actions.map((a) => a.name).join(', '));
 });
 
+test('a control named by aria-labelledby or a label leaves out the hidden icon word', async () => {
+  const { m } = await run({ body: `<span id=l><i aria-hidden="true">delete</i>Delete</span><button id=o aria-labelledby=l>x</button>
+    <label for=c><i aria-hidden="true">check</i>Agree</label><input type=checkbox id=c>` });
+  assert.ok(action(m, 'Delete') && action(m, 'Agree'), JSON.stringify(m.actions.map((x) => x.name)));
+});
+
 test('the control that gets focus is named without its hidden icon word', async () => {
   const { m } = await run({ body: ICONS });
   const a = m.actions.find((x) => /Edit$/.test(x.name));
