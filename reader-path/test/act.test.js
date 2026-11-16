@@ -457,6 +457,11 @@ test('3.3.1: a form whose errors are text linked to the field and name it: one s
   assert.deepEqual(s.writes, [], 'no write left the browser');
 });
 
+test('a form is named by its submit button without the button\'s hidden icon word', async () => {
+  const { m } = await run({ body: FORM('linked').replace('<button>Save</button>', '<button><i aria-hidden="true">save</i>Save</button>') });
+  assert.deepEqual(submits(m).map((a) => a.name), ['Save']);
+});
+
 test('3.3.1: a field marked in error by a red border only: a no-text proposal', async () => {
   const { m } = await run({ body: FORM('border') });
   assert.ok(sc(m, /^3\.3\.1 /).includes('3.3.1 walk-error-no-text'), JSON.stringify(rules(m)));
