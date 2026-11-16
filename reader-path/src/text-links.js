@@ -2,7 +2,8 @@
 // fail. Reads the tree already built; a link node carries its target
 // in `href`. Each finding is proposed for both rows: 2.4.4 (the name
 // with its context) and 2.4.9 (the name alone, under the rule id plus
-// "-alone").
+// "-alone"). A same-name finding the column headers settle is for
+// 2.4.9 only.
 import { walk } from './generate.js';
 import { addProposal } from './proposals.js';
 
@@ -31,9 +32,29 @@ export function proposeLink(model, node, rule, say, propose) {
   addProposal(model, node, { sc: '2.4.9', rule: `${rule}-alone`, text: '', say: `${say} (read on its own, without its context)`, propose });
 }
 
+const CELL = /^(cell|gridcell|columnheader|rowheader)$/;
+
+// The column header of the table cell a link is in ('' outside a table):
+// the context 2.4.4 counts for a link in a cell.
+function columnOf(n, up) {
+  let cell = n;
+  while (cell && !/^(cell|gridcell)$/.test(cell.role)) cell = up.get(cell);
+  const row = cell && up.get(cell);
+  if (!row) return '';
+  let table = up.get(row);
+  while (table && !/^(table|grid|treegrid)$/.test(table.role)) table = up.get(table);
+  if (!table) return '';
+  const rows = [];
+  walk(table, (x) => { if (x.role === 'row') rows.push(x); });
+  const head = rows.find((r) => (r.c || []).some((x) => x.role === 'columnheader'));
+  const at = (row.c || []).filter((x) => CELL.test(x.role)).indexOf(cell);
+  return head ? (head.c || []).filter((x) => CELL.test(x.role))[at]?.name || '' : '';
+}
+
 export function textLinks(model, root) {
   const links = [];
-  walk(root, (n) => { if (n.role === 'link' && n.name) links.push(n); });
+  const up = new Map();
+  walk(root, (n, p) => { up.set(n, p); if (n.role === 'link' && n.name) links.push(n); });
 
   const groups = new Map();
   for (const n of links) {
@@ -42,9 +63,13 @@ export function textLinks(model, root) {
   }
   for (const [, list] of groups) {
     const targets = [...new Set(list.map((n) => target(n.href)))];
-    if (targets.length > 1) {
-      proposeLink(model, list[0], 'text-link-same-name', `${list.length} links named "${list[0].name}" go to ${targets.length} different pages: ${some(targets)}`, 'Name each link for where it goes');
-    }
+    if (targets.length < 2) continue;
+    const say = `${list.length} links named "${list[0].name}" go to ${targets.length} different pages: ${some(targets)}`;
+    // With context (2.4.4): links whose column headers differ are told apart.
+    const byColumn = new Map();
+    for (const n of list) { const k = columnOf(n, up); (byColumn.get(k) || byColumn.set(k, new Set()).get(k)).add(target(n.href)); }
+    if ([...byColumn.values()].some((t) => t.size > 1)) proposeLink(model, list[0], 'text-link-same-name', say, 'Name each link for where it goes');
+    else addProposal(model, list[0], { sc: '2.4.9', rule: 'text-link-same-name-alone', text: '', say: `${say} (read on its own, without its context)`, propose: 'Name each link for where it goes' });
   }
 
   for (const n of links) {
