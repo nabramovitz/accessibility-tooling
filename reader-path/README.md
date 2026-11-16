@@ -721,7 +721,7 @@ no proposal, the check is a pass for that page.
 | `walk-context-focus` | 3.2.1 | focus alone opens a dialog or window or changes the address |
 | `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
 | `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out, and not for a toggle that undoes itself: `aria-pressed`, a switch or checkbox role, or a name such as "Add to favorites", "Pin", "Follow"; a note instead) ; the finding names the three cases 3.3.4 covers, so a person rules) |
-| `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA |
+| `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA; both say the write was blocked, so an undo shown after a success was not seen |
 | `walk-hover-persist` | 1.4.13 | content that appeared on hover or focus is gone within 1 s with no move |
 | `walk-hover-dismiss` | 1.4.13 | the content stays after Escape |
 | `walk-hover-hoverable` | 1.4.13 | hover content is gone when the pointer moves onto it |
