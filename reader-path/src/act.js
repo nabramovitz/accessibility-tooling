@@ -99,7 +99,8 @@ function candidates(hover) {
     if (!n && ids) n = ids.split(/\s+/).map((i) => document.getElementById(i)?.textContent || '').join(' ');
     if (!n && e.labels && e.labels.length) n = [...e.labels].map((l) => l.textContent).join(' ');
     if (!n && e.tagName === 'INPUT' && /button|submit|reset/.test(e.type)) n = e.value;
-    if (!n && e.tagName !== 'SELECT') n = e.textContent;
+    // As read: an icon word in an aria-hidden child is not in the name.
+    if (!n && e.tagName !== 'SELECT') n = window.__rp.read(e, true);
     return norm(n || e.getAttribute('title') || e.querySelector('img[alt]')?.alt).slice(0, 80);
   };
   const sig = (e) => { const p = []; for (let x = e; x && x !== document.body; x = x.parentElement) p.push(`${x.tagName}.${[...x.classList].filter((c) => !/\d/.test(c)).sort().join('.')}`); return p.join('<'); };
@@ -151,7 +152,15 @@ function state() {
   while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
   const body = !a || a === document.body || a === document.documentElement;
   const open = [...document.querySelectorAll(DIALOG)].filter((d) => d.getClientRects().length);
-  const name = body ? '' : (a.getAttribute('aria-label') || a.textContent || a.value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  // Text as read (no aria-hidden part, such as an icon word). Its own
+  // walker: this also runs on a new page, before install().
+  const read = (e) => {
+    const out = [];
+    const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    for (let t; (t = w.nextNode());) if (!t.parentElement.closest('[aria-hidden=true]')) out.push(t.data);
+    return out.join(' ');
+  };
+  const name = body ? '' : (a.getAttribute('aria-label') || read(a) || a.value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
   return {
     url: location.href, dialogs: open.length, body, inDialog: !body && open.some((d) => d.contains(a)),
     active: body ? 'the page body' : `${a.getAttribute('role') || a.tagName.toLowerCase()}${name ? ` "${name}"` : ''}`,
