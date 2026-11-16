@@ -115,3 +115,9 @@ test('links with one name under one column header that go to different pages: st
   textLinks(m, m.root);
   assert.deepEqual(rules(m), ['text-link-same-name']);
 });
+
+test('targets on the page\'s own site are shown by path, others in full', () => {
+  const m = { url: 'https://x.test/home', root: tree(link('More', 'https://x.test/apps', 'a'), link('More', 'https://y.test/orgs', 'b')) };
+  textLinks(m, m.root);
+  assert.match(m.proposals.find((x) => x.rule === 'text-link-same-name').say, /pages: \/apps, https:\/\/y\.test\/orgs$/);
+});
