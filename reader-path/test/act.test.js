@@ -110,6 +110,11 @@ test('3.3.4: the proposal names the three cases it covers, for a person to rule'
   assert.match(p.say, /legal commitment.*financial transaction.*stored data/, p.say);
 });
 
+test('3.3.4, 3.3.6: the proposals say the write was blocked, so an undo shown after it was not seen', async () => {
+  const { m } = await run({ body: DELETE_NONE });
+  for (const r of ['walk-write-no-confirm', 'walk-write-no-confirm-reversal']) assert.match(m.proposals.find((x) => x.rule === r).say, /blocked.*undo shown after/, r);
+});
+
 test('3.3.6: a favorite toggle that the same control undoes is reversible: no 3.3.4 or 3.3.6 proposal, a note', async () => {
   const { m } = await run({ body: `<div role=button tabindex=0 id=f aria-label="Add to favorites">*</div>
     <button id=p aria-pressed=false>Pin</button>

@@ -624,8 +624,9 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       else if (!c.signout && events.some((e) => e.type === 'write')) {
         const confirm = opened || events.some((e) => /^(text|live)$/.test(e.type) && CONFIRM.test(e.text));
         if (!confirm) {
-          propose('walk-write-no-confirm', '3.3.4', node, '', `"${c.name}" sends a change (${events.find((e) => e.type === 'write').text.replace('write blocked: ', '')}) with no step to confirm or undo it. 3.3.4 covers it only if it makes a legal commitment, a financial transaction, or changes or deletes the person's stored data`, 'If it is one of these: ask for a confirmation, or let the person undo it');
-          propose('walk-write-no-confirm-reversal', '3.3.6', node, '', `"${c.name}" sends a change with no step to confirm or undo it (AAA)`, 'Ask for a confirmation, or let the person undo it');
+          const blocked = 'The write was blocked, so an undo shown after a success was not seen.';
+          propose('walk-write-no-confirm', '3.3.4', node, '', `"${c.name}" sends a change (${events.find((e) => e.type === 'write').text.replace('write blocked: ', '')}) with no step to confirm or undo it. ${blocked} 3.3.4 covers it only if it makes a legal commitment, a financial transaction, or changes or deletes the person's stored data`, 'If it is one of these: ask for a confirmation, or let the person undo it');
+          propose('walk-write-no-confirm-reversal', '3.3.6', node, '', `"${c.name}" sends a change with no step to confirm or undo it (AAA). ${blocked}`, 'Ask for a confirmation, or let the person undo it');
         }
       }
 
