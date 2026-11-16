@@ -720,7 +720,7 @@ no proposal, the check is a pass for that page.
 | `walk-live-missing` | 4.1.3 | new text with no live region, on the same page and with no live text in the same action (a pass when live text came) |
 | `walk-context-focus` | 3.2.1 | focus alone opens a dialog or window or changes the address |
 | `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
-| `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out, and not for a toggle that undoes itself: `aria-pressed`, a switch or checkbox role, or a name such as "Add to favorites", "Pin", "Follow"; a note instead) |
+| `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out, and not for a toggle that undoes itself: `aria-pressed`, a switch or checkbox role, or a name such as "Add to favorites", "Pin", "Follow"; a note instead) ; the finding names the three cases 3.3.4 covers, so a person rules) |
 | `walk-write-no-confirm-reversal` | 3.3.6 | the same finding, for AAA |
 | `walk-hover-persist` | 1.4.13 | content that appeared on hover or focus is gone within 1 s with no move |
 | `walk-hover-dismiss` | 1.4.13 | the content stays after Escape |
