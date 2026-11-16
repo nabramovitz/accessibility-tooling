@@ -29,9 +29,12 @@ export const FOCUS_LINES = {
 // a small box is for a person (WCAG exceptions to 2.5.5 the tool cannot
 // decide: a link in a line of text, the browser's own control, a label
 // that is a part of the target), and `scroll`: the scroll positions of
-// the window and of every ancestor. `was`: the scroll positions, now, of
-// the earlier stops in `ids` (the numbers this gave them).
-const STATE = `((ids) => {
+// the window and of every ancestor. `was`: for each earlier stop in
+// `items` ({ id: the number this gave it, scroll, x, y, clip }), null when
+// it is gone, { same: true } when nothing scrolled, { clip } when a scroll
+// moved it and the clip, moved with it, is in view with nothing on top of
+// the stop, else {}.
+const STATE = `((items) => {
   const KEY = '__readerPathFocus';
   const box = (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
   const scroll = (e) => { const s = [scrollX, scrollY];
@@ -39,7 +42,34 @@ const STATE = `((ids) => {
     return s.join(','); };
   const out = { vw: innerWidth, vh: innerHeight };
   const els = (window[KEY] ||= []);
-  out.was = ids.map((i) => (els[i] && els[i].isConnected ? scroll(els[i]) : null));
+  const hit = (x, y) => { let h = document.elementFromPoint(x, y);
+    while (h && h.shadowRoot && h.shadowRoot.elementFromPoint(x, y) && h.shadowRoot.elementFromPoint(x, y) !== h) h = h.shadowRoot.elementFromPoint(x, y);
+    return h; };
+  const moved = (e, it) => {
+    const b = box(e);
+    const c = { x: it.clip.x + b.x - it.x, y: it.clip.y + b.y - it.y, width: it.clip.width, height: it.clip.height };
+    // In view: inside the window and inside every ancestor that clips.
+    let room = { l: 0, t: 0, r: innerWidth, b: innerHeight };
+    for (let p = e.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+      const ps = getComputedStyle(p);
+      if (ps.overflowX === 'visible' && ps.overflowY === 'visible') continue;
+      const r = p.getBoundingClientRect(); const l = r.left + p.clientLeft; const t = r.top + p.clientTop;
+      room = { l: Math.max(room.l, l), t: Math.max(room.t, t), r: Math.min(room.r, l + p.clientWidth), b: Math.min(room.b, t + p.clientHeight) };
+    }
+    if (c.x < room.l - 0.5 || c.y < room.t - 0.5 || c.x + c.width > room.r + 0.5 || c.y + c.height > room.b + 0.5) return {};
+    // Nothing on top: the centre and corners of the stop's part in the clip hit the stop.
+    const l = Math.max(b.x, c.x) + 1; const t = Math.max(b.y, c.y) + 1;
+    const r = Math.min(b.x + b.w, c.x + c.width) - 1; const btm = Math.min(b.y + b.h, c.y + c.height) - 1;
+    if (r <= l || btm <= t) return {};
+    for (const [x, y] of [[(l + r) / 2, (t + btm) / 2], [l, t], [r, t], [l, btm], [r, btm]]) {
+      const h = hit(x, y);
+      if (!h || (h !== e && !e.contains(h))) return {};
+    }
+    return { clip: c };
+  };
+  out.was = items.map((it) => { const e = els[it.id];
+    if (!e || !e.isConnected) return null;
+    return scroll(e) === it.scroll ? { same: true } : moved(e, it); });
   let e = document.activeElement;
   while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
   if (!e || e === document.body || e.tagName === 'IFRAME') return out;
@@ -50,9 +80,6 @@ const STATE = `((ids) => {
   const stays = (h) => { for (let p = h; p && p !== document.documentElement; p = p.parentElement || (p.getRootNode().host ?? null)) {
     if (p === e || p.contains(e)) return null;
     if (/^(fixed|sticky)$/.test(getComputedStyle(p).position)) return p; } return null; };
-  const hit = (x, y) => { let h = document.elementFromPoint(x, y);
-    while (h && h.shadowRoot && h.shadowRoot.elementFromPoint(x, y) && h.shadowRoot.elementFromPoint(x, y) !== h) h = h.shadowRoot.elementFromPoint(x, y);
-    return h; };
   let points = 0; let covered = 0; let by = '';
   for (const [x, y] of [[b.x + b.w / 2, b.y + b.h / 2], [b.x + 1, b.y + 1], [b.x + b.w - 1, b.y + 1], [b.x + 1, b.y + b.h - 1], [b.x + b.w - 1, b.y + b.h - 1]]) {
     if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
@@ -163,23 +190,26 @@ export function focusWatch(page, cdp, model, root, notes) {
 
   return {
     // The second shot of a stop is taken once focus is off its
-    // surroundings (the next stops can be right beside it) and only if
-    // nothing scrolled: then the clip is the same area of the screen. A
-    // box that changes with focus (a skip link) is compared as it is.
+    // surroundings (the next stops can be right beside it).
+    // If a scroll moved the stop, the clip moves with it, when it is still
+    // in view and nothing is on top of the stop. A box that changes with
+    // focus (a skip link) is compared as it is.
     async after() {
       if (capped && !pending.length) { state = null; return; }
-      const { result } = await cdp.send('Runtime.evaluate', { expression: `${STATE}(${JSON.stringify(pending.map((p) => p.id))})`, returnByValue: true });
+      const items = pending.map((p) => ({ id: p.id, scroll: p.box.scroll, x: p.box.x, y: p.box.y, clip: p.clip }));
+      const { result } = await cdp.send('Runtime.evaluate', { expression: `${STATE}(${JSON.stringify(items)})`, returnByValue: true });
       state = result.value || { was: [] };
       const now = state.now && { x: state.now.x, y: state.now.y, width: state.now.w, height: state.now.h };
       const wait = [];
       for (const [i, last] of pending.entries()) {
         const was = state.was[i];
-        if (!last.shot || was === null || was !== last.box.scroll) { uncompared.push(nameOf(last.node)); continue; }
-        if (now && meet(now, last.clip)) {
+        const clip = was?.same ? last.clip : was?.clip;
+        if (!last.shot || !clip) { uncompared.push(nameOf(last.node)); continue; }
+        if (now && meet(now, clip)) {
           if (++last.age > MAX_WAIT) uncompared.push(nameOf(last.node)); else wait.push(last);
           continue;
         }
-        const shot = await shoot(last.clip);
+        const shot = await shoot(clip);
         if (!shot) { uncompared.push(nameOf(last.node)); continue; }
         // Equal shots of a text field: its caret is hidden, so a person looks.
         const caret = shot.equals(last.shot) && last.box.text;

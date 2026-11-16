@@ -66,7 +66,7 @@ test('every Tab stop 44 px or more: 2.5.5 passes', async () => {
   assert.deepEqual(m.checks['2.5.5'].pass, ['focus-target']);
 });
 
-test('a skip link shown only with focus is compared; a stop moved by a scroll is not', async () => {
+test('a skip link shown only with focus is compared; a stop scrolled out of view is not', async () => {
   const m = await generate(fixture('focus/skip.html'));
   assert.deepEqual(gapsOf(m, '2.4.7'), []);
   const note = m.notes.find((n) => n.startsWith('Focus not compared'));
@@ -83,4 +83,12 @@ test('a Tab stop with no name of its own is named by its role and the first name
   assert.equal(stopName({ role: 'row', c: [{ role: 'cell', name: '', c: [] }, { role: 'cell', name: 'nodejs-sample', c: [] }] }), 'row "nodejs-sample"');
   assert.equal(stopName({ role: 'row', c: [] }), 'row');
   assert.equal(stopName({ role: 'button', name: 'Save', c: [] }), 'Save');
+});
+
+// The next Tab stop scrolls the window: the earlier stop moved but is
+// still in view, so it is compared where it is now.
+test('a stop moved by a scroll and still in view is compared where it is', async () => {
+  const m = await generate(fixture('focus/scroll-shift.html'));
+  assert.deepEqual(gapsOf(m, '2.4.7'), ['Plain moved']);
+  assert.ok(!m.notes.some((n) => n.startsWith('Focus not compared')), m.notes.join('\n'));
 });
