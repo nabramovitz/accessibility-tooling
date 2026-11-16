@@ -175,7 +175,9 @@ is a gap when it is not cut in the default view; text that is always
 cut (an ellipsis) is not a finding of these rows. The gap says "Text is
 clipped" when the box holds the text itself, and "This box cuts off its
 content" when the text is in its children (a container, such as a page
-area with `overflow: hidden`). In the narrow view,
+area with `overflow: hidden`). A container is a gap only when some of its
+text lies outside what it shows; one that cuts off only empty space (a
+padding, an empty block) is not. In the narrow view,
 a document that scrolls sideways is a gap on the content that is wider
 than the window, unless that content is a table, a grid, preformatted
 text, an image, a canvas, an SVG or a video (then a person looks).

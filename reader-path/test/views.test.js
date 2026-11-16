@@ -64,6 +64,11 @@ test('a box that cuts off the text of its children: the gap names the box, not t
   assert.match(found[0][1], /^This box cuts off its content in a window 320 px wide; it does not in the default view\.$/);
 });
 
+test('a box that cuts off only empty space, no text: not a gap', async () => {
+  const m = await generate(fixture('views/box-space.html'));
+  assert.deepEqual(gaps(m, '1.4.10'), []);
+});
+
 test('text that overlaps other text only when it wraps: a gap in the zoom and narrow views', async () => {
   const m = await generate(fixture('views/overlap-zoom.html'));
   for (const sc of ['1.4.4', '1.4.10', '1.4.12']) {
