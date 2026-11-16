@@ -273,6 +273,9 @@ async function tabWalk(page, cdp, nearestKept, root, notes, model, focus) {
       unread = true;
     }
     if (id === prev) {
+      // The stuck control, and its description: it may tell the way out.
+      const at = nearestKept(id);
+      if (at) notes.push(`Focus stuck on ${at.role} "${at.name}"${at.desc ? `; its description: "${at.desc}"` : ''}`);
       return stop('Tab does not move focus out of this control.', 'Tab walk stopped: focus did not move');
     }
     if (id === first) return end();
