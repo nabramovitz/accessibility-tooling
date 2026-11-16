@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generate } from '../src/generate.js';
+import { stopName } from '../src/focus.js';
 import { fixture, flat } from './helpers.js';
 
 const gapsOf = (m, sc) => flat(m).filter((n) => (n.gaps || []).some((g) => g[1] === sc)).map((n) => n.name);
@@ -76,4 +77,10 @@ test('a skip link shown only with focus is compared; a stop moved by a scroll is
 test('views: false takes no focus measure', async () => {
   const m = await generate(fixture('focus/visible.html'), { views: false });
   assert.equal(m.checks['2.4.7'], undefined);
+});
+
+test('a Tab stop with no name of its own is named by its role and the first name inside it', () => {
+  assert.equal(stopName({ role: 'row', c: [{ role: 'cell', name: '', c: [] }, { role: 'cell', name: 'nodejs-sample', c: [] }] }), 'row "nodejs-sample"');
+  assert.equal(stopName({ role: 'row', c: [] }), 'row');
+  assert.equal(stopName({ role: 'button', name: 'Save', c: [] }), 'Save');
 });
