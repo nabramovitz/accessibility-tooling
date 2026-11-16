@@ -242,17 +242,18 @@ function fieldsIn(i) {
   const scope = i < 0 ? document.body : document.querySelectorAll('form,[role=form]')[i];
   if (!scope) return null;
   const norm = (t) => (t || '').replace(/\s+/g, ' ').trim();
+  const text = (x) => (x ? window.__rp.read(x, true) : '');
   const labelOf = (e) => {
     const ids = e.getAttribute('aria-labelledby');
-    return norm(e.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((x) => document.getElementById(x)?.textContent || '').join(' '))
-      || (e.labels && [...e.labels].map((l) => l.textContent).join(' ')) || e.placeholder || e.name || e.id).slice(0, 60);
+    return norm(e.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((x) => text(document.getElementById(x))).join(' '))
+      || (e.labels && [...e.labels].map(text).join(' ')) || e.placeholder || e.name || e.id).slice(0, 60);
   };
   const els = [...scope.querySelectorAll('input,select,textarea')].filter((e) => !/^(hidden|submit|button|reset|image)$/.test(e.type)
     && !e.disabled && !e.readOnly && e.getClientRects().length && !e.closest('[inert],[aria-hidden=true]'));
   const btn = i < 0 ? null : scope.querySelector('button:not([type=button]):not([type=reset]),input[type=submit]')
     || (scope.id && document.querySelector(`button[form="${scope.id}"]`));
   window.__rp.form = { scope, els, btn };
-  const name = norm(scope.getAttribute('aria-label') || (btn && (btn.textContent || btn.value)) || 'form').slice(0, 60);
+  const name = norm(scope.getAttribute('aria-label') || (btn && (text(btn) || btn.value)) || 'form').slice(0, 60);
   return {
     name, submit: !!btn, native: i >= 0 && !scope.noValidate,
     fields: els.map((e, j) => ({
