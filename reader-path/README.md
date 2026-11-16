@@ -538,7 +538,9 @@ idle again (`AFTER_IDLE` in `src/act.js`), the events are:
   read the same way, numbers alike, and a run of numbers with time units
   is one mark, so a clock that ticks or drops a zero part ("52m", then
   "52m 1s") is not new), and text after a control that states
-  its own change (`aria-expanded`, `aria-pressed`, a tab, a checkbox).
+  its own change (`aria-expanded`, `aria-pressed`, a tab, a checkbox), and text in the pressed
+  control or in the control that has focus after the press (its own new
+  name: "Show secrets" to "Hide secrets").
 - `context`: the address changed, a dialog opened, a new window. On
   focus alone (the control is focused before it is pressed; the change
   makes an action of kind `focus`) or on input alone (a select, checkbox,

@@ -142,6 +142,14 @@ test('4.1.3: a clock that drops a zero part (52m, then 52m 1s) is not new', () =
   `<button id=o>Sort</button><p id=c>Uptime 40d 15h 52m</p>
   <script>o.onclick = () => { c.textContent = 'Uptime 40d 15h 52m 1s'; };</script>`));
 
+test('4.1.3: the pressed button changing its own text is not a status message', () => noLive(
+  `<button id=o><span>Show secrets</span></button>
+  <script>o.onclick = () => { o.innerHTML = '<span>Hide secrets</span>'; };</script>`));
+
+test('4.1.3: the pressed button drawn again with new text, focus on it, is not a status message', () => noLive(
+  `<div id=w><button id=o>Show secrets</button></div>
+  <script>w.onclick = () => { w.innerHTML = '<button id=n>Hide secrets</button>'; n.focus(); };</script>`));
+
 test('4.1.3: text drawn again is compared as read: hidden parts and icon words left out on both sides', () => noLive(
   `<button id=o>Summary</button><ul id=l><li>alpha <i aria-hidden="true">sort</i><span hidden>(1 of 2)</span></li></ul>
   <script>o.onclick = () => { l.innerHTML = l.innerHTML; };</script>`));
