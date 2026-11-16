@@ -195,7 +195,7 @@ function found() {
 function watch(ms) {
   const BLOCK = 'section,article,aside,nav,form,table,ul,ol,dl,p,[role=region],[role=log],[role=marquee],[role=timer],[role=status],[role=feed],[role=list],[role=grid]';
   const PAUSE = /\b(pause|stop|hide|resume|play)\b|auto[- ]?(refresh|update)/i;
-  const read = (e) => (e.innerText || '').replace(/\s+/g, ' ').trim();
+  const read = (e) => window.__rp.read(e).replace(/\s+/g, ' ').trim();
   const drawn = (e) => e.getClientRects().length > 0 && !e.closest('[aria-hidden=true]');
   const last = new Map([...document.querySelectorAll(BLOCK)].map((e) => [e, read(e)]));
   const count = new Map();
@@ -212,14 +212,15 @@ function watch(ms) {
   const label = (e) => {
     const r = e.closest('[aria-label],[aria-labelledby],section,article,[role=region]');
     const ids = r?.getAttribute('aria-labelledby');
-    const n = r?.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((i) => document.getElementById(i)?.textContent || '').join(' '))
-      || r?.querySelector('h1,h2,h3,h4,h5,h6')?.textContent;
+    const text = (x) => (x ? window.__rp.read(x, true) : '');
+    const n = r?.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((i) => text(document.getElementById(i))).join(' '))
+      || text(r?.querySelector('h1,h2,h3,h4,h5,h6'));
     return (n || e.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 60);
   };
   const near = (e) => {
     for (let x = e, i = 0; x && x !== document.body && i < 4; x = x.parentElement, i++) {
       for (const c of x.querySelectorAll('button,[role=button],[role=switch],input[type=checkbox],a[href]')) {
-        if (PAUSE.test(c.getAttribute('aria-label') || c.textContent || c.value || '')) return true;
+        if (PAUSE.test(c.getAttribute('aria-label') || window.__rp.read(c, true) || c.value || '')) return true;
       }
     }
     return false;

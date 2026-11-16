@@ -415,6 +415,11 @@ test('2.2.2: the same list with a Pause button beside it: no finding, a pass', a
   assert.ok(m.checks['2.2.4'].pass.includes('walk-update-no-pause-interrupt'));
 });
 
+test('2.2.2: a block named by its heading is named without the heading\'s hidden icon word', async () => {
+  const { m } = await run({ body: TICKER(false).replace('<section aria-label="Events"><h2>Events</h2>', '<section><h2><i aria-hidden="true">event</i>Events</h2>') }, { actWatch: 1200 });
+  assert.deepEqual(kinds(m, 'idle').map((a) => a.name), ['Events'], JSON.stringify(m.actions));
+});
+
 test('2.2.2: text that changes once after load is not an update: no idle action, no walk check', async () => {
   const { m } = await run({ body: `<section aria-label="News"><p id=x>Loading</p></section>
     <script>setTimeout(() => { x.textContent = 'All quiet'; }, 200);</script>` }, { actWatch: 1000 });
