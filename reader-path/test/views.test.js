@@ -61,7 +61,7 @@ test('a box that cuts off the text of its children: the gap names the box, not t
   const m = await generate(fixture('views/box.html'));
   const found = gaps(m, '1.4.10');
   assert.equal(found.length, 1);
-  assert.match(found[0][1], /^This box cuts off its content in a window 320 px wide; it does not in the default view\.$/);
+  assert.match(found[0][1], /^This box \(div\) cuts off its content in a window 320 px wide; it does not in the default view\.$/);
 });
 
 test('a box that cuts off only empty space, no text: not a gap', async () => {

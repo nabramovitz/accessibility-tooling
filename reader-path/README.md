@@ -173,9 +173,10 @@ measured in five more views, on the same load:
 In each view, text in a box that cuts it (`overflow: hidden` or `clip`)
 is a gap when it is not cut in the default view; text that is always
 cut (an ellipsis) is not a finding of these rows. The gap says "Text is
-clipped" when the box holds the text itself, and "This box cuts off its
-content" when the text is in its children (a container, such as a page
-area with `overflow: hidden`). A container is a gap only when some of its
+clipped" when the box holds the text itself, and "This box (`div.page`)
+cuts off its content" when the text is in its children (a container, such as a page
+area with `overflow: hidden`); the box is named, because the gap is on
+the nearest node of the tree, which can be the page. A container is a gap only when some of its
 text lies outside what it shows; one that cuts off only empty space (a
 padding, an empty block) is not. In the narrow view,
 a document that scrolls sideways is a gap on the content that is wider
