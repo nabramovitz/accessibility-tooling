@@ -314,6 +314,12 @@ test('1.4.13: a tooltip that Escape does not close: a dismiss proposal, on hover
   assert.ok(m.proposals.find((p) => p.rule === 'walk-hover-dismiss').say.includes('Info'));
 });
 
+test('1.4.13: the content shown on hover is read without its hidden icon word', async () => {
+  const { m } = await run({ body: TIP().replace('>Shows the info<', '><i aria-hidden="true">info</i>Shows the info<') }, OPTS);
+  const c = tipActs(m)[0].events.find((e) => e.type === 'content');
+  assert.equal(c.text, 'appears on hover: "Shows the info"');
+});
+
 test('1.4.13: a tooltip that vanishes when the pointer moves onto it: a hoverable proposal, for hover only', async () => {
   const { m } = await run({ body: TIP({ stay: false }) }, OPTS);
   assert.deepEqual(sc1413(m), ['walk-hover-hoverable']);
