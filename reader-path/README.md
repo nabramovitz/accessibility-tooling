@@ -801,6 +801,8 @@ for 2.4.9 (the name read without its context).
 - `text-link-same-name`: links with the same name go to different
   pages. Names compare in lower case without ends of punctuation; two
   spellings of one page (a fragment, a trailing slash) are one target.
+  A link in a table cell has its column header as context: when the
+  headers tell the links apart, the finding is for 2.4.9 only.
 - `text-link-vague`: the name is "click here", "here", "more", "read
   more", "learn more", "link" or "this link".
 - `text-link-url`: the name is only a URL. A URL can be the purpose, so

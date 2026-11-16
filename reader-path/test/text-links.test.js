@@ -91,3 +91,27 @@ test('a link target is saved without its query or fragment (a query can hold a t
   assert.match(status.href, /status\.html$/);
   assert.equal(JSON.stringify(m).includes('secret'), false);
 });
+
+// A table: one header row, then rows of cells.
+const table = (head, ...rows) => ({ role: 'table', c: [
+  { role: 'row', c: head.map((name) => ({ role: 'columnheader', name, c: [] })) },
+  ...rows.map((cells) => ({ role: 'row', c: cells.map((c) => ({ role: 'cell', name: '', c })) })),
+] });
+
+test('a link in a table cell takes its column header as context: 2.4.9 only, when the header tells the links apart', () => {
+  const m = { root: { role: 'RootWebArea', c: [
+    { role: 'navigation', c: [link('Cloud Foundry', 'https://x/cloud-foundry', 'n1')] },
+    table(['Name', 'Endpoint'], [[link('app', 'https://x/app', 'n2')], [link('Cloud Foundry', 'https://x/endpoint/1', 'n3')]]),
+  ] } };
+  textLinks(m, m.root);
+  assert.deepEqual(rules(m), []);
+  assert.deepEqual(rules(m, '2.4.9'), ['text-link-same-name-alone']);
+});
+
+test('links with one name under one column header that go to different pages: still 2.4.4', () => {
+  const m = { root: { role: 'RootWebArea', c: [
+    table(['Place'], [[link('e2e', 'https://x/org/1', 'n1'), link('e2e', 'https://x/space/1', 'n2')]]),
+  ] } };
+  textLinks(m, m.root);
+  assert.deepEqual(rules(m), ['text-link-same-name']);
+});
