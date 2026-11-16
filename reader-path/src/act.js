@@ -147,6 +147,10 @@ function candidates(hover) {
       quiet: e.hasAttribute('aria-expanded') || e.hasAttribute('aria-pressed') || e.hasAttribute('aria-checked')
         || e.hasAttribute('aria-selected') || /^(tab|summary|switch|checkbox|radio)$/.test(role),
       signout: /\b(sign|log)[ -]?out\b/i.test(name),
+      // A toggle: pressing it again undoes its change (3.3.4, 3.3.6 reversible).
+      // simplification: a fixed list of toggle names; a toggle named otherwise needs aria-pressed or a toggle role.
+      toggle: e.hasAttribute('aria-pressed') || /^(switch|checkbox|menuitemcheckbox)$/.test(role)
+        || /^(add to|remove from) (favou?rites|bookmarks)\b|^(un)?(star|pin|follow|subscribe|like|mute|bookmark|favou?rite)\b/i.test(name),
       // A down listener on it or on a box around it (reads.js keeps them).
       down: (window.__rpDown || []).some((d) => d === e || d.contains(e)),
       focusable: e.matches('a[href],button,input,select,textarea,summary,[tabindex]'),
@@ -616,7 +620,8 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       if (text) propose('walk-live-missing', '4.1.3', node, text.text, `New text appears after "${c.name}" with no live region: "${text.text}"`, 'Put the message in a live region (role="status" or role="alert")');
       else if (live) ok['walk-live-missing'] = 1;
       // Signing out changes no data of the person's.
-      if (!c.signout && events.some((e) => e.type === 'write')) {
+      if (!c.signout && c.toggle && events.some((e) => e.type === 'write')) ev('note', 'a toggle: pressing it again undoes the change');
+      else if (!c.signout && events.some((e) => e.type === 'write')) {
         const confirm = opened || events.some((e) => /^(text|live)$/.test(e.type) && CONFIRM.test(e.text));
         if (!confirm) {
           propose('walk-write-no-confirm', '3.3.4', node, '', `"${c.name}" sends a change (${events.find((e) => e.type === 'write').text.replace('write blocked: ', '')}) with no step to confirm or undo it`, 'Ask for a confirmation, or let the person undo it');
