@@ -451,7 +451,10 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
           }
           // Hoverable (hover only): fresh page, pointer onto the content.
           if (stays && how === 'hover') {
-            await restart(false);
+            // A fresh page only when the content is still there with the
+            // pointer and focus away (each load costs seconds on a console).
+            await away();
+            if (await present()) await restart(false);
             c = (await list(true)).find((x) => x.key === key);
             if (c && await trigger()) {
               const { x, y } = await page.evaluate(centre);
@@ -467,13 +470,14 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
           model.actions.push({ id: `a${model.actions.length + 1}`, kind: on, node: node.id, name: c.name, events });
         }
         // The next one starts from the page as loaded when the address moved,
-        // a dialog opened, or content is still there.
+        // a dialog opened, or content is still there with the pointer and
+        // focus away.
+        await away();
         const now1 = await now();
-        if (shownText || other(before.url, now1.url) || now1.dialogs > before.dialogs || popups.length) {
-          await away();
+        if ((shownText && await present()) || other(before.url, now1.url) || now1.dialogs > before.dialogs || popups.length) {
           await closePopups();
           await restart(false);
-        } else await away();
+        }
       }
     }
     lap('hover', `${tried} control${tried === 1 ? '' : 's'}`);

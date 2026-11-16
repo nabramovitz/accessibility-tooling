@@ -398,6 +398,13 @@ test('1.4.13: a tooltip that Escape does not close: a dismiss proposal, on hover
   assert.ok(m.proposals.find((p) => p.rule === 'walk-hover-dismiss').say.includes('Info'));
 });
 
+test('1.4.13: a tooltip that goes when the pointer and focus leave: the page is not loaded again for it', async () => {
+  const { m, s } = await run({ body: TIP() }, OPTS);
+  assert.deepEqual(sc1413(m), []);
+  // 6 loads before: the walk's own 3, and one each for the hoverable test and after the hover and the focus.
+  assert.equal(s.seen.filter((x) => x === 'GET /').length, 3, JSON.stringify(s.seen));
+});
+
 test('1.4.13: the content shown on hover is read without its hidden icon word', async () => {
   const { m } = await run({ body: TIP().replace('>Shows the info<', '><i aria-hidden="true">info</i>Shows the info<') }, OPTS);
   const c = tipActs(m)[0].events.find((e) => e.type === 'content');

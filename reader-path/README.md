@@ -575,7 +575,9 @@ focus unmoved; and, for hover, after loading the page again, `hoverable`:
 does it stay when the pointer moves onto it. Each of the last three has
 `ok: true` or `false`. Dismiss and hoverable are tested only when the
 content stayed the 1 s. The action has kind `hover` or `focus`. After
-content, a new address or a dialog, the page is loaded again. The text
+a new address, a dialog, or content that is still there with the
+pointer and focus away, the page is loaded again (for the hoverable
+test too); content that goes when they leave needs no load. The text
 found is not counted as a status message (4.1.3) when the control is
 pressed later. Hovers are bounded apart from presses, by the same
 `ACTION_MAX` (note `hovers stopped at 200`); the options `actHover`,
