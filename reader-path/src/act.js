@@ -106,11 +106,12 @@ function candidates(hover) {
   const nameOf = (e) => {
     let n = e.getAttribute('aria-label');
     const ids = e.getAttribute('aria-labelledby');
-    if (!n && ids) n = ids.split(/\s+/).map((i) => document.getElementById(i)?.textContent || '').join(' ');
-    if (!n && e.labels && e.labels.length) n = [...e.labels].map((l) => l.textContent).join(' ');
-    if (!n && e.tagName === 'INPUT' && /button|submit|reset/.test(e.type)) n = e.value;
     // As read: an icon word in an aria-hidden child is not in the name.
-    if (!n && e.tagName !== 'SELECT') n = window.__rp.read(e, true);
+    const text = (x) => (x ? window.__rp.read(x, true) : '');
+    if (!n && ids) n = ids.split(/\s+/).map((i) => text(document.getElementById(i))).join(' ');
+    if (!n && e.labels && e.labels.length) n = [...e.labels].map(text).join(' ');
+    if (!n && e.tagName === 'INPUT' && /button|submit|reset/.test(e.type)) n = e.value;
+    if (!n && e.tagName !== 'SELECT') n = text(e);
     return norm(n || e.getAttribute('title') || e.querySelector('img[alt]')?.alt).slice(0, 80);
   };
   const sig = (e) => { const p = []; for (let x = e; x && x !== document.body; x = x.parentElement) p.push(`${x.tagName}.${[...x.classList].filter((c) => !/\d/.test(c)).sort().join('.')}`); return p.join('<'); };
