@@ -52,7 +52,7 @@ test('text clipped only in a view is a gap of that view', async () => {
 
 test('reduced motion: the animations that still run are named, and 2.3.3 is for a person', async () => {
   const m = await generate(fixture('views/motion.html'));
-  assert.ok(m.notes.includes('Animations running: 2 in the default view, 1 with reduced motion asked (div#busy.spin)'), m.notes.join('\n'));
+  assert.ok(m.notes.includes('Animations running: 2 in the default view (div#busy.spin, div#calm.spin), 1 with reduced motion asked (div#busy.spin)'), m.notes.join('\n'));
   assert.deepEqual(m.checks['2.3.3'].review, ['view-motion']);
   assert.deepEqual(gaps(m, '2.3.3'), []);
 });
