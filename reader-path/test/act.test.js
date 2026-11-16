@@ -138,6 +138,10 @@ test('4.1.3: text drawn again as it was, or a clock that ticks, is not new', () 
   `<button id=o>Sort</button><ul id=l><li>alpha</li><li>beta</li></ul><p id=c>Uptime 4h 25m 18s</p>
   <script>o.onclick = () => { l.innerHTML = '<li>beta</li><li>alpha</li>'; c.textContent = 'Uptime 4h 25m 19s'; };</script>`));
 
+test('4.1.3: a clock that drops a zero part (52m, then 52m 1s) is not new', () => noLive(
+  `<button id=o>Sort</button><p id=c>Uptime 40d 15h 52m</p>
+  <script>o.onclick = () => { c.textContent = 'Uptime 40d 15h 52m 1s'; };</script>`));
+
 test('4.1.3: text drawn again is compared as read: hidden parts and icon words left out on both sides', () => noLive(
   `<button id=o>Summary</button><ul id=l><li>alpha <i aria-hidden="true">sort</i><span hidden>(1 of 2)</span></li></ul>
   <script>o.onclick = () => { l.innerHTML = l.innerHTML; };</script>`));

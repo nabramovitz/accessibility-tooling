@@ -535,7 +535,9 @@ idle again (`AFTER_IDLE` in `src/act.js`), the events are:
   counted: text in a dialog or in a node that holds one (an overlay),
   text hidden from readers (`aria-hidden`, such as an icon word) or not
   drawn, text that was on the page before the press (drawn again; both
-  read the same way, digits alike, so a clock that ticks is not new), and text after a control that states
+  read the same way, numbers alike, and a run of numbers with time units
+  is one mark, so a clock that ticks or drops a zero part ("52m", then
+  "52m 1s") is not new), and text after a control that states
   its own change (`aria-expanded`, `aria-pressed`, a tab, a checkbox).
 - `context`: the address changed, a dialog opened, a new window. On
   focus alone (the control is focused before it is pressed; the change
