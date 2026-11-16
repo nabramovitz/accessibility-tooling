@@ -69,6 +69,23 @@ test('a dialog that does not return focus: a 2.4.3 proposal', async () => {
   assert.ok(m.proposals[0].say.includes('Open'));
 });
 
+// Names as a reader hears them: an icon word in an aria-hidden child is
+// not part of the name ("Edit", not "editEdit").
+const ICONS = `<button id=o><i aria-hidden="true">edit</i>Edit</button><button id=t><i aria-hidden="true">cancel</i>Cancel</button>
+  <script>o.onclick = () => t.focus();</script>`;
+
+test('a control\'s name leaves out an icon word hidden from readers', async () => {
+  const { m } = await run({ body: ICONS });
+  assert.ok(action(m, 'Edit'), m.actions.map((a) => a.name).join(', '));
+  assert.ok(action(m, 'Cancel'), m.actions.map((a) => a.name).join(', '));
+});
+
+test('the control that gets focus is named without its hidden icon word', async () => {
+  const { m } = await run({ body: ICONS });
+  const a = m.actions.find((x) => /Edit$/.test(x.name));
+  assert.ok(a.events.some((e) => e.type === 'focus' && e.to === 'button "Cancel"'), text(a));
+});
+
 const DELETE_CONFIRM = `<button id=o>Delete</button><dialog id=d><p>Sure?</p><button id=y>Confirm</button></dialog>
   <script>o.onclick = () => d.showModal(); y.onclick = () => fetch('/api/x', { method: 'DELETE' });</script>`;
 const DELETE_NONE = `<button id=o>Delete</button><script>o.onclick = () => fetch('/api/x', { method: 'DELETE' });</script>`;
