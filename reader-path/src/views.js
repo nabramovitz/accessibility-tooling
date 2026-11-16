@@ -175,7 +175,7 @@ const MEASURE = `((mark, base, scroll, clear) => {
   }
   const before = window[KEY] || new WeakSet();
   const seen = window[KEY2] || new WeakMap();
-  const found = clipped.filter((e) => !before.has(e)).map((e) => [e, own(e) ? 'clipped' : 'cut']);
+  const found = clipped.filter((e) => !before.has(e)).map((e) => (own(e) ? [e, 'clipped'] : [e, 'cut', describe(e)]));
   const small = [];
   const pinned = [];
   for (const [a, b, share, pin] of overlaps || []) {
@@ -306,7 +306,7 @@ export async function views(page, cdp, idleTime, opts, nearestKept, root, model,
       const [why, goal] = {
         wide: [`The page scrolls sideways ${view.at}: this content is wider than the window.`, 'Content fits a window 320 px wide without sideways scroll'],
         clipped: [`Text is clipped ${view.at}; it is not clipped in the default view.`, 'No text is lost'],
-        cut: [`This box cuts off its content ${view.at}; it does not in the default view.`, 'No content is lost'],
+        cut: [`This box (${other}) cuts off its content ${view.at}; it does not in the default view.`, 'No content is lost'],
         overlap: [`Text overlaps other text (${other}) ${view.at}; it does not in the default view.`, 'No text is lost'],
       }[kinds[i]];
       (node.gaps ||= []).push([why, view.sc, goal]);
