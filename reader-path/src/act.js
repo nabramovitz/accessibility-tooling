@@ -56,7 +56,7 @@ function install() {
   if (window.__rp) return;
   const LIVE = '[aria-live]:not([aria-live=off]),[role=status],[role=alert],[role=log]';
   const DIALOG = 'dialog,[role=dialog],[role=alertdialog],[aria-modal=true]';
-  const rp = (window.__rp = { ev: [], els: [], quiet: false, seen: '', skip: [] });
+  const rp = (window.__rp = { ev: [], evEl: [], els: [], quiet: false, seen: '', skip: [] });
   // A run of numbers with time units is one mark, so a clock that drops a
   // zero part ("52m", then "52m 1s") reads the same.
   const flat = (t) => t.replace(/\s+/g, '').replace(/(?:\d+(?:ms|[dhms](?![a-z]))?)+/gi, '#');
@@ -71,7 +71,8 @@ function install() {
     for (let t; (t = w.nextNode());) if (shown(t.parentElement, live)) out.push(t.data);
     return out.join(' ');
   };
-  const add = (type, text) => { if (!rp.ev.some((e) => e.type === type && e.text === text)) rp.ev.push({ at: Date.now(), type, text }); };
+  // rp.evEl[j] is the element of rp.ev[j], kept apart so the events stay plain data.
+  const add = (type, text, el) => { if (!rp.ev.some((e) => e.type === type && e.text === text)) { rp.ev.push({ at: Date.now(), type, text }); rp.evEl.push(el); } };
   new MutationObserver((ms) => {
     for (const m of ms) {
       const nodes = m.type === 'characterData' ? [m.target] : [...m.addedNodes];
@@ -81,8 +82,8 @@ function install() {
         const live = !!el.closest(LIVE);
         const text = rp.read(n, live).replace(/\s+/g, ' ').trim().slice(0, 120);
         if (!text) continue;
-        if (live) add('live', text);
-        else if (!rp.quiet && !el.closest(DIALOG) && !el.querySelector(DIALOG) && !el.closest('[role=tooltip]') && !rp.seen.includes(flat(text)) && !rp.skip.includes(flat(text))) add('text', text);
+        if (live) add('live', text, el);
+        else if (!rp.quiet && !el.closest(DIALOG) && !el.querySelector(DIALOG) && !el.closest('[role=tooltip]') && !rp.seen.includes(flat(text)) && !rp.skip.includes(flat(text))) add('text', text, el);
       }
     }
   }).observe(document, { subtree: true, childList: true, characterData: true });
@@ -334,7 +335,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   const quiet = () => ready(page, idleTime, { idle: opts.idle, idleMax: limit }, []);
   // Before a press or a key: the recorder empty, and the page's text as it is now.
   const arm = (q, skip) => page.evaluate(({ q, skip }) => {
-    Object.assign(window.__rp, { ev: [], quiet: q, seen: window.__rp.flat(window.__rp.read(document.body)), skip: skip.map(window.__rp.flat) });
+    Object.assign(window.__rp, { ev: [], evEl: [], quiet: q, seen: window.__rp.flat(window.__rp.read(document.body)), skip: skip.map(window.__rp.flat) });
   }, { q, skip });
   const now = () => page.evaluate(state).catch(() => ({ url: page.url(), dialogs: 0, body: false, inDialog: false, active: 'unknown' }));
   // The time of each part, for the cost of a run: one note at the end, and
@@ -568,7 +569,14 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       hook.current = null;
       st = await now();
 
-      const rec = await page.evaluate(() => (window.__rp ? window.__rp.ev : [])).catch(() => []);
+      // Text in the pressed control, or in the control that has focus now
+      // (the pressed one drawn again), is the control's own new name.
+      const rec = await page.evaluate((i) => {
+        const rp = window.__rp;
+        if (!rp) return [];
+        const own = [rp.els[i], document.activeElement].filter((x) => x && x !== document.body);
+        return rp.ev.filter((e, j) => !(e.type === 'text' && own.some((x) => x.contains(rp.evEl[j]))));
+      }, c.i).catch(() => []);
       for (const r of rec) events.push({ t: r.at - t0, type: r.type, text: r.text });
       if (st.active !== before.active) ev('focus', `${before.active} to ${st.active}`, { from: before.active, to: st.active });
       const moved = other(before.url, st.url);
