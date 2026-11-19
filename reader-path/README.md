@@ -696,6 +696,18 @@ watch saw that text change with no key). The 39 keys cost about
 0.3 s each, about 12 s a page; with the watch, `--act` adds about 22 s
 a page.
 
+**Comboboxes (2.1.1).** Last, on a page that has one, from the page as
+loaded (loaded again before each), each drawn, enabled `role=combobox` is
+worked by keys
+only, as the APG combobox pattern sets out: focus it, Down opens its
+list, Down moves, Enter picks. A list that does not open, no current
+option (`aria-activedescendant`, or an option with focus), or a pick
+the combobox does not then show is a `walk-combobox-keys` proposal. A
+list of one option, or a current option that is disabled or already
+shown, is not judged. Each step waits for the page to be idle and at
+least 0.5 s, so a list that loads its options, or shows the current
+option late, is read once it has.
+
 **Model.** `model.actions[]`: `{ id, kind, node, name, events }`. `kind`
 is `press`, `focus`, `hover`, `down`, `submit`, `steps`, `key` or `idle`; `node` is the tree node with that name; each event is
 `{ t, type, text, ... }`, `t` in ms after the mark. An old model with no
@@ -741,6 +753,7 @@ no proposal, the check is a pass for that page.
 | `walk-error-unnamed` | 3.3.1 | the error text is not linked to the field and does not name it |
 | `walk-error-no-suggestion` | 3.3.3 | after a wrong value, the error text has no word of how to fix it (enter, must, such as, format, ...) |
 | `walk-redundant-entry` | 3.3.7 | a later step asks again, empty, for a field an earlier step asked for |
+| `walk-combobox-keys` | 2.1.1 | a combobox's list does not open with Down, shows no current option, or Enter does not choose it (a pass when a combobox was worked to a pick and none failed) |
 | `walk-single-key` | 2.1.4 | a key alone, with focus on the body, does something (a pass when every key was tried and none did) |
 | `walk-update-no-pause` | 2.2.2 | a block updates by itself with no pause, stop or hide control near it |
 | `walk-update-no-pause-interrupt` | 2.2.4 | the same finding, for AAA |

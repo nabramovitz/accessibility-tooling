@@ -755,7 +755,41 @@ test('opts.trace: the load, the checks and each action part, in order, as each e
   await run({ body: '<button>Plain</button>' }, { trace: (l) => lines.push(l) });
   assert.match(lines[0], /^loaded http:\/\/localhost:\d+\/$/);
   assert.match(lines[1], /^checks done [\d.]+ s$/);
-  const parts = ['reads', 'watch', 'hover', 'mouse down', 'presses', 'forms', 'steps', 'keys'];
+  const parts = ['reads', 'watch', 'hover', 'mouse down', 'presses', 'forms', 'steps', 'keys', 'comboboxes'];
   assert.equal(lines.length, 2 + parts.length, lines.join(' | '));
   parts.forEach((p, i) => assert.match(lines[2 + i], new RegExp(`^act ${p} [\\d.]+ s`), lines.join(' | ')));
+});
+
+// 2.1.1: a combobox worked by keys only (APG): Down opens the list, Down
+// moves, Enter picks. keys: which of these the fixture handles.
+const COMBO = (keys) => `<div id=cb role=combobox tabindex=0 aria-expanded=false aria-controls=lb aria-label=Fruit>Apple</div>
+<ul id=lb role=listbox hidden><li role=option id=o1>Apple</li><li role=option id=o2>Banana</li><li role=option id=o3>Cherry</li></ul>
+<script>let act = 0; const opts = [...lb.children]; const keys = '${keys}';
+cb.onkeydown = (e) => {
+  const open = cb.getAttribute('aria-expanded') === 'true';
+  if (e.key === 'ArrowDown' && keys.includes('down')) {
+    e.preventDefault();
+    if (!open) { lb.hidden = false; cb.setAttribute('aria-expanded', 'true'); } else act = Math.min(act + 1, opts.length - 1);
+    cb.setAttribute('aria-activedescendant', opts[act].id);
+  }
+  if (e.key === 'Enter' && open && keys.includes('enter')) { cb.textContent = opts[act].textContent; lb.hidden = true; cb.setAttribute('aria-expanded', 'false'); }
+};
+cb.onclick = () => { lb.hidden = false; cb.setAttribute('aria-expanded', 'true'); };</script>`;
+
+test('2.1.1: a combobox that opens, moves and picks by keys: no proposal, a pass', async () => {
+  const { m } = await run({ body: COMBO('down enter') });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.1')), []);
+  assert.ok(m.checks['2.1.1']?.pass?.includes('walk-combobox-keys'), JSON.stringify(m.checks['2.1.1']));
+});
+
+test('2.1.1: a combobox whose list does not open with Down: a proposal', async () => {
+  const { m } = await run({ body: COMBO('') });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.1')), ['2.1.1 walk-combobox-keys']);
+  assert.match(m.proposals.find((x) => x.rule === 'walk-combobox-keys').say, /"Fruit".*Down/);
+});
+
+test('2.1.1: a combobox whose option Enter does not choose: a proposal', async () => {
+  const { m } = await run({ body: COMBO('down') });
+  assert.deepEqual(rules(m).filter((r) => r.startsWith('2.1.1')), ['2.1.1 walk-combobox-keys']);
+  assert.match(m.proposals.find((x) => x.rule === 'walk-combobox-keys').say, /Enter.*"Banana"/);
 });

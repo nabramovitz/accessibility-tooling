@@ -184,6 +184,39 @@ function state() {
   };
 }
 
+// Comboboxes (2.1.1): each one drawn and enabled, kept by index in the page.
+function comboboxes() {
+  window.__rp.cbs = [...document.querySelectorAll('[role=combobox]')].filter((e) => e.getClientRects().length
+    && !e.disabled && e.getAttribute('aria-disabled') !== 'true' && !e.closest('[inert],[aria-hidden=true]'));
+  return window.__rp.cbs.length;
+}
+
+// A combobox as a person meets it: its name, what it shows (an input's
+// value, else its text as read), whether its list is open with options,
+// and the current option (aria-activedescendant, or an option with focus).
+function comboState(i) {
+  const e = window.__rp.cbs[i];
+  const read = (x) => (x ? window.__rp.read(x, true) : '').replace(/\s+/g, ' ').trim();
+  const byId = (id) => (id ? document.getElementById(id) : null);
+  const drawn = (x) => x.getClientRects().length > 0;
+  const list = byId(e.getAttribute('aria-controls')) || byId(e.getAttribute('aria-owns'))
+    || [...document.querySelectorAll('[role=listbox]')].find(drawn);
+  const options = list ? [...list.querySelectorAll('[role=option]')].filter(drawn) : [];
+  const a = document.activeElement;
+  const current = byId(e.getAttribute('aria-activedescendant')) || (a?.getAttribute('role') === 'option' ? a : null);
+  const ids = e.getAttribute('aria-labelledby');
+  const name = e.getAttribute('aria-label') || (ids && ids.split(/\s+/).map((x) => read(byId(x))).join(' '))
+    || (e.labels?.length && [...e.labels].map(read).join(' ')) || e.getAttribute('placeholder') || '';
+  return {
+    name: name.replace(/\s+/g, ' ').trim().slice(0, 80),
+    shown: e.tagName === 'INPUT' ? e.value.trim() : read(e),
+    open: e.getAttribute('aria-expanded') === 'true' && options.length > 0,
+    options: options.length,
+    current: current ? read(current) : '',
+    currentDisabled: current?.getAttribute('aria-disabled') === 'true',
+  };
+}
+
 // Hover and focus content. mark() remembers every element drawn now; found()
 // returns the text of the first new drawn element with text, outside a dialog
 // (the top one of a new branch), and keeps it in __rp.hc; shown() is whether
@@ -857,6 +890,50 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       if (all && !acted) ok['walk-single-key'] = 1;
     }
     lap('keys');
+
+    // Comboboxes (2.1.1): from the page as loaded, each combobox by keys
+    // only (APG): Down opens its list, Down moves, Enter picks. A list that
+    // does not open, no current option, or a pick that does not reach the
+    // combobox is a proposal. A list of one option, or a current option
+    // that is disabled or already shown, is not judged.
+    // A page with no combobox is not loaded again for this.
+    await page.evaluate(install);
+    let boxes = await page.evaluate(comboboxes);
+    if (boxes) {
+      await restart(false);
+      await page.evaluate(install);
+      boxes = Math.min(await page.evaluate(comboboxes), max);
+    }
+    const settle = async () => { await quiet(); await page.waitForTimeout(Math.max(KEY_AFTER, 500)); };
+    let picked = 0;
+    for (let i = 0; i < boxes; i++) {
+      if (i) {
+        await restart(false);
+        await page.evaluate(install);
+        if (await page.evaluate(comboboxes) <= i) break;
+      }
+      const s0 = await page.evaluate(comboState, i);
+      const node = nodeOf({ name: s0.name, role: 'combobox' });
+      const say = (what) => propose('walk-combobox-keys', '2.1.1', node, s0.name, `"${s0.name}": ${what}`, 'Open the list with Down, move with the arrow keys, and choose with Enter');
+      await page.evaluate((j) => window.__rp.cbs[j].focus(), i);
+      await page.keyboard.press('ArrowDown');
+      await settle();
+      const s1 = await page.evaluate(comboState, i);
+      if (!s1.open) { say('Down does not open its list'); continue; }
+      if (s1.options < 2) continue;
+      await page.keyboard.press('ArrowDown');
+      await settle();
+      const s2 = await page.evaluate(comboState, i);
+      if (!s2.current) { say('Down shows no current option in its list'); continue; }
+      if (s2.currentDisabled || s2.current === s0.shown) continue;
+      await page.keyboard.press('Enter');
+      await settle();
+      const s3 = await page.evaluate(comboState, i).catch(() => null);
+      if (!s3 || !s3.shown.includes(s2.current)) say(`Enter on "${s2.current}" does not choose it`);
+      else picked++;
+    }
+    if (boxes && picked && !flagged.has('walk-combobox-keys')) ok['walk-combobox-keys'] = 1;
+    lap('comboboxes', boxes);
   } finally {
     context.off('page', onPage);
     hook.current = null;
@@ -870,7 +947,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   for (const [sc, rule] of [['2.4.3', 'walk-focus-return'], ['2.4.3', 'walk-dialog-focus'], ['2.4.3', 'walk-focus-lost'], ['3.2.1', 'walk-context-focus'],
     ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['4.1.2', 'walk-popup-role'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
     ['3.3.1', 'walk-error-no-text'], ['3.3.1', 'walk-error-unnamed'], ['3.3.3', 'walk-error-no-suggestion'], ['3.3.7', 'walk-redundant-entry'],
-    ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
+    ['2.1.1', 'walk-combobox-keys'], ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
     ['2.5.1', 'walk-gesture'], ['2.5.2', 'walk-down-event'], ['2.5.4', 'walk-motion'], ['2.5.6', 'walk-input-limited'], ['2.5.7', 'walk-drag'],
     ['1.3.2', 'walk-order'], ['1.3.3', 'walk-sensory'], ['2.2.1', 'walk-session-timeout'], ['2.2.3', 'walk-session-timing'],
     ['2.2.5', 'walk-session-reauth'], ['2.2.6', 'walk-session-warning'], ['3.3.8', 'walk-signin-paste'], ['3.3.8', 'walk-signin-puzzle'],
