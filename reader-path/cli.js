@@ -95,7 +95,14 @@ async function writeAcr(files, { base, out, decisions }) {
   files = files.filter((f) => !seen.has(resolve(f)) && seen.add(resolve(f)));
   const models = files.map(loadModel);
   const { runChecks } = await import('./src/run-checks.js');
-  runChecks(models);
+  // A run is one user's pages (<run>/pages/<page>/model.json), and users
+  // with different roles see different navigation: compare within a run.
+  const runs = new Map();
+  files.forEach((f, i) => {
+    const key = dirname(dirname(resolve(f)));
+    (runs.get(key) || runs.set(key, []).get(key)).push(models[i]);
+  });
+  for (const run of runs.values()) runChecks(run);
   const own = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   const axe = createRequire(import.meta.url)('axe-core/package.json');
   const d = new Date();

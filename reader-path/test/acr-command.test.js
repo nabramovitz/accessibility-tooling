@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { loadCatalog } from '../src/acr.js';
@@ -282,3 +282,24 @@ test('a decisions file that is not one stops the command', async () => {
   const d = file('{"version":1}', 'd.json');
   await fails([PASS, '--decisions', d, '--out', join(tmp(), 'r.yaml')], `reader-path: not a decisions file (no decided list): ${d}`);
 });
+
+// Each run is one user's pages. Two users can see different navigation
+// (a role sees more tabs), which 3.2.3 does not judge: the run checks
+// compare pages within a run, never across runs.
+test('acr runs the cross-page checks within each run, not across runs', async () => {
+  const dir = tmp();
+  const write = (runName, slug, items) => {
+    const f = join(dir, runName, 'pages', slug, 'model.json');
+    mkdirSync(dirname(f), { recursive: true });
+    const nav = { role: 'navigation', lm: 'navigation', name: 'Main', c: items.map((n) => ({ role: 'link', name: n })) };
+    writeFileSync(f, JSON.stringify({ checks: {}, url: `https://x.test/${slug}`, finalUrl: `https://x.test/${slug}`, title: slug, root: { role: 'RootWebArea', name: slug, c: [nav, { role: 'main', lm: 'main', c: [] }] } }));
+    return f;
+  };
+  const files = [
+    write('admin', 'home', ['Home', 'Apps', 'Admin']), write('admin', 'apps', ['Home', 'Apps', 'Admin']),
+    write('dev', 'home', ['Apps', 'Home']), write('dev', 'apps', ['Apps', 'Home']),
+  ];
+  const { report } = await acr(files);
+  assert.equal(row(report, AA, '3.2.3').components[0].adherence.level, 'supports');
+});
+

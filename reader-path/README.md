@@ -400,8 +400,8 @@ checks do not support; when in doubt it writes `not-evaluated`.
   `On 48 of 48 pages: Collapse sidebar: ...`, before the per-page
   lines; its per-page lines are left out. A control whose name changes
   from page to page stays a per-page line.
-With two or more models, the tool also runs its own checks over the
-whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
+With two or more models from one run, the tool also runs its own
+checks over the whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 2.1.2), the views (`view-narrow`, `view-zoom`, `view-spacing`,
 `view-motion`), the focus measures (`focus-visible`,
 `focus-obscured`, `focus-target`, `focus-appearance`,
@@ -418,6 +418,9 @@ review), `run-location` (2.4.8: with `--act`, a breadcrumb or a current
 item in a navigation on every page is a pass, else review), and
 `run-media` (1.2.1 to 1.2.9 and 1.4.7: audio and video
 elements counted; none found is evidence for the person, never a level).
+A run is the models under one `<run>/pages/` directory, one user's
+pages: `acr` given several runs compares pages within each run, never
+across runs, since users with different roles see different navigation.
 
 Each page also counts its media (`media` in the model: `video`,
 `audio`, `object`, `embed`, `iframe` from a known player host, and
