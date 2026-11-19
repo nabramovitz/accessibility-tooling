@@ -216,10 +216,12 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
   more (a background a shade darker), the change may not be seen: the
   stop is for a person, and a run note names it ("Focus change too
   faint to see for a person").
-- 2.4.11 and 2.4.12 Focus Not Obscured: the centre and the four corners
-  of the focused control are tested for an element on top that is
-  fixed or sticky (a header, a footer bar). All points covered is a
-  2.4.11 gap; any point covered is a 2.4.12 gap.
+- 2.4.11 and 2.4.12 Focus Not Obscured: a grid of about 200 points over
+  the part of the focused control in the window is tested for an
+  element on top that is fixed or sticky (a header, a footer bar). The
+  gap gives the share of the control that shows. None of it showing is
+  a 2.4.11 gap; any part hidden is a 2.4.12 gap. Content smaller than a
+  grid cell can fall between the points.
 - 2.5.5 Target Size (Enhanced): a control narrower or lower than 44 px
   is a gap. A small link in a line of text, the browser's own control
   (a checkbox, radio, range, colour, file input or select that is not

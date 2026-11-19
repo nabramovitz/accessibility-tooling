@@ -42,6 +42,20 @@ test('a focused control under a fixed bar: all of it is 2.4.11, a part is 2.4.12
   assert.ok(m.checks['2.4.12'].fail.includes('focus-obscured'));
   const under = flat(m).find((n) => n.name === 'Fully covered');
   assert.match(under.gaps.find((g) => g[1] === '2.4.11')[0], /footer/);
+  // The whole box is measured: the share that shows is in the gap.
+  assert.match(under.gaps.find((g) => g[1] === '2.4.11')[0], /0 % of it shows/);
+  const half = flat(m).find((n) => n.name === 'Half covered');
+  assert.match(half.gaps.find((g) => g[1] === '2.4.12')[0], /50 % of it shows/);
+});
+
+// The centre and the four corners covered, most of the control showing:
+// not entirely hidden, so 2.4.12 only.
+test('a bar across the middle of a control: a part is hidden, 2.4.12 only', async () => {
+  const m = await generate(fixture('focus/obscured-band.html'));
+  assert.deepEqual(gapsOf(m, '2.4.11'), []);
+  assert.deepEqual(gapsOf(m, '2.4.12'), ['Banded']);
+  const n = flat(m).find((x) => x.name === 'Banded');
+  assert.match(n.gaps.find((g) => g[1] === '2.4.12')[0], /\d+ % of it shows/);
 });
 
 test('the focus measures stop after 150 Tab stops, with a note and review', async () => {
