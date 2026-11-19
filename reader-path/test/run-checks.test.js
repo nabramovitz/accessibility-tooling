@@ -107,6 +107,27 @@ test('3.2.3 compares each navigation landmark by name among the pages that have 
   assert.deepEqual(kind(blank[0], '3.2.3', 'pass'), ['run-navigation']);
 });
 
+// WCAG 3.2.3 asks for the same relative order. A navigation that has an
+// item on some pages only (a tab the user may not see everywhere) keeps
+// the order of what it shares; a person decides if the change is fine.
+test('3.2.3: items added or missing, shared ones in order, go to review and name the items', () => {
+  const tabs = (...items) => ({ role: 'navigation', lm: 'navigation', name: 'Application', c: items.map((n) => ({ role: 'link', name: n })) });
+  const run = [page('App', { extra: [tabs('Summary', 'Routes', 'Events')] }), page('App 2', { extra: [tabs('Summary', 'Routes', 'Variables', 'Events')] })];
+  runChecks(run);
+  assert.deepEqual(kind(run[0], '3.2.3', 'review'), ['run-navigation']);
+  assert.deepEqual(kind(run[0], '3.2.3', 'fail'), []);
+  assert.equal(gaps(run[0]).filter((x) => x[1] === '3.2.3').length, 0);
+  const detail = run[0].runDetails['run-navigation'].join('; ');
+  assert.ok(detail.includes('"Application"') && detail.includes('Variables') && detail.includes('https://x.test/app-2'), detail);
+});
+
+test('3.2.3: shared items out of order fail even when items are also added', () => {
+  const tabs = (...items) => ({ role: 'navigation', lm: 'navigation', name: 'Application', c: items.map((n) => ({ role: 'link', name: n })) });
+  const run = [page('App', { extra: [tabs('Summary', 'Routes')] }), page('App 2', { extra: [tabs('Routes', 'Variables', 'Summary')] })];
+  runChecks(run);
+  assert.deepEqual(kind(run[0], '3.2.3', 'fail'), ['run-navigation']);
+});
+
 test('the 3.2.4 review names the component and its names', () => {
   const toggle = (name) => ({ role: 'button', name, comp: 'app-theme-toggle' });
   const a = page('Home', { extra: [toggle('Toggle theme to dark mode')] });

@@ -407,7 +407,9 @@ whole run, beside the axe-core rules, the Tab walk (`tab-walk`,
 `focus-obscured`, `focus-target`, `focus-appearance`,
 `focus-contrast`) and the lists (`list-text`,
 `list-images`): `run-title` (2.4.2: the same title on every page is a fail),
-`run-navigation` (3.2.3: the navigation items and their order),
+`run-navigation` (3.2.3: each navigation landmark, by name; shared
+items in a different order are a fail, items on some pages only go to
+review),
 `run-identification` (3.2.4: a component that appears once on a page
 with different names on different pages goes to review), `run-help`
 (3.2.6: a help or documentation link on every page, some pages, or

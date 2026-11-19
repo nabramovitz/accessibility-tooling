@@ -55,11 +55,13 @@ export function runChecks(models) {
   } else result('2.4.2', 'pass', 'run-title');
 
   // 3.2.3: each navigation landmark, by name, compared among the pages
-  // that have it: the items in order. A landmark on one page only, or a
-  // page without one, is not judged here.
+  // that have it. WCAG asks for the same relative order: the items two
+  // pages share in a different order fail; items added or missing on a
+  // page (a tab not every page has) go to a person. A landmark on one page
+  // only, or a page without one, is not judged here.
   const navsOf = (m) => {
     const out = new Map();
-    walk(m.root, (n) => { if (n.lm === 'navigation') out.set(n.name || '', inLandmark(n).map((d) => d.name || '').filter(Boolean).join(' | ')); });
+    walk(m.root, (n) => { if (n.lm === 'navigation') out.set(n.name || '', inLandmark(n).map((d) => d.name || '').filter(Boolean)); });
     return out;
   };
   const navs = models.map(navsOf);
@@ -68,12 +70,26 @@ export function runChecks(models) {
   const shared = [...counts].filter(([, k]) => k >= 2).map(([name]) => name);
   if (shared.length) {
     const odd = [];
+    const changed = [];
     for (const name of shared) {
       const first = navs.findIndex((map) => map.has(name));
-      navs.forEach((map, i) => { if (map.has(name) && map.get(name) !== navs[first].get(name)) odd.push(`"${name}" on ${label(models[i])} (first seen on ${label(models[first])})`); });
+      const base = navs[first].get(name);
+      navs.forEach((map, i) => {
+        if (!map.has(name) || i === first) return;
+        const items = map.get(name);
+        const where = `"${name}" on ${label(models[i])} (first seen on ${label(models[first])})`;
+        const common = (xs, ys) => xs.filter((x) => ys.includes(x)).join(' | ');
+        if (common(items, base) !== common(base, items)) odd.push(where);
+        else {
+          const added = items.filter((x) => !base.includes(x));
+          const missing = base.filter((x) => !items.includes(x));
+          if (added.length || missing.length) changed.push(`${where}: ${[added.length ? `adds ${added.join(', ')}` : '', missing.length ? `has no ${missing.join(', ')}` : ''].filter(Boolean).join(', ')}`);
+        }
+      });
     }
-    if (odd.length) result('3.2.3', 'fail', 'run-navigation', `The navigation items or their order differ: ${odd.join(', ')}`, 'The same navigation, in the same order, on every page');
-    else result('3.2.3', 'pass', 'run-navigation');
+    if (changed.length) (models[0].runDetails ||= {})['run-navigation'] = changed;
+    if (odd.length) result('3.2.3', 'fail', 'run-navigation', `The navigation items are in a different order: ${odd.join(', ')}`, 'The same navigation, in the same order, on every page');
+    else result('3.2.3', changed.length ? 'review' : 'pass', 'run-navigation');
   }
 
   // 3.2.4: a control that appears once on a page (a toggle, a user menu)
@@ -151,6 +167,7 @@ export function runChecks(models) {
 // The person's line for a run rule that could not decide (review) or
 // found nothing (na). tab-walk's line lives in acr.js.
 export const RUN_LINES = {
+  'run-navigation': { review: 'Needs a person: a navigation has items on some pages only, the shared items in the same order; is that expected' },
   'run-identification': { review: 'Needs a person: a component that appears once on a page carries different names on different pages' },
   'run-ways': { review: 'Needs a person: a navigation on every page, no search found; is there a second way to reach each page?' },
   'run-help': { na: 'Needs a person: no help or documentation link found on any page; is the row not applicable?' },
