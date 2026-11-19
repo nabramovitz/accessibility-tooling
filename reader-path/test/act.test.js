@@ -191,6 +191,45 @@ test('4.1.2: the popup has the role the button names: no proposal, a pass', asyn
   assert.ok(m.checks['4.1.2'].pass.includes('walk-popup-role'));
 });
 
+// A drawer that a button opens (aria-expanded, aria-controls), fixed on
+// the left, over the button after it. `esc`: Escape closes it, focus
+// stays. `width`: the drawer's width (300 covers all of "Favorites").
+const DRAWER = ({ esc = true, width = 300 } = {}) => `<button id=t aria-expanded=false aria-controls=nav style="position:absolute;right:20px;top:20px">Toggle menu</button>
+  <nav id=nav hidden style="position:fixed;left:0;top:0;width:${width}px;height:100vh;z-index:1;background:#eee"><a href="#apps">Apps</a></nav>
+  <button style="position:absolute;left:20px;top:200px;width:120px;height:40px">Favorites</button>
+  <script>t.onclick = () => { nav.hidden = !nav.hidden; t.setAttribute('aria-expanded', String(!nav.hidden)); if (!nav.hidden) nav.querySelector('a').focus(); };
+  ${esc ? `document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !nav.hidden) { nav.hidden = true; t.setAttribute('aria-expanded', 'false'); } });` : ''}</script>`;
+const cover = (m) => (m.proposals || []).filter((p) => p.rule.startsWith('walk-opened-cover'));
+
+test('2.4.11: a control under a drawer the person opened, Escape closes it: a warning (proposal), not a gap', async () => {
+  const { m } = await run({ body: DRAWER() });
+  assert.deepEqual(rules(m).filter((r) => /^2\.4\.1[12]/.test(r)).sort(), ['2.4.11 walk-opened-cover', '2.4.12 walk-opened-cover-enhanced']);
+  const say = cover(m).find((p) => p.sc === '2.4.11').say;
+  assert.match(say, /"Toggle menu"/);
+  assert.match(say, /Favorites/);
+  assert.match(say, /0 % of it shows/);
+  assert.match(say, /Escape closes it and focus stays/);
+  assert.ok(m.checks['2.4.11'].review.includes('walk-opened-cover'));
+  assert.equal(m.checks['2.4.11'].fail?.length ?? 0, 0);
+});
+
+test('2.4.11: the same drawer with no Escape: the warning says so', async () => {
+  const { m } = await run({ body: DRAWER({ esc: false }) });
+  assert.match(cover(m).find((p) => p.sc === '2.4.11').say, /Escape does not close it/);
+});
+
+test('2.4.12: a narrow drawer over a part of the control: a 2.4.12 warning only', async () => {
+  const { m } = await run({ body: DRAWER({ width: 80 }) });
+  assert.deepEqual(cover(m).map((p) => `${p.sc} ${p.rule}`), ['2.4.12 walk-opened-cover-enhanced']);
+  assert.match(cover(m)[0].say, /50 % of it shows/);
+});
+
+test('2.4.11: opened content over no control: no warning, a pass', async () => {
+  const { m } = await run({ body: DRAWER().replace('left:0;top:0;width:300px;height:100vh', 'left:0;top:300px;width:300px;height:40px') });
+  assert.deepEqual(cover(m), []);
+  assert.ok(m.checks['2.4.11'].pass.includes('walk-opened-cover'));
+});
+
 // Text that is not a status message: no 4.1.3 proposal (seen on the lab).
 const noLive = async (body) => {
   const { m } = await run({ body });

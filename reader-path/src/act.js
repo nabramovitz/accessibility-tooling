@@ -8,6 +8,7 @@ import { bare, ready, walk } from './generate.js';
 import { addProposal } from './proposals.js';
 import { addCheck } from './axe.js';
 import { reads } from './reads.js';
+import { SHARE, shows } from './focus.js';
 
 // How long the recorder keeps watching after the page is idle again, and
 // the longest an action may take to go idle.
@@ -32,6 +33,23 @@ export const KEYS = 'abcdefghijklmnopqrstuvwxyz0123456789?/.';
 export const KEY_AFTER = 300;
 // Updates by themselves (2.2.2): how long the page is watched with no action.
 export const WATCH = 10000;
+// Content a press opened (2.4.11): the most Tab presses to look for a
+// control under it.
+export const COVER_TABS = 20;
+// In the page, for the control kept as i, while what it opened (its
+// aria-controls, aria-expanded true) is drawn: whether focus is inside
+// that content, or the share of the focused control that shows past it.
+// The focused control is kept, to tell later whether focus stayed.
+const COVER = `((i) => {
+  const el = window.__rp?.els[i];
+  const box = el?.isConnected && el.getAttribute('aria-expanded') === 'true' && document.getElementById(el.getAttribute('aria-controls') || '');
+  if (!box || !box.getClientRects().length) return { closed: true };
+  let a = document.activeElement;
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  if (!a || a === document.body || box.contains(a)) return {};
+  window.__rp.coverEl = a;
+  return { share: ${SHARE}(a, (h) => (box.contains(h) ? box : null)) };
+})`;
 // Steppers (3.3.7): the most steps walked with Next.
 export const STEP_MAX = 10;
 // Safe values (ruling D4): never a real name; the submit is blocked anyway.
@@ -605,6 +623,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       // dialog the item may be gone, and focus goes back to that button.
       const opener = await handle.evaluateHandle((el) => [...document.querySelectorAll('[aria-haspopup]:not([aria-haspopup=false])[aria-expanded=true]')]
         .find((b) => b !== el && !b.contains(el) && (document.getElementById(b.getAttribute('aria-controls') || '')?.contains(el) || b.parentElement?.contains(el))) || null).catch(() => null);
+      const exp0 = await handle.getAttribute('aria-expanded').catch(() => null);
       before = await now();
       await arm(c.quiet, hoverText);
       t0 = Date.now();
@@ -684,6 +703,47 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
         }
       }
 
+      // Content the press opened: Tab on, past it, to the first control
+      // under it. The person opened it, so a warning (proposal), not a gap:
+      // 2.4.11 Note 2 (informative) accepts content the person can close
+      // with focus left where it is; Escape there is tried. A dialog that
+      // opened is left to the dialog checks below (they press Escape too).
+      let dirty = false;
+      if (!moved && !opened && exp0 !== 'true') {
+        let found = null;
+        let seen = 0;
+        for (let k = 0; k <= COVER_TABS; k++) {
+          const m = await page.evaluate(`${COVER}(${c.i})`).catch(() => ({ closed: true }));
+          if (m.closed) break;
+          if (m.share?.hid) { found = m.share; break; }
+          if (m.share) seen++;
+          if (k < COVER_TABS) await page.keyboard.press('Tab');
+        }
+        if (found) {
+          const at = (await now()).active;
+          await page.keyboard.press('Escape');
+          await quiet();
+          const esc = await page.evaluate(`(() => { const r = ${COVER}(${c.i}); let a = document.activeElement;
+            while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+            return { open: !r.closed, stays: a === window.__rp.coverEl }; })()`).catch(() => ({ open: true, stays: false }));
+          const s3 = await now();
+          const after = esc.open ? 'Escape does not close it' : esc.stays ? 'Escape closes it and focus stays' : `Escape closes it and focus moves to ${s3.active}`;
+          const pct = shows(found);
+          ev('note', `under the opened content: ${at}, ${pct} % shows; ${after}`);
+          const say = `With what "${c.name}" opened still open, Tab puts focus on ${at}, under it (${found.by}): ${pct} % of it shows. ${after}. The person opened this content`;
+          const fix = 'Let Escape close the opened content with focus left where it is, or keep the content off the controls after it';
+          if (!pct) propose('walk-opened-cover', '2.4.11', node, at, `${say}: 2.4.11 Note 2 (informative) accepts it when the person can close it without moving focus`, fix);
+          else ok['walk-opened-cover'] = 1;
+          propose('walk-opened-cover-enhanced', '2.4.12', node, at, say, fix);
+          dirty = other(st.url, s3.url) || s3.dialogs > st.dialogs;
+        } else if (seen) {
+          ok['walk-opened-cover'] = 1;
+          ok['walk-opened-cover-enhanced'] = 1;
+          const s3 = await now();
+          dirty = other(st.url, s3.url) || s3.dialogs > st.dialogs;
+        }
+      }
+
       // A dialog: where focus went in, then Escape, and where focus went back.
       let stuck = false;
       if (opened) {
@@ -713,7 +773,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
       record('press');
       await closePopups();
       if (out) await restart(true);
-      else if (moved || stuck) await restart(false);
+      else if (moved || stuck || dirty) await restart(false);
     }
     lap('presses', done.size);
 
@@ -947,7 +1007,7 @@ export async function actions(page, context, idleTime, opts, root, model, notes,
   for (const [sc, rule] of [['2.4.3', 'walk-focus-return'], ['2.4.3', 'walk-dialog-focus'], ['2.4.3', 'walk-focus-lost'], ['3.2.1', 'walk-context-focus'],
     ['3.2.2', 'walk-context-input'], ['4.1.3', 'walk-live-missing'], ['4.1.2', 'walk-popup-role'], ['3.3.4', 'walk-write-no-confirm'], ['3.3.6', 'walk-write-no-confirm-reversal'],
     ['3.3.1', 'walk-error-no-text'], ['3.3.1', 'walk-error-unnamed'], ['3.3.3', 'walk-error-no-suggestion'], ['3.3.7', 'walk-redundant-entry'],
-    ['2.1.1', 'walk-combobox-keys'], ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
+    ['2.4.11', 'walk-opened-cover'], ['2.4.12', 'walk-opened-cover-enhanced'], ['2.1.1', 'walk-combobox-keys'], ['2.1.4', 'walk-single-key'], ['2.2.2', 'walk-update-no-pause'], ['2.2.4', 'walk-update-no-pause-interrupt'],
     ['2.5.1', 'walk-gesture'], ['2.5.2', 'walk-down-event'], ['2.5.4', 'walk-motion'], ['2.5.6', 'walk-input-limited'], ['2.5.7', 'walk-drag'],
     ['1.3.2', 'walk-order'], ['1.3.3', 'walk-sensory'], ['2.2.1', 'walk-session-timeout'], ['2.2.3', 'walk-session-timing'],
     ['2.2.5', 'walk-session-reauth'], ['2.2.6', 'walk-session-warning'], ['3.3.8', 'walk-signin-paste'], ['3.3.8', 'walk-signin-puzzle'],

@@ -744,6 +744,8 @@ no proposal, the check is a pass for that page.
 | `walk-focus-lost` | 2.4.3 | focus moves to the body after a press (no new page or dialog) |
 | `walk-live-missing` | 4.1.3 | new text with no live region, on the same page and with no live text in the same action (a pass when live text came) |
 | `walk-popup-role` | 4.1.2 | a control with `aria-haspopup` was pressed and is expanded, but the popup it controls (or, with no `aria-controls`, any drawn element) has no role that `aria-haspopup` names (`true` is a menu) |
+| `walk-opened-cover` | 2.4.11 | a press opened content (`aria-expanded` to true, with `aria-controls`); Tab on, up to 20 stops, reaches a control outside it that does not show at all past it (the same grid as the focus measures). Escape is pressed there, and the finding says whether the content closed and focus stayed (2.4.11 Note 2, informative). A warning, not a gap: the person opened the content. An opened dialog is left to the dialog checks |
+| `walk-opened-cover-enhanced` | 2.4.12 | the same, for any part of the control hidden (AAA) |
 | `walk-context-focus` | 3.2.1 | focus alone opens a dialog or window or changes the address |
 | `walk-context-input` | 3.2.2 | changing a select, checkbox, radio or switch changes the context |
 | `walk-write-no-confirm` | 3.3.4 | a write was blocked, with no dialog or confirming text before it (not for sign out, and not for a toggle that undoes itself: `aria-pressed`, a switch or checkbox role, or a name such as "Add to favorites", "Pin", "Follow"; a note instead) ; the finding names the three cases 3.3.4 covers, so a person rules) |
