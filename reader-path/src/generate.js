@@ -68,10 +68,15 @@ function frameSrc(attributes = []) {
 }
 
 function indexDom(domRoot) {
-  const dom = new Map(); // backendNodeId -> { name, parent }
+  const dom = new Map(); // backendNodeId -> { name, parent, sort? }
   const notes = [];
   const visit = (n, parent) => {
-    dom.set(n.backendNodeId, { name: n.nodeName.toLowerCase(), parent });
+    const entry = { name: n.nodeName.toLowerCase(), parent };
+    // Chromium's accessibility tree has no sort property: read aria-sort here.
+    const attrs = n.attributes || [];
+    const at = attrs.indexOf('aria-sort');
+    if (at >= 0 && at % 2 === 0) entry.sort = attrs[at + 1];
+    dom.set(n.backendNodeId, entry);
     if (n.nodeName === 'IFRAME') notes.push(`iframe not read: ${frameSrc(n.attributes)}`);
     for (const c of [...(n.shadowRoots || []), ...(n.children || [])]) visit(c, n.backendNodeId);
   };
@@ -119,7 +124,9 @@ export function buildTree(nodes, dom) {
       node.t = name || role;
       node.comp = customOf(n.backendDOMNodeId) || role;
       if (n.description?.value) node.desc = n.description.value;
-      const state = stateOf(n);
+      const sort = /^(columnheader|rowheader)$/.test(role) ? dom.get(n.backendDOMNodeId)?.sort : undefined;
+      const sorted = { ascending: 'sorted ascending', descending: 'sorted descending', other: 'sorted' }[sort];
+      const state = [stateOf(n), sorted].filter(Boolean).join(', ');
       if (state) node.state = state;
       if (role === 'heading') node.h = prop(n, 'level');
       if (role === 'link' && prop(n, 'url')) node.href = bare(prop(n, 'url')); // no query: it can hold a token

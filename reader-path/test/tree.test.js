@@ -60,3 +60,16 @@ test('an empty main landmark gets a run note; a main with content does not', asy
   const full = await generate(fixture('site/a.html'));
   assert.ok(!full.notes.some((x) => x.startsWith('Page content empty')), full.notes.join(' | '));
 });
+
+// Chromium's accessibility tree has no sort property, so the model reads
+// aria-sort from the element: a screen reader says "sorted ascending".
+test('a sorted column or row header carries its sort in the state', async () => {
+  const all = flat(await generate(fixture('sort.html')));
+  const state = (name) => all.find((n) => n.name === name)?.state;
+  assert.equal(state('Name'), 'sorted ascending');
+  assert.equal(state('Size'), 'sorted descending');
+  assert.equal(state('Kind'), 'sorted');
+  assert.equal(state('Age'), undefined);
+  assert.equal(state('Owner'), undefined);
+  assert.equal(state('One'), 'sorted ascending');
+});
