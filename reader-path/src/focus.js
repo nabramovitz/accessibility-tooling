@@ -2,13 +2,14 @@
 // there by the Tab key:
 // - 2.4.7: a shot of the stop's box with focus and one after focus has
 //   moved on. The same bytes mean that no pixel changed.
-// - 2.4.11 / 2.4.12: is something fixed or sticky on top of the box.
+// - 2.4.11 / 2.4.12: the share of the box under something fixed or sticky.
 // - 2.5.5: is the box 44 x 44 px or more.
 // - 2.4.13 and 1.4.11: pixel measures on the same two shots (pixel.js).
 import { addCheck } from './axe.js';
 import { measurePixels, judgeAppearance, judgeBoundary, NEED } from './pixel.js';
 
 const MAX_STOPS = 150;
+const GRID = 200;
 const PAD = 8;
 const TARGET = 44;
 
@@ -21,9 +22,37 @@ export const FOCUS_LINES = {
   'focus-target': { review: 'Needs a person: a Tab stop under 44 px is in a line of text, a browser control or a control with a label, or not every Tab stop was measured (see the run notes)' },
 };
 
+// Runs in the page: how much of `e`'s box in the window shows, as
+// { n, hid, by }: points of a grid over the box, the points under an
+// element that `over(h)` returns (h: the element hit), and that element
+// named. null when no part of the box is in the window.
+// NOTE: a grid of about 200 points; content smaller than a grid cell can
+// fall between them. A finer grid costs more elementFromPoint calls.
+export const SHARE = `((e, over) => {
+  const hit = (x, y) => { let h = document.elementFromPoint(x, y);
+    while (h && h.shadowRoot && h.shadowRoot.elementFromPoint(x, y) && h.shadowRoot.elementFromPoint(x, y) !== h) h = h.shadowRoot.elementFromPoint(x, y);
+    return h; };
+  const b = e.getBoundingClientRect();
+  const l = Math.max(0, b.left); const t = Math.max(0, b.top); const r = Math.min(innerWidth, b.right); const btm = Math.min(innerHeight, b.bottom);
+  if (r <= l || btm <= t) return null;
+  const step = Math.max(2, Math.sqrt((r - l) * (btm - t) / ${GRID}));
+  let n = 0; let hid = 0; let by = '';
+  for (let y = t + step / 2; y < btm; y += step) for (let x = l + step / 2; x < r; x += step) {
+    n++;
+    const h = hit(x, y);
+    const top = h && h !== e && !e.contains(h) ? over(h) : null;
+    if (top) { hid++; by ||= top.tagName.toLowerCase() + (top.id ? '#' + top.id : '') + (top.classList[0] ? '.' + top.classList[0] : ''); }
+  }
+  return { n, hid, by };
+})`;
+
+// The share that shows, in whole percent: 0 only when all of it is hidden,
+// 100 only when none of it is.
+export const shows = ({ n, hid }) => (hid === n ? 0 : !hid ? 100 : Math.min(99, Math.max(1, Math.round(100 * (n - hid) / n))));
+
 // Runs in the page. `now`: the focused element's box, whether it takes
-// text (its caret is hidden in a shot), and how many of five points
-// (centre and corners) lie under a fixed or sticky element, and whether
+// text (its caret is hidden in a shot), what of it shows past fixed or
+// sticky elements (SHARE), and whether
 // a small box is for a person (WCAG exceptions to 2.5.5 the tool cannot
 // decide: a link in a line of text, the browser's own control, a label
 // that is a part of the target), and `scroll`: the scroll positions of
@@ -78,14 +107,7 @@ const STATE = `((items) => {
   const stays = (h) => { for (let p = h; p && p !== document.documentElement; p = p.parentElement || (p.getRootNode().host ?? null)) {
     if (p === e || p.contains(e)) return null;
     if (/^(fixed|sticky)$/.test(getComputedStyle(p).position)) return p; } return null; };
-  let points = 0; let covered = 0; let by = '';
-  for (const [x, y] of [[b.x + b.w / 2, b.y + b.h / 2], [b.x + 1, b.y + 1], [b.x + b.w - 1, b.y + 1], [b.x + 1, b.y + b.h - 1], [b.x + b.w - 1, b.y + b.h - 1]]) {
-    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
-    points++;
-    const h = hit(x, y);
-    const top = h && h !== e && !e.contains(h) ? stays(h) : null;
-    if (top) { covered++; by ||= top.tagName.toLowerCase() + (top.id ? '#' + top.id : '') + (top.classList[0] ? '.' + top.classList[0] : ''); }
-  }
+  const share = ${SHARE}(e, stays);
   const cs = getComputedStyle(e);
   let block = e.parentElement;
   while (block && getComputedStyle(block).display.startsWith('inline')) block = block.parentElement;
@@ -117,7 +139,7 @@ const STATE = `((items) => {
   // Corner radii in px; a percentage is of the shorter side.
   const rad = (v) => (v.split(' ')[0].endsWith('%') ? parseFloat(v) / 100 * Math.min(b.w, b.h) : parseFloat(v) || 0);
   const radii = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(rad);
-  out.now = { ...b, text, kind, points, covered, by, person, cut, radii, scroll: scroll(e) };
+  out.now = { ...b, text, kind, share, person, cut, radii, scroll: scroll(e) };
   return out;
 })`;
 
@@ -225,11 +247,11 @@ export function focusWatch(page, cdp, model, root, notes) {
         return;
       }
       stops++;
-      if (now.points && now.covered === now.points) {
-        gap(node, `With focus, this control is under other content (${now.by}).`, '2.4.11', 'A control with focus is not fully hidden', 'AA');
-      }
-      if (now.covered) {
-        gap(node, `With focus, a part of this control is under other content (${now.by}).`, '2.4.12', 'No part of a control with focus is hidden', 'AAA');
+      if (now.share?.hid) {
+        const pct = shows(now.share);
+        const said = `under other content (${now.share.by}): ${pct} % of it shows.`;
+        if (!pct) gap(node, `With focus, this control is ${said}`, '2.4.11', 'A control with focus is not fully hidden', 'AA');
+        gap(node, `With focus, a part of this control is ${said}`, '2.4.12', 'No part of a control with focus is hidden', 'AAA');
       }
       const [w, h] = [Math.round(now.w), Math.round(now.h)];
       if (!w || !h) small.push(nameOf(node));
