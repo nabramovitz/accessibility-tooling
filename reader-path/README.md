@@ -210,7 +210,9 @@ At each Tab stop of the Tab walk, with focus put there by the Tab key:
 
 - 2.4.7 Focus Visible: a shot of the control and 8 px around it with
   focus, and one after focus has moved away. When no pixel differs, the
-  control has a gap. Animations stand still and the text caret is
+  control has a gap. When the outline is cut off (by an edge of the
+  window, or by a box that clips its content), the gap names what cuts
+  it, as the 2.4.13 gap does. Animations stand still and the text caret is
   hidden in both shots, so a text field whose only change is the caret
   is for a person, not a gap. When pixels differ but none by 1.5 : 1 or
   more (a background a shade darker), the change may not be seen: the
