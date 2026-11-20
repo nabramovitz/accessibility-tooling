@@ -232,7 +232,7 @@ export function focusWatch(page, cdp, model, root, notes) {
         // Equal shots of a text field: its caret is hidden, so a person looks.
         const caret = shot.equals(last.shot) && last.box.text;
         if (caret) uncompared.push(nameOf(last.node));
-        else if (shot.equals(last.shot)) gap(last.node, 'This control looks the same with and without focus.', '2.4.7', 'A control with focus shows a focus indicator', 'AA');
+        else if (shot.equals(last.shot)) gap(last.node, `This control looks the same with and without focus${last.box.cut ? `: its focus outline is cut off by ${last.box.cut}` : ''}.`, '2.4.7', 'A control with focus shows a focus indicator', 'AA');
         await pixels(last, caret ? null : last.shot, shot);
       }
       pending = wait;

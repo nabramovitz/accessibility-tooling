@@ -83,6 +83,14 @@ test('2.4.13: a focus ring cut off by the window edge or a clipping box is a gap
   assert.ok(!note.includes('inset'), note);
 });
 
+// A ring cut off whole: the two shots are the same. The 2.4.7 gap says
+// why, so a reader does not look for a timing cause.
+test('2.4.7: a control whose whole ring is cut off: the gap names what cuts it', async () => {
+  const m = await generate(fixture('focus/cut-whole.html'));
+  const why = flat(m).find((n) => n.name === 'Cut whole').gaps.find((g) => g[1] === '2.4.7')?.[0];
+  assert.equal(why, 'This control looks the same with and without focus: its focus outline is cut off by span.clip (overflow).');
+});
+
 test('2.4.13: the window edge is not a cause when the page can scroll that way', async () => {
   const m = await generate(fixture('focus/cut-scroll.html'));
   const why = flat(m).find((n) => n.name === 'No ring low')?.gaps?.find((g) => g[1] === '2.4.13')?.[0] || '';
